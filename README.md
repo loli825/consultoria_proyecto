@@ -1,5 +1,5 @@
 # consultoria_proyecto
-scraping en Python (.ipynb) y analisis en R (.Rmd)
+scraping en Python (.py) y analisis en R (.Rmd)
 
 # REGLAS
 
@@ -22,9 +22,3 @@ No editar partes de los demas (podemos trabajar sobre le mismo documento .Rmd a 
 - Merge a main
 
 - Borra la branch
-
-# AVISO!
-
-No trabajar a la vez en el mismo .ipynb (porque notebook guarda código+resultados+metadatos -> genera conflictos facilmente)
-
-En principio no hay problema porque yo (loli) haré el web scraping sola y lo subire acabado jutno con el archivo .csv con los datos
