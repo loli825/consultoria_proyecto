@@ -1,17 +1,22 @@
+### Código para obtener el listado de obras y su URL
+
+# =========================
+# LIBRERÍAS
+# =========================
 import csv
 import json
 import math
 import random
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple  # 👈 Tuple para evitar el warning
+from typing import Dict, List, Optional, Tuple  
 
 from bs4 import BeautifulSoup
 from curl_cffi import Session
 
 
 # =========================
-# CONFIGURACIÓN
+# CONFIGURACIÓN (a partir de la cURL)
 # =========================
 URL = "https://servicios.museodelprado.es/resultados/CargadorResultados/CargarResultados"
 
@@ -25,8 +30,8 @@ HEADERS = {
     "x-requested-with": "XMLHttpRequest",
 }
 
-# ⛔ Cookie = lo del -b del cURL (en una sola línea)
-COOKIE_HEADER = "OptanonAlertBoxClosed=2025-12-15T15:30:52.091Z; cf_clearance=Z7lLj9d.iuCcTrRU2qOUmAGQJfMjzVninLMTpm4iIFo-1766305218-1.2.1.1-v9vR_ew0sFugjW1GaY_uejnSeFzl_5b4qjX_kUKo1vC2.oJZfP52RH3iFpTl72d0ltHgAbvpGEGN2C4sv.qph07O_s6pCS0asKLopwWY3WLDjRCYqrcTrsQL4yWL4JbPckDt2pggoy0LVUgtuYdN92D23qUxF7Oqk5gHMuA3MDbvfd16rL.brx4qAhSTZs.95iwOvp5IxaXxJ3pnf1McnN8bE19i9QnfpO7qQhRTGgY; OptanonConsent=isGpcEnabled=0&datestamp=Sun+Dec+21+2025+09%3A21%3A03+GMT%2B0100+(hora+est%C3%A1ndar+de+Europa+central)&version=202511.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=6da9bfd2-9eac-46c6-966c-1f3e0fa6dff8&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0003%3A0%2CC0004%3A0&intType=2&geolocation=ES%3BCT&AwaitingReconsent=false"
+# Cookie personal
+COOKIE_HEADER = "PONER COOKIE PERSONAL AQUÍ"
 
 P_PARAMETROS_BASE = "cidoc:p2_has_type@@@pm:objectTypeNode=http://museodelprado.es/items/objecttype_20"
 
@@ -36,7 +41,7 @@ FORM_BASE = {
     "pEsUsuarioInvitado": "true",
     "pIdentidadID": "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF",
     "pLanguageCode": "es",
-    "pPrimeraCarga": "false",  # se ajusta según página
+    "pPrimeraCarga": "false",  
     "pAdministradorVeTodasPersonas": "false",
     "pTipoBusqueda": "0",
     "pNumeroParteResultados": "1",
@@ -52,11 +57,13 @@ FORM_BASE = {
     "cont": "0",
 }
 
-OUTPUT_CSV = Path("prado_listado.csv")
-CHECKPOINT = Path("prado_checkpoint.json")
-DEBUG_DIR = Path("debug_respuestas")
+# ARCHIVOS DE SALIDA
+OUTPUT_CSV = Path("prado_listado.csv") # listado final
+CHECKPOINT = Path("prado_checkpoint.json") # checpoint para reanudar
+DEBUG_DIR = Path("debug_respuestas") # respuestas problemáticas
 DEBUG_DIR.mkdir(exist_ok=True)
 
+# Paudad para parecer "humano"
 BASE_DELAY = 1.8
 JITTER = 1.2
 PAUSE_EVERY = 25
@@ -64,14 +71,16 @@ PAUSE_SECONDS = 15
 
 
 # =========================
-# UTILIDADES
+# FUNCIONES
 # =========================
 def atomic_write_json(path: Path, data: dict) -> None:
+    # Escribe un JSON de forma segura (archivo temporal + rename)
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(path)
 
 def load_checkpoint() -> dict:
+    # Carga el checkpoint (para reanudar la ejecución)
     if CHECKPOINT.exists():
         try:
             return json.loads(CHECKPOINT.read_text(encoding="utf-8"))
@@ -80,6 +89,7 @@ def load_checkpoint() -> dict:
     return {}
 
 def load_seen_ids(csv_path: Path) -> set:
+    # Lee el CSV existente y devuelve los obra_id ya guardados (evita duplicados)
     seen = set()
     if not csv_path.exists():
         return seen
@@ -92,9 +102,11 @@ def load_seen_ids(csv_path: Path) -> set:
     return seen
 
 def infer_next_page_from_csv(seen_count: int, page_size_guess: int = 18) -> int:
+    # Estima la página por la que continuar según cuántas obras hay ya en el CSV
     return max(1, (seen_count // page_size_guess) + 1)
 
 def looks_like_cloudflare_or_block(text: str) -> bool:
+    # Detecta si la respuesta parece un bloqueo/verificación (Cloudflare, etc.)
     t = (text or "").lower()
     signals = [
         "checking your browser",
@@ -112,6 +124,7 @@ def looks_like_cloudflare_or_block(text: str) -> bool:
 # PARSEO
 # =========================
 def parse_items_from_value(value_html: str) -> List[Dict[str, str]]:
+    # Parsea el HTML del campo "Value" y extrae una lista de obras (id, url, título, autor, soporte, imagen)
     soup = BeautifulSoup(value_html, "lxml")
     out: List[Dict[str, str]] = []
 
@@ -149,9 +162,10 @@ def parse_items_from_value(value_html: str) -> List[Dict[str, str]]:
 
 
 # =========================
-# DESCARGA ROBUSTA
+# DESCARGA 
 # =========================
 def fetch_page(session: Session, page: int, retries: int = 10) -> Tuple[List[Dict[str, str]], Optional[int]]:
+    # Descarga una página de resultados (JSON), reintenta si falla, y devuelve (items, total_results)
     form = dict(FORM_BASE)
     form["pParametros"] = f"{P_PARAMETROS_BASE}|pagina={page}"
     form["pPrimeraCarga"] = "true" if page == 1 else "false"
@@ -232,6 +246,7 @@ def fetch_page(session: Session, page: int, retries: int = 10) -> Tuple[List[Dic
 # MAIN CON CHECKPOINT
 # =========================
 def main():
+    # Junta todo: reanuda desde checkpoint/CSV, recorre páginas, escribe CSV y guarda checkpoint
     cp = load_checkpoint()
     seen = load_seen_ids(OUTPUT_CSV)
 
@@ -252,7 +267,6 @@ def main():
     file_exists = OUTPUT_CSV.exists()
 
     with Session(headers=HEADERS) as session:
-        # ✅ Cookie fija en la sesión (más limpio y evita sobrescribir headers)
         session.headers["cookie"] = COOKIE_HEADER
 
         with OUTPUT_CSV.open("a", newline="", encoding="utf-8") as f:
@@ -334,6 +348,8 @@ def main():
 
     print(f"\n✅ Terminado. CSV: {OUTPUT_CSV} | checkpoint: {CHECKPOINT}")
 
-
+# =========================
+# EJECUCIÓN
+# =========================
 if __name__ == "__main__":
     main()
