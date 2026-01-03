@@ -7,7 +7,7 @@ No trabajar directamente en main porque se pisan cambios, aparecen conflictos y 
 
 En main solo entra el código estable y final.
 
-No editar partes de los demas (podemos trabajar sobre le mismo documento .Rmd a la vez si solo editamos nuestra parte porque github hace merge correcto y se unen las modificacioens, pero si editamos la misma parte a la vez se genera conflicto de versiones)
+No editar partes de los demas (podemos trabajar sobre el mismo documento .Rmd a la vez si solo editamos nuestra parte porque github hace merge correcto y se unen las modificacioens, pero si editamos la misma parte a la vez se genera conflicto de versiones)
 
 ## Pasos
 
@@ -23,7 +23,7 @@ No editar partes de los demas (podemos trabajar sobre le mismo documento .Rmd a 
 
 - Borra la branch
 
-EXTRA: ir anotando los cambios/procesos que llevan a cabo en la siguiente sección 'GRUÍA DE TRABAJO' para llevar un control (posiblemente solo sea necesario para la fase de scraping)
+EXTRA: ir anotando los cambios/procesos que se llevan a cabo en la siguiente sección 'GRUÍA DE TRABAJO' para llevar un control
 
 # GRUÍA DE TRABAJO
 
@@ -142,5 +142,28 @@ CAMPOS DE FICHA TÉCNICA: no todas las obras tienen los mismos campos
 - Muy raros:
 
   - Materia, Lugar de producción, Edición / Estado
+
+## gestion_json.py
+
+CONTENIDO: código para la gestión de la información obtenida del scrapping, unificación de esta
+
+MODIFICACIONES APLICADAS: indicadas en los comendarios del archivo
+
+- Archivo entrada: 'prado_ficha_tecnica.jsonl'
+
+- Archivo salida: 'prado.jsonl'
+
+## json_a_csv.py
+
+CONTENIDO: código para transformar el archivo jsonl a un csv y poder gestionarlo en RStudio
+
+- Archivo entrada: 'prado.jsonl'
+
+- Archivo salida: 'prado.csv'
+
+## padro.jsonl, padro.csv
+
+CONTENIDO: archivos finales después del scrapping. No estan preparados para el análisi todavía
+
 
 
