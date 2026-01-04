@@ -81,7 +81,11 @@ USO:
 
 ## prado_listado.csv
 
-CONTENIDO: listado de todas las obras que son "Tipo de obra: Pinturas" con la información que aparece en la página del listado de la web
+CONTENIDO: 
+
+- Listado de todas las obras que son "Tipo de obra: Pinturas" 
+
+- con la información que aparece en la página del listado de la web
 
 ESTRUCTURA: 7.117 filas × 6 columnas (una fila = una obra)
 
@@ -103,7 +107,7 @@ COLUMNAS:
 
 CONTENIDO: listado de las obras, principalmente con su ficha técnica
 
-ESTRUCTURA: 7.117 registros (mismo número de obras que en el CSV), 1 JSON por línea y obra
+ESTRUCTURA: 7.117 registros (mismo número de obras que en prado_listado.csv, todas obtenidas), 1 JSON por línea y obra
 
 ESTRUCTURA POR LINEA:
 
@@ -163,7 +167,32 @@ CONTENIDO: código para transformar el archivo jsonl a un csv y poder gestionarl
 
 ## padro.jsonl, padro.csv
 
-CONTENIDO: archivos finales después del scrapping. No estan preparados para el análisi todavía
+CONTENIDO: 
 
+- Archivos finales después del scrapping. 
 
+- No estan preparados para el análisi todavía.
 
+- Datos faltantes indicados con "0"
+
+VARIABLES: alto, ancho, autor, autora, autores, estado, fecha, lugar_produccion, materia, numero_catalogo, procedencia, serie, soporte, tecnica, titulo, url
+
+## gestion_datos.Rmd
+
+CONTENIDO: codigo y redacción de la sección de gestión de datos
+
+- Archivo entrada: 'prado.csv'
+
+- Archivos salida; 'prado_gestionado.csv', 'prado_variables.csv'
+
+## prado_gestionado.csv
+
+CONTENIDO: base de datos preparada para el analisis
+
+- Contiene variables no analizables pero con información de posible interés futuro: numero_catalogo, titulo, url, nombre_autor, procedencia
+
+## prado_variables.csv
+
+CONTENIDO: base de datos preparada apra el analisis
+
+- Contiene únicamente las variables analizables
