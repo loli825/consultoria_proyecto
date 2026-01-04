@@ -288,6 +288,12 @@ tail(df$procedencia)
 
 Podemos observar que no existe ningun tipo de estructura que nos sea de utilidad en esta variable, además simplemente aporta información de la posesión de la obra, por lo que no la consideramos una característica propia de esta. Decidimos prescindir de esta variable, no se transformará para ver utilizada pero se conservará en la base de datos como mera información consultable.
 
+**Variables no analizables**
+
+Finalmente listamos las variables que se han conservado en la abse de datos a modo de posibles consultas futuras, pero que no participaran de ningun moddo en el analisis: "numero_catalalogo", "titulo", "url", "nombre_autor", "procedencia".
+
+!!!! igual titulo se puede hacer algo
+
 ## CREACIÓN DE NUEVAS VARIABLES
 
 En la sección anterior hemos transformado y también creado algunas variable con el fin único de reestructurar la información ya presente. Sin embargo, en esta sección podrecederemos a de alguna manera "generar" nueva información, que consideramos de posible utilidad, a partir de la que ya disponemos. 
@@ -353,6 +359,7 @@ df <- df[, c(
   "numero_catalogo",
   "titulo",
   "url",
+  "nombre_autor",
   "procedencia",
   "alto",
   "ancho",
@@ -367,7 +374,21 @@ df <- df[, c(
   "tecnica",
   tec_cols,
   "tipo_autor",
-  "nombre_autor",
+  "serie"
+)]
+
+df_variables <- df[, c(
+  "exito",
+  "razon",
+  "area",
+  "tam_cat",
+  "orientacion",
+  "soporte",
+  "soporte_grp",
+  "sop_montaje",
+  "tecnica",
+  tec_cols,
+  "tipo_autor",
   "serie"
 )]
 ```

@@ -1,37 +1,17 @@
 # consultoria_proyecto
 scraping en Python (.py) y analisis en R (.Rmd)
 
-# REGLAS
-
-No trabajar directamente en main porque se pisan cambios, aparecen conflictos y no sabemso que version es la buena.
-
-En main solo entra el código estable y final.
-
-No editar partes de los demas (podemos trabajar sobre el mismo documento .Rmd a la vez si solo editamos nuestra parte porque github hace merge correcto y se unen las modificacioens, pero si editamos la misma parte a la vez se genera conflicto de versiones)
-
-## Pasos
-
-- Cada persona crea su branch
-
-- Trabaja tranquila
-
-- Hace commits
-
-- Pide “ok” al equipo
-
-- Merge a main
-
-- Borra la branch
-
-EXTRA: ir anotando los cambios/procesos que se llevan a cabo en la siguiente sección 'GRUÍA DE TRABAJO' para llevar un control
-
 # GRUÍA DE TRABAJO
 
-- scrapear listado de obras y obtener URLs ('scraper_listado.py' --> 'prado_listado.csv')
+Tareas ordenadas cronologicamente:
 
-- scrapear cada obra y obtener fichas técnicas ('scraper_ficha_tecnica.py' --> 'prado_ficha_técnica.jsonl')
+- (MANUELA) scrapear listado de obras y obtener URLs ('scraper_listado.py' --> 'prado_listado.csv')
 
-- revisar y arreglar fichas técnicas, construir dataset base para trabajar (...en proceso...)
+- (MANUELA) scrapear cada obra y obtener fichas técnicas ('scraper_ficha_tecnica.py' --> 'prado_ficha_técnica.jsonl')
+
+- (MANUELA) revisar y arreglar fichas técnicas, construir dataset base para trabajar ('gestion.py' --> 'prado.jsonl' --> 'json_a_csv.py' --> 'prado.csv')
+
+- (MANUELA) gestion de datos ('gestion_datos.Rmd' --> 'prado_gestionado.csv', 'prado_variables.csv')
 
 # ARCHIVOS
 
