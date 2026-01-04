@@ -1,0 +1,375 @@
+---
+title: "Arreglos csv"
+author: "Manuela Lopez Cambron, 1673688"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+df <- read.csv("prado.csv", fileEncoding = "UTF-8")
+```
+
+# GESTIÓN DE DATOS
+
+## Manejo de valores faltantes
+
+Tal y como se ha generado la base de datos, los valores faltantes estan indicados como "0". Veamos el porcentaje de estos para cada variables:
+```{r}
+# FRECUENCIA DE VARIABLES
+prop_cero <- sapply(df, function(x) mean(as.character(x) == "0"))
+
+prop_cero_lista <- data.frame(
+  variable  = names(df),
+  prop_cero = as.numeric(prop_cero),
+  row.names = NULL
+)
+
+# ordenar de mayor a menor
+prop_cero_lista <- prop_cero_lista[order(prop_cero_lista$prop_cero, decreasing = TRUE), ]
+
+prop_cero_lista
+```
+
+Eliminamos "estado", "lugar_produccion" y "materia", debido a su gran presencia de valores faltantes no podemos extraer información. Eliminamos también los casos donde haya ausencia de información para las variable "procedencia", "soporte" o "tecnica". Justificamos el análisis de casos completos considerando esta ausencia totalmente aleatoria provocada por fenomenos sociales o históricos a cerca de la conservaciónd de estas obras que no mantienen relación con nuestro objetivo, la proporción aurea.
+
+Los valores faltantes de las otras variables se manejaran automaticamente mediante las transformaciones pertinentes de estas en la siguiente sección.
+
+**Eliminar variables no deseadas**
+```{r}
+# ELIMINAR VARIABLES CON BAJA FREC.
+df <- df[ , !(names(df) %in% c("estado", "lugar_produccion", "materia")) ]
+names(df)
+```
+
+**Eliminamos casos incompletos**
+```{r}
+# ELIMINAR CASOS INCOMPLETOS
+n_antes <- nrow(df)
+df <- df[df$tecnica != "0",]; df <- df[df$soporte != "0",]
+
+n_despues <- nrow(df)
+cat("Se han eliminado", n_antes-n_despues, "casos")
+```
+
+## Transformación de variables
+
+Aunque nuestra base de datos ya aporta la información necesaria, sus variables no presentan la estructura que necesitamos para trabajarla. Por esta razón, en esta sección se procederá a transformar y crear nuevas variables de manera que queden listas para ser utilizadas en el modelaje.
+
+**Recodificación de variables de autoría**
+
+Agruparemos las variables "autor", autora", "autores" creando una variable "tipo_autor" que indicará si se trata de 'hombre/mujer/varios/anonimo' y además se conservarán los nombres en una nueva variable llamada "nombre_autor". 
+```{r}
+# RECOD. 'AUTOR', 'AUTORA', 'AUTORES'
+# 1) nombre_autor: coger el valor distinto de "0"
+df$nombre_autor <- ifelse(df$autor != "0", df$autor,
+                   ifelse(df$autora != "0", df$autora,
+                   ifelse(df$autores != "0", df$autores, "0")))
+
+# 2) tipo_autor: segun valor distinto de "0"
+df$tipo_autor <- ifelse(df$autor == "Anónimo", "anonimo",
+                 ifelse(df$autora  != "0", "mujer",
+                 ifelse(df$autores != "0", "varios",
+                 ifelse(df$autor   != "0", "hombre", "0"))))
+
+# 3) eliminamos variables antiguas
+df$autor <- NULL
+df$autora <- NULL
+df$autores <- NULL
+
+# comprobacion 
+table(df$tipo_autor)
+head(df[, c("tipo_autor","nombre_autor")], 10)
+tail(df[, c("tipo_autor","nombre_autor")], 10)
+```
+
+**Recodificación de variable "serie"**
+
+Consideramos apropiado mantener "serie" en calidad de conocer si la pintura pertenece (1) o no (0) a una serie, sin importar a cuál, por lo que la convertiremos en una variable binaria indicadora. 
+```{r}
+# RECOD. 'SERIE'
+df$serie <- ifelse(df$serie == "0", 0, 1)
+df$serie <- as.numeric(df$serie)
+
+table(df$serie)
+```
+
+**Recodificación de variable "tecnica"**
+
+Estamos frente a una variable que podría ser interpretada como un factor pero presenta demasiados niveles.
+```{r}
+cat("Niveles de 'tecnica':\n")
+table(df$tecnica)
+```
+
+La solución óptima, dado que muchos casos presentan niveles multi-etiqueta, será recodificar en varias variables dummies como indicadores interpretables de la presencia de cada categoría. De esta manera prodremos asociar la presencia de cada técnica concreta con el aumento o no en la probabilidad de observar nuestro evento de interés. Obviamos las técnicas poco frecuentes 'Pastillaje', 'Pastel', 'Aguada', 'Técnicas de fotografía'
+```{r}
+# RECOD. 'TECNICA'
+mk <- function(x, pattern) as.integer(grepl(pattern, x, ignore.case = TRUE))
+
+## normalizar
+df$tecnica <- trimws(as.character(df$tecnica))
+x <- df$tecnica
+
+## dummies 
+df$tec_oleo       <- mk(x, "Óleo")
+df$tec_temple     <- mk(x, "Temple")     
+df$tec_tempera    <- mk(x, "Témpera")
+df$tec_fresco     <- mk(x, "Pintura al fresco|falso fresco|al seco")
+df$tec_mixta      <- mk(x, "Técnica mixta")
+df$tec_enconchado <- mk(x, "Enconchado")
+df$tec_grisalla   <- mk(x, "Grisalla")
+df$tec_dorado     <- mk(x, "Dorado|pan de oro")
+df$tec_pastillaje = mk(x,"Pastillaje")
+df$tec_pastel = mk(x,"Pastel")
+df$tec_aguada = mk(x,"Aguada")
+df$tec_foto = mk(x,"Técnicas de fotografía")
+
+
+## frecuencias/comprobación
+tec_cols <- c("tec_oleo","tec_temple","tec_tempera","tec_fresco","tec_mixta", "tec_enconchado","tec_grisalla","tec_dorado", "tec_pastillaje", "tec_pastel", "tec_aguada", "tec_foto")
+
+cat("Frecuencia de cada técnica:\n")
+print(sort(colSums(df[, tec_cols, drop=FALSE]), decreasing = TRUE))
+```
+
+Vemos que hay una serie de técnicas con poca frecuencia, por el bien de nuestros futuros modelos, agruparemos estas variables dummies en una nueva llamada "tec_otras". La única con baja frecuencia que conservaremos será 'fresco' debido a su posible efecto sobre la respuesta, ja que envuelve un tipo de obra con características propias. También unificaremos 'temple', 'tempera' y 'aguada' en "tec_acuosas" por sus características similares.
+```{r}
+df$tec_acuosas <- as.integer(
+  df$tec_temple == 1 |
+  df$tec_tempera == 1 |
+  df$tec_aguada == 1
+)
+
+df$tec_otras <- as.integer(
+  df$tec_dorado == 1 |
+  df$tec_enconchado == 1 |
+  df$tec_grisalla == 1 |
+  df$tec_pastillaje == 1 |
+  df$tec_pastel == 1 |
+  df$tec_foto == 1
+)
+
+tec_cols <- c("tec_oleo", "tec_acuosas", "tec_mixta", "tec_fresco", "tec_otras")
+
+df <- df[, c(setdiff(names(df), grep("^tec_", names(df), value = TRUE)), tec_cols)]
+
+cat("Frecuencia de cada técnica:\n")
+print(sort(colSums(df[, keep, drop=FALSE]), decreasing = TRUE))
+```
+
+A cotninuación proporcionamos un listado de los niveles originales y que dummies activa cada uno:
+```{r}
+lab <- sub("^tec_", "", tec_cols)
+
+dic_tec <- aggregate(df[, tec_cols], list(tecnica = df$tecnica), max)
+
+dic_tec$activas <- apply(dic_tec[, tec_cols], 1, function(z) {
+  paste(lab[z == 1], collapse = ", ")
+})
+
+dic_tec <- dic_tec[, c("tecnica", "activas")]
+dic_tec
+```
+
+**Recodificación de variable "soporte"**
+
+Esta variable presenta el mismo problema de exceso de niveles.
+```{r}
+cat("\nNiveles de 'soporte':\n") 
+table(df$soporte)
+```
+
+En el caso de "soporte" vemos que son escasas las observaciones en que aparecen etiquetas multi-nivel, además es lógico interpretar que existe un soporte principal (aunque haya variaciones como montajes o transferencias), por lo que el sentido natural es comparar tipos de soporte y no su presencia. En consecuencia, transformaremos esta variable en un solo factor llamado "soporte_grp" agrupando sus niveles en un conjunto más reducido y de categorías más generales y proporcionando un nivel llamado 'ambiguo' para manejar aquellos niveles de soporte multi-etiqueta donde no se puede determinar el soporte principal. También se agregará una variable binaria llamada 'sop_montaje' para indicar si se trata de un soporte puro (0) o de un montaje (1), de esta manera podremos conservar información sobre este aspecto material relevante sin multiplicar categorías.
+```{r}
+# RECOD. 'SOPORTE'
+## normaliza
+df$soporte <- trimws(as.character(df$soporte))
+s <- df$soporte
+
+## dummy montaje
+df$sop_montaje <- as.integer(
+  grepl(";", s, fixed = TRUE) |
+  grepl("sobre|pegado|pasad[oa]|trasladad[oa]", s, ignore.case = TRUE)
+)
+
+g <- rep(NA_character_, length(s))
+
+# 1) Multi-etiqueta
+g[grepl(";", s, fixed = TRUE)] <- "Ambiguo"
+
+# 2) Mural
+g[is.na(g) & grepl("Revestimiento mural", s, ignore.case = TRUE)] <- "Mural"
+
+# 3) Clave para clasificar:
+#    - "pasado/a" o "trasladado/a": conservar soporte inicial
+#    - "sobre" o "pegado en/a": conservar superficie
+k <- s
+idx <- is.na(g)
+
+k[idx] <- sub("\\s+(pasad[oa]|trasladad[oa]).*$", "", k[idx], ignore.case = TRUE)
+k[idx] <- sub("\\s+sobre\\s+.*$", "", k[idx], ignore.case = TRUE)
+k[idx] <- sub("\\s+pegad[oa]\\s+(en|a)\\s+.*$", "", k[idx], ignore.case = TRUE)
+k[idx] <- trimws(k[idx])
+
+# 4) Clasificación (sobre k)
+g[is.na(g) & grepl("Piedra|Pizarra", k, ignore.case = TRUE)] <- "Piedra/Pizarra"
+g[is.na(g) & grepl("cobre|Hojalata", k, ignore.case = TRUE)] <- "Metal"
+g[is.na(g) & grepl("Papel|Vitela", k, ignore.case = TRUE)] <- "Papel/Vitela"
+g[is.na(g) & grepl("Cartón|Cartulina", k, ignore.case = TRUE)] <- "Cartón/Cartulina"
+g[is.na(g) & grepl("Tabla|Táblex|Contrachapado", k, ignore.case = TRUE)] <- "Tabla/Panel"
+g[is.na(g) & grepl("Lienzo", k, ignore.case = TRUE)] <- "Lienzo"
+g[is.na(g) & grepl("Sarga|Raso", k, ignore.case = TRUE)] <- "Lienzo"  # <-- CAMBIO AQUÍ
+g[is.na(g) & grepl("Corcho", k, ignore.case = TRUE)] <- "Corcho"
+
+df$soporte_grp <- factor(
+  g,
+  levels = c("Lienzo","Tabla/Panel","Metal","Papel/Vitela","Cartón/Cartulina",
+             "Mural","Piedra/Pizarra","Corcho","Ambiguo")
+)
+
+## frequencias/comprobación
+head(df[, c("soporte", "soporte_grp", "sop_montaje")])
+
+cat("Frecuencia de cada soporte:\n")
+sort(table(df$soporte_grp), decreasing = TRUE)
+
+cat("Frecuencia de cada soporte puro/montaje:\n")
+with(df, table(soporte_grp, sop_montaje))
+
+```
+
+Debido a la baja frecuencia observada en algunas clases, deberiamos vovler a reagrupar estas minoritarias en un mismo grupo. Decidimos conservar 'mural' y 'papel/vileta' como últimos de frecuencia aceptable y devido a su potencial efecto sobre la respesta. Reagrupamos el resto en un nivel llamadp 'otros'.
+```{r}
+tmp <- as.character(df$soporte_grp)
+
+tmp[tmp %in% c("Cartón/Cartulina", "Ambiguo", "Piedra/Pizarra", "Corcho")] <- "Otros"
+
+df$soporte_grp <- factor(
+  tmp,
+  levels = c("Lienzo", "Tabla/Panel", "Metal", "Mural", "Papel/Vitela", "Otros")
+)
+
+sort(table(df$soporte_grp), decreasing = TRUE)
+```
+
+A continuación proporcionamos un listado con los niveles originales y a que neuvo nivel han sido asignados:
+```{r}
+dic_sop <- aggregate(
+  df[, c("sop_montaje")],
+  by = list(soporte = df$soporte, soporte_grp = df$soporte_grp),
+  FUN = max
+)
+ names(dic_sop) <- c("soporte", "soporte_grp", "sop_montaje")
+dic_sop
+```
+
+
+**Recodificación de variable "fecha"**
+
+esyoy mirando a ver que hacer porque tmb es un lio
+
+
+
+
+
+
+
+**Recodificación de variable "procedencia"**
+
+visualizarmeos algunos casos:
+```{r}
+head(df$procedencia)
+tail(df$procedencia)
+```
+
+Podemos observar que no existe ningun tipo de estructura que nos sea de utilidad en esta variable, además simplemente aporta información de la posesión de la obra, por lo que no la consideramos una característica propia de esta. Decidimos prescindir de esta variable, no se transformará para ver utilizada pero se conservará en la base de datos como mera información consultable.
+
+## CREACIÓN DE NUEVAS VARIABLES
+
+En la sección anterior hemos transformado y también creado algunas variable con el fin único de reestructurar la información ya presente. Sin embargo, en esta sección podrecederemos a de alguna manera "generar" nueva información, que consideramos de posible utilidad, a partir de la que ya disponemos. 
+
+**Variable respuesta**
+
+Para comenzar generaremos nuestra variabe objetivo dele studio que es aquella relacionada con la proporción aurea. Haremos uso de las variables de dimension "alto" y "ancho" para crear la que será nuestra avriable respuesta llamada "exito". Esta será un indicador binaria que determinará si la pintura sigue o no la proporción aurea. El error aceptado es del 5% y en todo momento se utiliza el largo largo como numerador.
+```{r}
+# convertir dimensiones a numerico
+df$alto  <- as.numeric(gsub(",", ".", df$alto,  fixed = TRUE))
+df$ancho <- as.numeric(gsub(",", ".", df$ancho, fixed = TRUE))
+
+# razón de aspecto: lado más largo / lado más corto
+lado_largo <- pmax(df$alto, df$ancho)
+lado_corto <- pmin(df$alto, df$ancho)
+
+df$razon <- lado_largo / lado_corto   
+
+# indicador razón aurea (éxitos)
+phi <- (1 + sqrt(5)) / 2
+tol <- 0.05 * phi
+
+df$exito <- as.integer(abs(df$razon - phi) <= tol)
+
+str(df$exito)
+```
+
+
+!!!! igual probar lo de la distancia
+
+**Variable "orientacion"**
+
+A partir de las variables de dimensión "alto" y "ancho" creamos una nueva variable que nos indique si la forma de la pintura es vertical, horizontal o cuadrada.
+```{r}
+# orientación: vertical si alto > ancho, horizontal si ancho > alto
+df$orientacion <- ifelse(df$alto > df$ancho, "vertical",
+                         ifelse(df$ancho > df$alto, "horizontal", "cuadrado"))
+
+table(df$orientacion)
+```
+
+**Variables "area" y "tam_cat"**
+
+También trabajamos con las dimensiones para crear 2 variables relacionadas con el tamaño: "area", para conocer su superficie, y "tam_cat" para clasificarlas en categorías de tamaño "pequeño/mediano/grande".
+```{r}
+df$area <- df$alto * df$ancho
+
+# categorías de tamaño por cuantiles (opcional)
+qs <- quantile(df$area, probs = c(0.33, 0.66), na.rm=TRUE)
+df$tam_cat <- cut(df$area, breaks = c(-Inf, qs[1], qs[2], Inf),
+                  labels = c("pequeno","mediano","grande"), right = TRUE)
+df$tam_cat <- as.factor(df$tam_cat)
+```
+
+**Variable "corriente"**
+
+depende de variable fecha y creo que algunas otras, aun ns como lo hare) --> igual no lo pongo como variable y lo utilizamos despues en las conclusiones e interpretaciones
+
+###########
+reorganizar 
+```{r}
+df <- df[, c(
+  "numero_catalogo",
+  "titulo",
+  "url",
+  "procedencia",
+  "alto",
+  "ancho",
+  "exito",
+  "razon",
+  "area",
+  "tam_cat",
+  "orientacion",
+  "soporte",
+  "soporte_grp",
+  "sop_montaje",
+  "tecnica",
+  tec_cols,
+  "tipo_autor",
+  "nombre_autor",
+  "serie"
+)]
+```
+
+
