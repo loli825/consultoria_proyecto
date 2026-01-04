@@ -270,13 +270,299 @@ dic_sop
 
 **Recodificación de variable "fecha"**
 
-esyoy mirando a ver que hacer porque tmb es un lio
+La datación de las pinturas es muy inexacta y provoca que tengamos fechas de muschos formatos distintos. La complejidad de esta avriable escapa a nuestras posibilidades pero pensamos que es realmente valiosa, por lo que hemos recurrido a insteligencias artificiales para generar el codigo a continuación que nos permita reexplicar la información de la siguiente manera:
+```{r}
+# --- Utilidades ---
+clean_fecha <- function(s) {
+  s <- trimws(s)
+  s <- gsub("<[^>]+>", " ", s, perl = TRUE)              # quita HTML
+  s <- gsub("\u2013|\u2014", "-", s, perl = TRUE)        # – —
+  s <- gsub("\\s+", " ", s, perl = TRUE)                # espacios múltiples
+  trimws(s)
+}
 
+roman_to_int <- function(r) {
+  r <- toupper(r)
+  vals <- c(I=1, V=5, X=10, L=50, C=100, D=500, M=1000)
+  chars <- strsplit(r, "")[[1]]
+  total <- 0
+  prev <- 0
+  for (ch in rev(chars)) {
+    v <- vals[ch]
+    if (is.na(v)) return(NA_integer_)
+    if (v < prev) total <- total - v else { total <- total + v; prev <- v }
+  }
+  as.integer(total)
+}
 
+century_bounds <- function(cent) {
+  # Siglo XVII => 1601..1700 (convención estándar)
+  c((cent - 1) * 100 + 1, cent * 100)
+}
 
+detect_part <- function(txt) {
+  # Normaliza acentos para detectar "último/ultimo", "después/despues", etc.
+  t <- tolower(iconv(txt, from = "UTF-8", to = "ASCII//TRANSLIT"))
+  
+  if (grepl("primer\\s+cuarto",  t, perl=TRUE)) return("1_cuarto")
+  if (grepl("segundo\\s+cuarto", t, perl=TRUE)) return("2_cuarto")
+  if (grepl("tercer\\s+cuarto",  t, perl=TRUE)) return("3_cuarto")
+  if (grepl("ultimo\\s+cuarto",  t, perl=TRUE)) return("4_cuarto")
+  
+  if (grepl("primer\\s+tercio",  t, perl=TRUE)) return("1_tercio")
+  if (grepl("segundo\\s+tercio", t, perl=TRUE)) return("2_tercio")
+  if (grepl("ultimo\\s+tercio",  t, perl=TRUE)) return("3_tercio")
+  
+  if (grepl("primera\\s+mitad",  t, perl=TRUE)) return("primera_mitad")
+  if (grepl("segunda\\s+mitad",  t, perl=TRUE)) return("segunda_mitad")
+  
+  if (grepl("principio", t, perl=TRUE)) return("principio")
+  if (grepl("mediados",  t, perl=TRUE)) return("mediados")
+  if (grepl("finales",   t, perl=TRUE)) return("finales")
+  
+  "whole"
+}
 
+interval_century_part <- function(cent, part) {
+  b <- century_bounds(cent)
+  start <- b[1]
+  # trabajamos con offsets 0..99 dentro del siglo
+  add <- function(a, z) c(start + a, start + z)
+  
+  if (part == "whole") return(c(b[1], b[2]))
+  
+  if (part == "principio")     return(add(0, 19))
+  if (part == "mediados")      return(add(40, 59))
+  if (part == "finales")       return(add(80, 99))
+  if (part == "primera_mitad") return(add(0, 49))
+  if (part == "segunda_mitad") return(add(50, 99))
+  
+  if (part %in% c("1_cuarto","2_cuarto","3_cuarto","4_cuarto")) {
+    q <- as.integer(sub("_cuarto","",part))
+    return(add((q-1)*25, q*25 - 1))
+  }
+  
+  if (part %in% c("1_tercio","2_tercio","3_tercio")) {
+    t <- as.integer(sub("_tercio","",part))
+    offs <- list(c(0,32), c(33,65), c(66,99))
+    return(add(offs[[t]][1], offs[[t]][2]))
+  }
+  
+  c(b[1], b[2])
+}
 
+extract_years <- function(txt, max_year = 2100L) {
+  m <- gregexpr("(?<!\\d)(\\d{3,4})(?!\\d)", txt, perl = TRUE)
+  y <- regmatches(txt, m)[[1]]
+  if (length(y) == 0) return(integer(0))
+  y <- as.integer(y)
+  y <- y[y >= 1000 & y <= max_year]
+  y
+}
 
+# --- Parser principal ---
+parse_fecha_one <- function(s) {
+  s <- clean_fecha(s)
+  s_ascii <- tolower(iconv(s, from="UTF-8", to="ASCII//TRANSLIT"))
+  
+  # Flag de incertidumbre (?", ca., hacia, paréntesis con alternativas, etc.)
+  incierta <- grepl("\\?", s, perl=TRUE) || grepl("\\bca\\b", s_ascii, perl=TRUE) || grepl("\\bhacia\\b", s_ascii, perl=TRUE)
+  
+  # Caso "compuesto" por ';' (pocas filas, pero existe)
+  if (grepl(";", s, fixed = TRUE)) {
+    parts <- trimws(strsplit(s, ";", fixed = TRUE)[[1]])
+    parsed <- lapply(parts, parse_fecha_one)
+    
+    starts <- sapply(parsed, function(x) x$start)
+    ends   <- sapply(parsed, function(x) x$end)
+    
+    start <- suppressWarnings(min(starts, na.rm = TRUE))
+    end   <- suppressWarnings(max(ends, na.rm = TRUE))
+    if (!is.finite(start)) start <- NA_integer_
+    if (!is.finite(end))   end   <- NA_integer_
+    
+    return(list(
+      start = as.integer(start), end = as.integer(end),
+      tipo = "multi",
+      incierta = TRUE,
+      abierta_inicio = is.na(start),
+      abierta_fin = is.na(end)
+    ))
+  }
+  
+  # Separa "main" y paréntesis (para evitar años bibliográficos en notas)
+  main <- trimws(sub("\\s*\\(.*$", "", s, perl=TRUE))
+  par  <- ""
+  if (grepl("\\(", s, perl=TRUE) && grepl("\\)", s, perl=TRUE)) {
+    par <- sub("^.*\\((.*)\\)\\s*$", "\\1", s, perl=TRUE)
+  }
+  
+  main_ascii <- tolower(iconv(main, from="UTF-8", to="ASCII//TRANSLIT"))
+  
+  # 1) Año exacto
+  if (grepl("^\\d{3,4}$", main_ascii, perl=TRUE)) {
+    y <- as.integer(main_ascii)
+    start <- y; end <- y; tipo <- "year_exact"
+  } else {
+    # 2) Rango de años
+    m <- regexec("^(\\d{3,4})\\s*-\\s*(\\d{3,4})$", main_ascii, perl=TRUE)
+    g <- regmatches(main_ascii, m)[[1]]
+    if (length(g) == 3) {
+      a <- as.integer(g[2]); b <- as.integer(g[3])
+      start <- min(a,b); end <- max(a,b); tipo <- "year_range"
+    } else {
+      # 3) Hacia (aprox)
+      m <- regexec("^hacia\\s+(\\d{3,4})$", main_ascii, perl=TRUE)
+      g <- regmatches(main_ascii, m)[[1]]
+      if (length(g) == 2) {
+        y <- as.integer(g[2])
+        start <- y; end <- y; tipo <- "circa"
+      } else {
+        # 4) Antes de / Después de
+        m <- regexec("^antes\\s+de\\s+(\\d{3,4})$", main_ascii, perl=TRUE)
+        g <- regmatches(main_ascii, m)[[1]]
+        if (length(g) == 2) {
+          y <- as.integer(g[2])
+          start <- NA_integer_; end <- y - 1L; tipo <- "before"
+        } else {
+          m <- regexec("^despues\\s+de\\s+(\\d{3,4})$", main_ascii, perl=TRUE)
+          g <- regmatches(main_ascii, m)[[1]]
+          if (length(g) == 2) {
+            y <- as.integer(g[2])
+            start <- y + 1L; end <- NA_integer_; tipo <- "after"
+          } else {
+            # 5) Siglo completo: "Siglo XVII"
+            m <- regexec("^siglo\\s+([ivxlcdm]+)$", main_ascii, perl=TRUE)
+            g <- regmatches(main_ascii, m)[[1]]
+            if (length(g) == 2) {
+              cent <- roman_to_int(g[2])
+              b <- century_bounds(cent)
+              start <- b[1]; end <- b[2]; tipo <- "century"
+            } else {
+              # 6) Rango de siglos: "Siglos XV - XVI"
+              m <- regexec("^siglos\\s+([ivxlcdm]+)\\s*-\\s*([ivxlcdm]+)$", main_ascii, perl=TRUE)
+              g <- regmatches(main_ascii, m)[[1]]
+              if (length(g) == 3) {
+                c1 <- roman_to_int(g[2]); c2 <- roman_to_int(g[3])
+                lo <- min(c1,c2); hi <- max(c1,c2)
+                b1 <- century_bounds(lo); b2 <- century_bounds(hi)
+                start <- b1[1]; end <- b2[2]; tipo <- "century_range"
+              } else {
+                # 7) Rango con partes de siglo: "Finales del siglo XVI - Principio del siglo XVII"
+                m <- regexec("^(.*)\\s+del\\s+siglo\\s+([ivxlcdm]+)\\s*-\\s*(.*)\\s+del\\s+siglo\\s+([ivxlcdm]+)$",
+                             main_ascii, perl=TRUE)
+                g <- regmatches(main_ascii, m)[[1]]
+                if (length(g) == 5) {
+                  p1 <- detect_part(g[2]); c1 <- roman_to_int(g[3])
+                  p2 <- detect_part(g[4]); c2 <- roman_to_int(g[5])
+                  i1 <- interval_century_part(c1, p1)
+                  i2 <- interval_century_part(c2, p2)
+                  start <- min(i1[1], i2[1]); end <- max(i1[2], i2[2])
+                  tipo <- "century_part_range"
+                } else {
+                  # 8) Parte de siglo: "Primer tercio del siglo XVII", "Finales del siglo XVI", etc.
+                  m <- regexec("^(.*)\\s+del\\s+siglo\\s+([ivxlcdm]+)$", main_ascii, perl=TRUE)
+                  g <- regmatches(main_ascii, m)[[1]]
+                  if (length(g) == 3) {
+                    part <- detect_part(g[2])
+                    cent <- roman_to_int(g[3])
+                    i <- interval_century_part(cent, part)
+                    start <- i[1]; end <- i[2]; tipo <- "century_part"
+                  } else {
+                    # 9) Fallback: extraer años sueltos del "main"
+                    yrs <- extract_years(main_ascii, max_year = 2100L)
+                    if (length(yrs) > 0) {
+                      start <- min(yrs); end <- max(yrs); tipo <- "fallback"
+                      incierta <- TRUE
+                    } else {
+                      start <- NA_integer_; end <- NA_integer_; tipo <- "unparsed"
+                      incierta <- TRUE
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  # Extensión opcional usando años en paréntesis SOLO si están cerca del intervalo principal
+  if (nzchar(par) && !is.na(start) && !is.na(end)) {
+    yrs_par <- extract_years(tolower(iconv(par, "UTF-8", "ASCII//TRANSLIT")), max_year = 2100L)
+    if (length(yrs_par) > 0) {
+      lo <- min(yrs_par); hi <- max(yrs_par)
+      if (lo >= (start - 50L) && hi <= (end + 50L)) {
+        start <- min(start, lo); end <- max(end, hi)
+        incierta <- TRUE
+      }
+    }
+  }
+  
+  list(
+    start = as.integer(start),
+    end = as.integer(end),
+    tipo = tipo,
+    incierta = as.logical(incierta),
+    abierta_inicio = is.na(start),
+    abierta_fin = is.na(end)
+  )
+}
+
+# --- Aplicar a todo el dataset ---
+n <- nrow(df)
+fecha_inicio <- integer(n); fecha_fin <- integer(n)
+fecha_tipo <- character(n)
+fecha_incierta <- logical(n)
+fecha_abierta_inicio <- logical(n)
+fecha_abierta_fin <- logical(n)
+
+for (i in seq_len(n)) {
+  p <- parse_fecha_one(df$fecha[i])
+  fecha_inicio[i] <- ifelse(is.na(p$start), NA_integer_, p$start)
+  fecha_fin[i]    <- ifelse(is.na(p$end),   NA_integer_, p$end)
+  fecha_tipo[i] <- p$tipo
+  fecha_incierta[i] <- p$incierta
+  fecha_abierta_inicio[i] <- p$abierta_inicio
+  fecha_abierta_fin[i] <- p$abierta_fin
+}
+
+# Relleno de intervalos abiertos con mínimo/máximo observados (para evitar NA en modelos)
+minY <- min(fecha_inicio[!is.na(fecha_inicio)], na.rm = TRUE)
+maxY <- max(fecha_fin[!is.na(fecha_fin)], na.rm = TRUE)
+
+fecha_inicio2 <- ifelse(is.na(fecha_inicio), minY, fecha_inicio)
+fecha_fin2    <- ifelse(is.na(fecha_fin),    maxY, fecha_fin)
+
+fecha_est <- as.integer(round((fecha_inicio2 + fecha_fin2) / 2))
+fecha_ancho    <- as.integer(fecha_fin2 - fecha_inicio2)
+
+# Añadir al data.frame
+df$fecha_inicio <- as.integer(fecha_inicio2)
+df$fecha_fin <- as.integer(fecha_fin2)
+df$fecha_tipo <- fecha_tipo
+df$fecha_incierta <- fecha_incierta
+df$fecha_abierta_inicio <- fecha_abierta_inicio
+df$fecha_abierta_fin <- fecha_abierta_fin
+df$fecha_est <- fecha_est
+df$fecha_ancho <- fecha_ancho
+
+# --- Comprobaciones rápidas ---
+print(head(df[, c("fecha", "fecha_tipo", "fecha_inicio", "fecha_fin", "fecha_est", "fecha_ancho")], 12))
+
+df[c(1,100,200,300,400,500,600,700,800,900), c("fecha", "fecha_tipo", "fecha_inicio", "fecha_fin", "fecha_est", "fecha_ancho")]
+```
+
+Ahora con estas nuevas variables podemos tomar una decisión teniendo en cuenta nuestras necesidades y el posterior modelaje. Nos decantamos por mantener las variables "fecha" original, como información de posible interés futuro, "anio_est" como una aproximación y "fecha_ancho" que nos permitirá almacenar ifnormación sobre la anterior aproximación, ya que en muchos casos contiene mucha variabilidad. Utilizando estas dos últimas variables en un modelo podremos hacer que este no interprete como iguales observaciones que comparten el año estimado si su rango es distinto.
+```{r}
+df$fecha_inicio <- NULL
+df$fecha_fin <- NULL
+df$fecha_tipo <- NULL
+df$fecha_incierta <- NULL
+df$fecha_abierta_inicio <- NULL
+df$fecha_abierta_fin <- NULL
+```
 
 **Recodificación de variable "procedencia"**
 
@@ -286,13 +572,199 @@ head(df$procedencia)
 tail(df$procedencia)
 ```
 
-Podemos observar que no existe ningun tipo de estructura que nos sea de utilidad en esta variable, además simplemente aporta información de la posesión de la obra, por lo que no la consideramos una característica propia de esta. Decidimos prescindir de esta variable, no se transformará para ver utilizada pero se conservará en la base de datos como mera información consultable.
+Podemos observar que no existe ningun tipo de estructura que nos sea de utilidad en esta variable, además simplemente aporta información de la posesión de la obra, no de su lugar de producción, por lo que no la consideramos una característica propia de esta. Decidimos prescindir de esta variable, no se transformará para ver utilizada pero se conservará en la base de datos como mera información consultable.
+
+**Recodificación variable "titulo"**
+
+Haremos uso de esta avriable para hacer una aproximación de la temática de cada obra utilizando sus palabras más frecuentes
+```{r}
+library(tm)
+
+tit <- df$titulo
+tit <- tolower(tit)
+
+# quitar acentos
+tit <- iconv(tit, from = "UTF-8", to = "ASCII//TRANSLIT")
+
+# quitar puntuación, números y espacios extra
+tit <- gsub("[[:punct:]]+", " ", tit)
+tit <- gsub("[[:digit:]]+", " ", tit)
+tit <- gsub("\\s+", " ", tit)
+
+# tokenizar
+palabras <- unlist(strsplit(tit, "\\s+"))
+
+# quitar tokens vacíos y muy cortos
+palabras <- palabras[nchar(palabras) >= 3]
+
+# quitar stopwords
+stop <- tm::stopwords("spanish")
+
+palabras <- palabras[!(palabras %in% stop)]
+
+# frecuencias
+freq <- sort(table(palabras), decreasing = TRUE)
+head(freq, 30)
+```
+
+La idea es crear un diccionario que almacene palabras clave de cada temática creada y asigne el tema correspondiente en la nueva variable "tema". Este proceso se ha repetido reiteradamente hasta lograr una clasificación satisfactoria, ya que en los primeros intentos un gran porcentaje de los casos caía en la categoría 'otros' por no ser clasificable. En cada iteración se obtubieron de nuevo las palabras más repetidas de este nivel 'otros' y se incluian en el diccionario para actualizarlo. Finalmente se ha aplicado el definitivo obteniendo las seguientes temáticas, con sus respectivas frecuencias:
+```{r}
+# normalizar
+normaliza_texto <- function(x) {
+  x <- tolower(x)
+  x <- iconv(x, from = "UTF-8", to = "ASCII//TRANSLIT")
+  x <- gsub("[[:punct:]]+", " ", x)
+  x <- gsub("[[:digit:]]+", " ", x)
+  x <- gsub("\\s+", " ", x)
+  trimws(x)
+}
+
+titulo_norm <- normaliza_texto(df$titulo)
+
+# temas
+temas <- list(
+
+  # 1) Religioso 
+  religioso = c(
+    "virgen","maria","senora","cristo","jesus",
+    "san","santo","santa","santos",
+    "crucifixion","calvario","descendimiento","piedad","dolorosa",
+    "flagelacion","entierro","resurreccion","pentecostes","trinidad",
+    "ecce","homo",                 
+    "noli","tangere",              
+    "adoracion","anunciacion","nacimiento","huida","aparicion",
+    "inmaculada","concepcion",
+    "bautista","magdalena","evangelista","pastores","magos",
+    "angel(es)?","angeles",
+    "cruz","martirio","penitente",
+    "oracion","templo","ermita","iglesia","catedral","monasterio","misa","profeta", 
+    "sagrada",
+    "comunion","visitacion","natividad","ascension",
+    "apostol(es)?","arcangel(es)?",
+    "dios","alma","salvador",
+    "virgen(es)?","pastor(es)?",
+    "prodigo","parabola",
+    "ultima cena",
+    "adan","abraham","isaac","moises","david","salomon","jacob",
+    "diluvio","paraiso","serpiente","caida","sacrificio",
+    "judit","holofernes","susana", "cain","abel","sanson","tobias","rebeca","agar","eliezer"
+  ),
+
+  # 2) Mitología clásica / temas mitológicos
+  mitologia = c(
+    "diana","venus","hercules","apolo","mercurio","orfeo","cupido","adonis",
+    "andromeda","ninfa(s)?","ninfas","vulcano","baco",
+    "diosa","rapto","bacanal","bacanal","fabula","amorcillo(s)?","amorcillos", 
+    "aquiles","eneas","atalanta","ceres","cefalo","ticio",
+    "lucrecia","cleopatra",
+    "armida"
+  ),
+
+  # 3) Retrato / corte / poder 
+  retrato_corte = c(
+    "autorretrato","retrato",
+    "rey(es)?","reina","principe","infanta","infante",
+    "duque","duquesa","conde","marques(a)?","cardenal",
+    "caballero","dama","don",
+    "emperador","ministro","papa","obispo",
+    "borbon","austria","asturias","orleans",
+    "felipe","carlos","isabel","fernando","alfonso","eugenia","catalina","mariana","juana","cristina","margarita", 
+    "busto","sentado","desnudo",
+    "artista","escritor","filosofo","escultor",
+    "condesa"
+  ),
+
+  # 4) Historia / guerra / militar
+  historia_alegoria = c(
+    "batalla","combate","choque","soldado(s)?","soldados",
+    "caballeria","conquista","victoria","triunfo",
+    "naval","ultramar","expedicion",
+    "alegoria","episodio","coronacion", 
+    "guerra","general","convoy","patria","colon",
+    "muerte","muerto(s)?","cadaver(es)?",
+    "castidad","abundancia",
+    "prision"
+  ),
+
+  # 5) Paisaje / lugares / naturaleza 
+  paisaje_lugares = c(
+    "paisaje","vista","marina","rio","puerto",
+    "playa","costa","bosque","campo","agua(s)?","aguas","orilla(s)?","orillas",
+    "laguna(s)?","lagunas","pico(s)?","picos",
+    "invierno","primavera","otono",
+    "jardin","interior","camino","ruinas","cercanias",
+    "plaza","patio","palacio","castillo",
+    "holanda","venecia","bruselas","granada","castilla","madrid","roma","toledo",
+    "aragon","espana","francia","egipto","napoles","portugal","mexico","brasil",
+    "alsasua","lequeitio","guethary","villerville","manzanares","retiro", 
+    "mallorca","paris","sevilla","elche",
+    "guadarrama","sierra","valle","alrededores",
+    "torre"
+  ),
+
+  # 6) Vida cotidiana / costumbrismo
+  vida_cotidiana = c(
+    "escena","baile","fiesta","mercado",
+    "fumador(es)?","fumadores",
+    "merienda","musica","jugando","juego",
+    "muchacho(s)?","muchachos","aldeano(s)?","aldeanos",
+    "pueblo","real",       
+    "bano","banquete","boda(s)?","bodas","boda", 
+    "familia","madre","padre","hijo(s)?","hija(s)?","hermanos",
+    "mujer(es)?","hombre(s)?","joven(es)?","nina(s)?","nino(s)?",
+    "anciana(s)?","anciano(s)?","vieja(s)?","viejo(s)?",
+    "maja(s)?","majo(s)?","manola","gitana","moro(s)?","veneciano(s)?","aldeana(s)?",
+    "paseo","concierto","lectura","leyendo","leccion","jugador(es)?",
+    "descanso","trabajo","vendedor(es)?","venta","carnaval","bebedor(es)?",
+    "charlatan","bufon","ciego","despedida","pescador(es)?"
+  ),
+
+  # 7) Bodegón / floral 
+  bodegon_floral = c(
+    "bodegon","florero","flores","frutas","uvas","guirnalda","mesa","cocina","despensa",
+    "flor(es)?","clavel(es)?","ciruela(s)?",
+    "frutero","cantaro",
+    "trampantojo","vanitas"
+  ),
+
+  # 8) Animales / caza 
+  caza_animales = c(
+    "caza","caceria","cazador",
+    "caballo","perro(s)?","perros","perro",
+    "oveja(s)?","ovejas","animal(es)?","animales","toros","aves",
+    "rebano","gallinero","cazadores"
+  ),
+
+  # 9) Proceso / estudio / técnica
+  proceso_obra = c(
+    "copia","estudio","boceto","pintor",
+    "figura(s)?","figuras","cabeza",
+    "mural","triptico","perspectiva","decoracion"
+  )
+)
+
+# clasificar (según primera coincidencia)
+asigna_tema <- function(txt) {
+  if (is.na(txt) || !nzchar(txt)) return("otros")
+  for (tema in names(temas)) {
+    for (kw in temas[[tema]]) {
+      patron <- paste0("\\b", kw, "\\b")
+      if (grepl(patron, txt, perl = TRUE)) return(tema)
+    }
+  }
+  "otros"
+}
+
+df$tema <- vapply(titulo_norm, asigna_tema, character(1))
+
+# frecuencias
+sort(table(df$tema), decreasing = TRUE)
+
+```
 
 **Variables no analizables**
 
-Finalmente listamos las variables que se han conservado en la abse de datos a modo de posibles consultas futuras, pero que no participaran de ningun moddo en el analisis: "numero_catalalogo", "titulo", "url", "nombre_autor", "procedencia".
-
-!!!! igual titulo se puede hacer algo
+Finalmente listamos las variables que se han conservado en la abse de datos a modo de posibles consultas futuras, pero que no participaran de ningun modo en el analisis: "numero_catalalogo", "titulo", "url", "nombre_autor", "procedencia", "fecha".
 
 ## CREACIÓN DE NUEVAS VARIABLES
 
@@ -321,9 +793,6 @@ df$exito <- as.integer(abs(df$razon - phi) <= tol)
 str(df$exito)
 ```
 
-
-!!!! igual probar lo de la distancia
-
 **Variable "orientacion"**
 
 A partir de las variables de dimensión "alto" y "ancho" creamos una nueva variable que nos indique si la forma de la pintura es vertical, horizontal o cuadrada.
@@ -348,21 +817,23 @@ df$tam_cat <- cut(df$area, breaks = c(-Inf, qs[1], qs[2], Inf),
 df$tam_cat <- as.factor(df$tam_cat)
 ```
 
-**Variable "corriente"**
+# BASE DE DATOS FINAL 
 
-depende de variable fecha y creo que algunas otras, aun ns como lo hare) --> igual no lo pongo como variable y lo utilizamos despues en las conclusiones e interpretaciones
-
-###########
-reorganizar 
+Finalmente obtenemos la base de datos ya tratada ('df_completa') y una extracción solo con las variables ´tiles para el análisis ('df')
 ```{r}
-df <- df[, c(
+df_completa <- df[, c(
+ 
+  # no útiles
   "numero_catalogo",
   "titulo",
   "url",
   "nombre_autor",
   "procedencia",
+  "fecha",
   "alto",
   "ancho",
+ 
+  # útiles
   "exito",
   "razon",
   "area",
@@ -374,10 +845,13 @@ df <- df[, c(
   "tecnica",
   tec_cols,
   "tipo_autor",
-  "serie"
+  "serie",
+  "fecha_est",
+  "fecha_ancho",
+  "tema"
 )]
 
-df_variables <- df[, c(
+df <- df[, c(
   "exito",
   "razon",
   "area",
@@ -389,8 +863,16 @@ df_variables <- df[, c(
   "tecnica",
   tec_cols,
   "tipo_autor",
-  "serie"
+  "serie",
+  "fecha_est",
+  "fecha_ancho",
+  "tema"
 )]
+
+# para exportar los archivos:
+write.csv(df_completa, "prado_gestionado.csv", row.names = FALSE)
+write.csv(df, "prado_variables.csv", row.names = FALSE)
 ```
+
 
 

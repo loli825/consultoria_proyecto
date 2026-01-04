@@ -173,6 +173,6 @@ CONTENIDO: base de datos preparada para el analisis
 
 ## prado_variables.csv
 
-CONTENIDO: base de datos preparada apra el analisis
+CONTENIDO: base de datos preparada para el analisis
 
 - Contiene únicamente las variables analizables
