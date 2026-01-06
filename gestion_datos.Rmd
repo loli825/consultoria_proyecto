@@ -105,7 +105,7 @@ cat("Niveles de 'tecnica':\n")
 table(df$tecnica)
 ```
 
-La solución óptima, dado que muchos casos presentan niveles multi-etiqueta, será recodificar en varias variables dummies como indicadores interpretables de la presencia de cada categoría. De esta manera prodremos asociar la presencia de cada técnica concreta con el aumento o no en la probabilidad de observar nuestro evento de interés. Obviamos las técnicas poco frecuentes 'Pastillaje', 'Pastel', 'Aguada', 'Técnicas de fotografía'
+La solución óptima, dado que muchos casos presentan niveles multi-etiqueta, será recodificar en varias variables dummies como indicadores interpretables de la presencia de cada categoría. De esta manera podremos asociar la presencia de cada técnica concreta con el aumento o no en la probabilidad de observar nuestro evento de interés. Obviamos las técnicas poco frecuentes 'Pastillaje', 'Pastel', 'Aguada', 'Técnicas de fotografía'
 ```{r}
 # RECOD. 'TECNICA'
 mk <- function(x, pattern) as.integer(grepl(pattern, x, ignore.case = TRUE))
@@ -158,7 +158,7 @@ tec_cols <- c("tec_oleo", "tec_acuosas", "tec_mixta", "tec_fresco", "tec_otras")
 df <- df[, c(setdiff(names(df), grep("^tec_", names(df), value = TRUE)), tec_cols)]
 
 cat("Frecuencia de cada técnica:\n")
-print(sort(colSums(df[, keep, drop=FALSE]), decreasing = TRUE))
+print(sort(colSums(df[, tec_cols, drop=FALSE]), decreasing = TRUE))
 ```
 
 A cotninuación proporcionamos un listado de los niveles originales y que dummies activa cada uno:
@@ -564,6 +564,31 @@ df$fecha_abierta_inicio <- NULL
 df$fecha_abierta_fin <- NULL
 ```
 
+Echamos un primer vistazo a la distribución de esta nueva variable "fecha_ancho" y nos damos cuenta de algo interesante:
+```{r}
+table(df$fecha_ancho)
+```
+
+Vemos picos claros en valores como '0' (exacta) y '99' (siglo), por esta razón decidimos crear una nueva variable llamada "fecha_cat" para captar mejor la estructura de la variable y mejorar la interpretación. Factorizamos y clasificamos en los siguientes niveles: '0' (fecha exacta), '1-10', (variabilidad baja), '11-98' (variabilidad moderada), '99' (grupo separado para fechas de siglo), '100+' (variabilidad alta).
+```{r}
+# grupos: 0, 1-10, 11-98, 99, +100
+df$fecha_cat <- ifelse(df$fecha_ancho == 0, "0",
+                        ifelse(df$fecha_ancho >= 1 & df$fecha_ancho <= 10, "1-10",
+                        ifelse(df$fecha_ancho >= 11 & df$fecha_ancho <= 98, "11-98",
+                        ifelse(df$fecha_ancho == 99, "99", "+100"))))
+
+# Factor con niveles estables y ordenados
+df$fecha_cat <- factor(
+  df$fecha_cat,
+  levels = c("0", "1-10", "11-98", "99", "+100"),
+  ordered = TRUE
+)
+
+# comprobación
+table(df$fecha_cat)
+df$fecha_ancho <- NULL
+```
+
 **Recodificación de variable "procedencia"**
 
 visualizarmeos algunos casos:
@@ -847,7 +872,7 @@ df_completa <- df[, c(
   "tipo_autor",
   "serie",
   "fecha_est",
-  "fecha_ancho",
+  "fecha_cat",
   "tema"
 )]
 
@@ -857,15 +882,13 @@ df <- df[, c(
   "area",
   "tam_cat",
   "orientacion",
-  "soporte",
   "soporte_grp",
   "sop_montaje",
-  "tecnica",
   tec_cols,
   "tipo_autor",
   "serie",
   "fecha_est",
-  "fecha_ancho",
+  "fecha_cat",
   "tema"
 )]
 
@@ -873,6 +896,7 @@ df <- df[, c(
 write.csv(df_completa, "prado_gestionado.csv", row.names = FALSE)
 write.csv(df, "prado_variables.csv", row.names = FALSE)
 ```
+
 
 
 

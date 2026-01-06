@@ -11,7 +11,7 @@ Tareas ordenadas cronologicamente:
 
 - (MANUELA) revisar y arreglar fichas técnicas, construir dataset base para trabajar ('gestion.py' --> 'prado.jsonl' --> 'json_a_csv.py' --> 'prado.csv')
 
-- (MANUELA) gestion de datos ('gestion_datos.Rmd' --> 'prado_gestionado.csv', 'prado_variables.csv')
+- (MANUELA) gestion de datos y construcción de variables ('gestion_datos.Rmd' --> 'prado_gestionado.csv', 'prado_variables.csv')
 
 # ARCHIVOS
 
