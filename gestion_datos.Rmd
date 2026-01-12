@@ -889,7 +889,7 @@ df$tam_cat <- factor(
 df$tam_cat <- as.factor(df$tam_cat)
 ```
 
-## Manejo de desvalances
+## Manejo de desbalances
 
 Presentaremos las frecuencias de cada variable factor:
 ```{r}
