@@ -74,6 +74,7 @@ df$tipo_autor <- ifelse(df$autor == "Anónimo", "anonimo",
                  ifelse(df$autora  != "0", "mujer",
                  ifelse(df$autores != "0", "varios",
                  ifelse(df$autor   != "0", "hombre", "0"))))
+df$tipo_autor <- as.factor(df$tipo_autor)
 
 # 3) eliminamos variables antiguas
 df$autor <- NULL
@@ -92,7 +93,7 @@ Consideramos apropiado mantener "serie" en calidad de conocer si la pintura pert
 ```{r}
 # RECOD. 'SERIE'
 df$serie <- ifelse(df$serie == "0", 0, 1)
-df$serie <- as.numeric(df$serie)
+df$serie <- as.factor(df$serie)
 
 table(df$serie)
 ```
@@ -128,10 +129,9 @@ df$tec_pastel = mk(x,"Pastel")
 df$tec_aguada = mk(x,"Aguada")
 df$tec_foto = mk(x,"Técnicas de fotografía")
 
-
-## frecuencias/comprobación
 tec_cols <- c("tec_oleo","tec_temple","tec_tempera","tec_fresco","tec_mixta", "tec_enconchado","tec_grisalla","tec_dorado", "tec_pastillaje", "tec_pastel", "tec_aguada", "tec_foto")
 
+## frecuencias/comprobación
 cat("Frecuencia de cada técnica:\n")
 print(sort(colSums(df[, tec_cols, drop=FALSE]), decreasing = TRUE))
 ```
@@ -173,6 +173,9 @@ dic_tec$activas <- apply(dic_tec[, tec_cols], 1, function(z) {
 
 dic_tec <- dic_tec[, c("tecnica", "activas")]
 dic_tec
+
+#convertimos a factor 
+df[tec_cols] <- lapply(df[tec_cols], as.factor)
 ```
 
 **Recodificación de variable "soporte"**
@@ -239,7 +242,6 @@ sort(table(df$soporte_grp), decreasing = TRUE)
 
 cat("Frecuencia de cada soporte puro/montaje:\n")
 with(df, table(soporte_grp, sop_montaje))
-
 ```
 
 Debido a la baja frecuencia observada en algunas clases, deberiamos vovler a reagrupar estas minoritarias en un mismo grupo. Decidimos conservar 'mural' y 'papel/vileta' como últimos de frecuencia aceptable y devido a su potencial efecto sobre la respesta. Reagrupamos el resto en un nivel llamadp 'otros'.
@@ -256,7 +258,7 @@ df$soporte_grp <- factor(
 sort(table(df$soporte_grp), decreasing = TRUE)
 ```
 
-A continuación proporcionamos un listado con los niveles originales y a que neuvo nivel han sido asignados:
+A continuación proporcionamos un listado con los niveles originales y a que nuevo nivel han sido asignados:
 ```{r}
 dic_sop <- aggregate(
   df[, c("sop_montaje")],
@@ -265,6 +267,9 @@ dic_sop <- aggregate(
 )
  names(dic_sop) <- c("soporte", "soporte_grp", "sop_montaje")
 dic_sop
+
+# convertimos a factor
+df$sop_montaje <- as.factor(df$sop_montaje)
 ```
 
 
@@ -782,9 +787,10 @@ asigna_tema <- function(txt) {
 
 df$tema <- vapply(titulo_norm, asigna_tema, character(1))
 
+df$tema <- as.factor(df$tema)
+
 # frecuencias
 sort(table(df$tema), decreasing = TRUE)
-
 ```
 
 **Variables no analizables**
@@ -814,6 +820,7 @@ phi <- (1 + sqrt(5)) / 2
 tol <- 0.05 * phi
 
 df$exito <- as.integer(abs(df$razon - phi) <= tol)
+df$exito <- as.factor(df$exito)
 
 str(df$exito)
 ```
@@ -825,6 +832,7 @@ A partir de las variables de dimensión "alto" y "ancho" creamos una nueva varia
 # orientación: vertical si alto > ancho, horizontal si ancho > alto
 df$orientacion <- ifelse(df$alto > df$ancho, "vertical",
                          ifelse(df$ancho > df$alto, "horizontal", "cuadrado"))
+df$orientacion <- as.factor(df$orientacion)
 
 table(df$orientacion)
 ```
@@ -839,13 +847,23 @@ df$area <- df$alto * df$ancho
 qs <- quantile(df$area, probs = c(0.33, 0.66), na.rm=TRUE)
 df$tam_cat <- cut(df$area, breaks = c(-Inf, qs[1], qs[2], Inf),
                   labels = c("pequeno","mediano","grande"), right = TRUE)
+
+df$tam_cat <- factor(
+  df$tam_cat,
+  levels = c("pequeno","mediano","grande"),
+  ordered = TRUE
+)
+
 df$tam_cat <- as.factor(df$tam_cat)
 ```
 
 # BASE DE DATOS FINAL 
 
-Finalmente obtenemos la base de datos ya tratada ('df_completa') y una extracción solo con las variables ´tiles para el análisis ('df')
+Finalmente obtenemos la base de datos ya tratada ('df_completa') y una extracción solo con las variables útiles para el análisis ('df')
 ```{r}
+
+str(df)
+
 df_completa <- df[, c(
  
   # no útiles
