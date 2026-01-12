@@ -1,0 +1,592 @@
+---
+title: "análisis descriptivo"
+output: html_document
+date: "2026-01-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+df <- read_csv("consultoria_proyecto/prado_variables.csv")
+```
+
+Empezamos el análisis descriptivo construyendo para cada variable, una tabla de frecuencias y el gráfico de barras correspondiente, la forma más directa de entender cómo se reparte la información dentro del conjunto de datos. Antes de comparar con la variable respuesta (exito) o plantear cualquier modelo, necesitamos saber qué categorías aparecen, con qué peso y si existe algún patrón evidente en la composición de la muestra. 
+
+Como control de calidad permite detectar problemas típicos en datos obtenidos por web scraping, como etiquetas duplicadas, niveles inesperados o valores codificados de manera especial.
+
+Las frecuencias son necesarias para interpretar correctamente lo que venga después. 
+Si tenemos una categoría muy mayoritaria cualquier resultado puede estar condicionado por esa dominancia. Tener la proporción de cada nivel ayuda a contextualizar comparaciones; no es lo mismo observar un patrón en una categoría con miles de obras que en otra con muy pocas. 
+
+Las clases minoritarias aun que ess habitual que algunas categorías tengan pocas observaciones.Si tenemos demasiados niveles con baja frecuencia hacen que los gráficos sean ilegibles y no podamos extraer conclusiones.
+
+En resumen, trabajar variable por variable es una etapa imprescindible porque permite verificar la coherencia de las variables, comprender la estructura real de los datos y anticipar problemas derivados de categorías raras. Esto asegura que las comparaciones posteriores con exito sean interpretables, estables y defendibles.
+
+
+#exito 
+
+```{r}
+table(df$exito)
+
+v <- "exito"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+names(tab)[names(tab) == "0"] <- "0 (no cumple)"
+names(tab)[names(tab) == "1"] <- "1 (cumple)"
+
+# gráfico
+barplot(tab, las = 1, main = "¿Cumple la proporción áurea?", ylab = "frequencia")
+
+```
+
+# area ¿???¿?¿? MIRAR LO DEL LOG 
+
+```{r}
+hist(log1p(df$area), breaks = "FD", main = "Histograma de log1p(area)", xlab = "log1p(area)")
+plot(density(log1p(df$area)), main = "Densidad de log1p(area)", xlab = "log1p(area)")
+
+```
+
+#tam_cat
+
+```{r}
+table(df$tam_cat)
+
+v <- "tam_cat"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+# gráfico
+barplot(tab, las = 1, main = "Tamaño", ylab = "frequencia")
+
+```
+
+#orientación
+```{r}
+table(df$orientacion)
+
+v <- "orientacion"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+# gráfico
+barplot(tab, las = 1, main = "Orientación", ylab = "frequencia")
+
+```
+
+#soporte_grp
+
+```{r}
+table(df$soporte_grp)
+
+v <- "soporte_grp"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+# gráfico
+barplot(tab, las = 1, main = "??¿?¿?", ylab = "frequencia")
+
+```
+
+#sop_montaje
+
+```{r}
+table(df$sop_montaje)
+
+v <- "sop_montaje"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+names(tab)[names(tab) == "0"] <- "No ?¿?¿"
+names(tab)[names(tab) == "1"] <- "Sí ?¿?¿?"
+
+# gráfico
+barplot(tab, las = 1, main = "Soportes", ylab = "frequencia")
+
+```
+
+#dummies *****
+
+
+#tipo_autor
+```{r}
+table(df$tipo_autor)
+
+v <- "tipo_autor"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+# gráfico
+barplot(tab, las = 1, main = "Tipo de Autor", ylab = "frequencia")
+
+```
+#serie
+
+```{r}
+table(df$serie)
+
+v <- "serie"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+names(tab)[names(tab) == "0"] <- "0 (No)"
+names(tab)[names(tab) == "1"] <- "1 (Sí)"
+
+# gráfico
+barplot(tab, las = 1, main = "Forma parte de una serie", ylab = "frequencia")
+
+```
+
+#fecha_est.  ###### LOG ?¿?¿=??
+```{r}
+table(df$fecha_est)
+
+v <- "fecha_est"
+tab <- sort(table(df[[v]]), decreasing = FALSE)
+
+# gráfico
+barplot(tab, las = 1, main = "Fecha Estimada", ylab = "frequencia")
+
+```
+
+#fecha_ancho
+```{r}
+table(df$fecha_ancho)
+
+v <- "fecha_ancho"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+# gráfico
+boxplot(tab, main = "Variabidad de la Fecha")
+
+```
+
+#tema 
+```{r}
+table(df$tema)
+
+v <- "tema"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+# gráfico
+barplot(tab, las = 2, main = "Tema de la Obra", ylab = "frequencia")
+
+```
+
+
+
+#pairs
+```{r}
+vars_num <- c( "area", "razon", "fecha_est")
+vars_num <- vars_num[vars_num %in% names(df)]
+
+df_num <- df[, vars_num, drop = FALSE]
+
+set.seed(1)
+idx <- sample(nrow(df_num), min(1000, nrow(df_num)))
+
+pairs(df_num[idx, ],
+      pch = 16, cex = 0.4,
+      main = "Pairs: variables numéricas (muestra)")
+
+```
+
+```{r}
+panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor = 1.2, ...) {
+  oldusr <- par("usr")
+  on.exit(par(usr = oldusr))     # <- así NO da warnings
+  par(usr = c(0, 1, 0, 1))
+
+  r <- suppressWarnings(cor(x, y, method = "spearman"))
+  txt <- formatC(r, digits = digits, format = "f")
+  text(0.5, 0.5, paste0(prefix, txt), cex = cex.cor)
+}
+
+pairs(df_num[idx, ],
+      lower.panel = panel.smooth,
+      upper.panel = panel.cor,
+      pch = 16, cex = 0.4,
+      main = "Pairs + Spearman")
+
+
+```
+
+En el gráfico Pairs + Spearman se aprecia, en primer lugar, que las variables de tamaño (alto, ancho y area) están fuertemente relacionadas entre sí. Natural; las obras con mayor altura tienden a tener mayor anchura, y el area al ser un producto de ambas concentra prácticamente la misma información. En términos de análisis esta “familia” de variables es redundante: si en fases posteriores se construyen modelos, conviene evitar incluir a la vez alto, ancho y area porque pueden introducir colinealidad (aportan información muy parecida).
+
+En los paneles de dispersión se ve que razon no aumenta sistemáticamente con alto, ancho o area: hay obras grandes y pequeñas con proporciones similares. Esto es importante porque sugiere que la proporción del cuadro es relativamente independiente del tamaño; por tanto.
+
+La relación entre razon y dist_phi_log muestra un patrón claramente no lineal esperable porque dist_phi_log es la distancia a la razón áurea: toma valores pequeños cuando razon está cerca de φ y crece cuando se aleja por encima o por debajo. 
+
+Por último, fecha_est no presenta asociaciones fuertes y lineales con las dimensiones ni con las medidas de proporción en esta exploración global, si existe algún efecto temporal, probablemente débil o  condicionado por subgrupos más que por el año en sí. 
+
+```{r}
+
+# numéricas (incluye 0/1)
+df_num_all <- df[, sapply(df, is.numeric), drop = FALSE]
+
+# si no quieres incluir la respuesta en esta exploración:
+df_num_all$exito <- NULL
+
+cor_mat <- cor(df_num_all, method = "spearman")
+round(cor_mat, 2)[1:10, 1:10]  # vistazo
+
+# (opcional) visualizar
+image(cor_mat, axes = FALSE, main = "Correlaciones Spearman")
+axis(1, at = seq(0, 1, length.out = ncol(cor_mat)), labels = colnames(cor_mat), las = 2, cex.axis = 0.6)
+axis(2, at = seq(0, 1, length.out = ncol(cor_mat)), labels = rownames(cor_mat), las = 2, cex.axis = 0.6)
+
+```
+Este mapa de calor resume las correlaciones de Spearman entre las variables numéricas (incluidas las dummies 0/1). Sirve para ver qué variables se mueven juntas y cuáles aportan información más independiente. Al ser Spearman (por rangos), es útil aunque haya asimetrías, outliers o relaciones no perfectamente lineales.
+
+Lo más evidente es el bloque de correlaciones altas entre alto, ancho y area. 7
+
+También se aprecia que las variables ligadas a la proporción áurea (por ejemplo `razon` y `dist_phi_log`) presentan una relación destacable entre sí, lo cual tiene sentido porque **`dist_phi_log` se deriva directamente de `razon`** como medida de “distancia” a φ. Por tanto, no deben interpretarse como dos fuentes independientes de información: si el objetivo es modelar o explicar “cercanía a la proporción áurea”, normalmente conviene trabajar **o bien con `razon` o bien con `dist_phi_log`**, según si queréis una medida directa de proporción o una medida de desviación respecto a φ.
+
+En contraste, el resto de variables (por ejemplo `fecha_est`, `serie`, `sop_montaje` y las dummies `tec_*`) muestran, en general, **correlaciones relativamente bajas** con el bloque de tamaño y con las variables de proporción, lo que sugiere que aportan información distinta y que sus efectos, si existen, probablemente no se explican simplemente por “cuadros más grandes/pequeños” o por el periodo. Dentro del grupo `tec_*` pueden aparecer correlaciones negativas entre algunas técnicas, algo normal porque en la práctica muchas técnicas funcionan como **alternativas** (si predomina una, disminuye la presencia de otra), aunque en vuestro caso puede haber multietiqueta.
+
+En resumen, este gráfico confirma dos decisiones metodológicas importantes: (1) **reducir redundancia** quedándonos con una sola variable de tamaño y evitando meter juntas variables derivadas entre sí; y (2) separar el análisis de “tamaño” del análisis de “proporción”, porque no parecen ser la misma dimensión del fenómeno. Esto deja el terreno preparado para comparar `exito` con variables interpretables (técnica, soporte, época, etc.) sin que los resultados estén dominados por dependencias matemáticas entre variables.
+
+##totas vairables con la variable respuesta exito
+
+#que variables influyen al exito , hay diferencias entre categorias
+
+## exito y area 
+```{r}
+boxplot(log1p(df$area) ~ df$exito,
+        main = "Distribución de log(área+1) según cumplimiento de la condición áurea",
+        xlab = "¿Cumple la condición áurea?",
+        ylab = "log(área + 1)",
+        las = 1)
+
+df$exito_f <- factor(df$exito, levels = c(0, 1),
+                     labels = c("No cumple", "Sí cumple"))
+
+```
+
+Se observan outliers de obras muy pequeñas y muy grandes en ambos grupos, pero al usar log(área+1) su efecto queda controlado; no conviene eliminarlos, solo revisar los casos más extremos por si hay medidas atípicas.
+La mediana de log(área+1) es algo mayor en el grupo que sí cumple (1) que en el que no cumple (0), aunque hay bastante solapamiento, por lo que el tamaño parece asociarse al éxito de forma leve.
+
+# fecha estimada y exito 
+```{r}
+boxplot((df$fecha_est) ~ df$exito,
+        main = "Distribución de la fecha estimada según cumplimiento de la condición áurea",
+        xlab = "¿Cumple la condición áurea?",
+        ylab = "fecha estimada",
+        las = 1)
+
+
+tab <- table(df$tam_cat, df$exito)
+prop <- prop.table(tab, 1)  # proporciones por fila (cada tam_cat suma 1)
+
+```
+Se observan outliers de fechas muy tempranas en ambos grupos (más visibles en el grupo 0), que conviene revisar como posibles estimaciones poco precisas o casos especiales, pero no eliminarlos sin justificación histórica.
+La distribución del grupo que sí cumple (1) aparece ligeramente desplazada a fechas más recientes (mediana más alta), aunque hay solapamiento, por lo que la fecha podría influir de forma débil en el éxito.
+
+## tamaño categorizado con exito  
+
+```{r}
+barplot(t(prop),
+        beside = FALSE,
+        ylim = c(0,1),
+        main = "Distribución de exito dentro de cada tam_cat",
+        xlab = "tam_cat",
+        ylab = "Proporción",
+        las = 1)
+legend("topright", legend = colnames(prop), bty = "n")
+```
+Se aprecia que la proporción de “sí cumple” es menor en obras grandes y mayor en medianas/pequeñas, lo que sugiere que el tamaño categorizado podría influir en el éxito (aunque las diferencias no parecen enormes).
+
+# fecha estimada con exito 
+```{r}
+hist(df$fecha_est, breaks="FD", main="Distribución de fecha_est", xlab="año estimado")
+
+# tamaño a lo largo del tiempo (con suavizado)
+plot(df$fecha_est, log1p(df$area), pch=16, cex=0.3,
+     xlab="fecha_est", ylab="log1p(area)",
+     main="Tamaño (log) vs tiempo")
+lines(lowess(df$fecha_est, log1p(df$area), f=0.3), lwd=2)
+
+```
+
+##orientación con exito 
+```{r}
+tab <- table(df$orientacion, df$exito_f)
+
+cols <- c("red", "green")  # No cumple / Sí cumple
+
+barplot(t(tab),
+        beside = TRUE,
+        col = cols,
+        las = 1,
+        main = "Éxito según orientación",
+        xlab = "Orientación",
+        ylab = "Número de obras")
+
+legend("topleft",
+       legend = colnames(tab),
+       fill = cols,
+       bty = "n",
+       cex = 0.9)
+
+```
+La categoría “cuadrado” tiene muy pocas observaciones y no es fiable para concluir.
+Entre horizontal y vertical se ve una diferencia pequeña: ambas concentran la mayoría de casos y la proporción de “sí cumple” parece similar, por lo que la orientación por sí sola no parece influir mucho en el éxito.
+
+## soporte con exito 
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+tab <- table(df$soporte_grp, df$exito_f)
+
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n <- rowSums(tab)
+
+ord <- order(rate, decreasing=TRUE)
+rate <- rate[ord]; n <- n[ord]
+
+ylab2 <- names(rate)
+ylab2 <- gsub("Papel/Vitela", "Papel/\nVitela", ylab2)
+ylab2 <- gsub("Tabla/Panel", "Tabla/\nPanel", ylab2)
+
+op <- par(no.readonly=TRUE)
+
+par(mar=c(5, 11, 4, 2) + 0.1)   # margen izq razonable
+xmax <- max(rate) * 1.35        # escala que se adapte a tus tasas
+bp <- barplot(rate,
+              horiz=TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col="lightblue",
+              las=1,
+              cex.names=0.95,
+              main="Tasa de cumplimiento áureo por soporte",
+              xlab="P(Sí cumple)",
+              ylab="")
+
+# "Soporte" cerca, sin exagerar
+mtext("Soporte", side=2, line=3)
+
+text(x=rate, y=bp, labels=paste0("  n=", n), pos=4, cex=0.9)
+
+par(op)
+
+
+```
+Se observan diferencias en la tasa de éxito por soporte: lienzo, mural y tabla/panel presentan tasas más altas, mientras que metal y “otros” muestran tasas más bajas, lo que sugiere que el soporte podría influir en el éxito.
+Aun así, varias categorías tienen n pequeño (p. ej., mural, papel/vitela, otros), por lo que esas diferencias deben interpretarse con cautela y confirmarse con un contraste/modelo.
+
+## soporte montaje con exito 
+
+```{r}
+# Etiquetas bonitas
+df$exito_f <- factor(df$exito, levels = c(0,1),
+                     labels = c("No cumple", "Sí cumple"))
+df$sop_montaje_f <- factor(df$sop_montaje, levels = c(0,1),
+                           labels = c("No montaje", "Sí montaje"))
+
+tab <- table(df$sop_montaje_f, df$exito_f)
+
+cols <- c("red", "green")  # No / Sí
+
+barplot(t(tab),
+        beside = TRUE,
+        col = cols,
+        las = 1,
+        main = "Éxito según sop_montaje",
+        xlab = "sop_montaje",
+        ylab = "Número de obras")
+
+legend("topright",
+       legend = colnames(tab),
+       fill = cols,
+       bty = "n")
+
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+
+barplot(rate,
+        ylim = c(0,1),
+        col = "lightblue",
+        las = 1,
+        main = "Tasa de cumplimiento áureo según sop_montaje",
+        xlab = "sop_montaje",
+        ylab = "P(Sí cumple)")
+
+text(seq_along(rate), rate, labels = round(rate, 3), pos = 3)
+
+tab
+round(prop.table(tab, 1), 3)  # proporciones por fila
+
+```
+La variable sop_montaje parece influir un poco: cuando la obra es “montaje”, el porcentaje que cumple la proporción áurea es 14.1%, y cuando no es montaje es 12.0% (o sea, en montaje se cumple algo más).
+La diferencia es pequeña y además hay muchísimas menos obras con montaje (276) que sin montaje (6759), así que no podemos asegurar que sea una diferencia “real” sin comprobarlo con un test/modelo.
+
+```{r}
+tec_cols <- c("tec_oleo","tec_acuosas","tec_mixta","tec_fresco","tec_otras")
+
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+# matriz: filas técnicas, columnas exito (proporciones dentro de cada técnica)
+mat <- sapply(tec_cols, function(v) {
+  idx <- df[[v]] == 1
+  prop.table(table(df$exito_f[idx]))
+})
+
+mat <- t(mat)               # técnicas en filas
+mat[is.na(mat)] <- 0
+
+# colores fijos por categoría de éxito
+cols <- c("red", "green")   # No cumple / Sí cumple
+
+par(mar=c(8,4,4,2)+0.1)
+barplot(t(mat),
+        beside = FALSE,
+        ylim = c(0,1),
+        las = 2,
+        col = cols,
+        main = "Distribución de éxito entre obras con cada técnica",
+        ylab = "Proporción")
+
+legend("topright",
+       legend = c("No cumple","Sí cumple"),
+       fill = cols,
+       bty = "n")
+
+```
+
+## tipo de autor con exito 
+```{r}
+df$exito_f <- factor(df$exito, levels = c(0,1),
+                     labels = c("No cumple","Sí cumple"))
+
+tab <- table(df$tipo_autor, df$exito_f)
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+
+barplot(rate, ylim=c(0,1), las=1, col="lightblue",
+        main="Tasa de cumplimiento áureo por tipo de autor",
+        ylab="P(Sí cumple)")
+text(seq_along(rate), rate, labels=round(rate,3), pos=3, cex=0.8)
+
+```
+Se observan diferencias en la tasa de éxito según tipo de autor (más alta en “varios” y “mujer”, más baja en “anónimo”), lo que sugiere cierta asociación entre tipo de autor y cumplimiento áureo.
+Pero hay que tener en cuenta el tamaño muestral muy desigual (hombre n=6161 vs mujer n=59 y varios n=154): las tasas de “mujer” y “varios” son mucho menos estables y deben interpretarse con cautela.
+
+## si forma parte de una serie y exito
+```{r}
+df$exito_f <- factor(df$exito, levels = c(0,1),
+                     labels = c("No cumple","Sí cumple"))
+
+df$serie_f <- factor(df$serie, levels = c(0,1),
+                     labels = c("No pertenece a serie", "Pertenece a serie"))
+
+tab <- table(df$serie_f, df$exito_f)
+
+cols <- c("red", "green")
+
+barplot(t(tab),
+        beside = TRUE,
+        col = cols,
+        las = 1,
+        main = "Éxito según pertenencia a serie",
+        xlab = "Serie",
+        ylab = "Número de obras")
+
+legend("topright",
+       legend = colnames(tab),
+       fill = cols,
+       bty = "n")
+
+tab
+round(prop.table(tab, 1), 3)   # proporciones dentro de cada grupo de serie
+
+```
+Pertenecer a una serie parece estar asociado a un ligero aumento del éxito: las obras en serie cumplen un poco más (13.7%) que las que no pertenecen a serie (11.7%).
+La diferencia es pequeña pero consistente, y como ambos grupos tienen tamaños razonables (n=1407 en serie vs n=5628 fuera), es un patrón a tener en cuenta y que se puede confirmar con un test/modelo.
+
+## fecha estimada y exito 
+```{r}
+df$exito_f <- factor(df$exito, levels = c(0,1),
+                     labels = c("No cumple","Sí cumple"))
+
+boxplot(df$fecha_est ~ df$exito_f,
+        main = "Fecha estimada según cumplimiento áureo",
+        xlab = "¿Cumple?",
+        ylab = "fecha_est (año)",
+        las = 1)
+
+```
+Las obras que sí cumplen la condición áurea tienden a ser ligeramente más recientes (mediana algo más alta) que las que no cumplen, por lo que la fecha estimada podría estar asociada al éxito, aunque el solapamiento entre cajas es grande.
+Los outliers son pocas obras muy antiguas (sobre todo en “no cumple”); no se eliminarían por defecto, pero conviene revisarlas por si son fechas mal estimadas o casos especiales, y usar métodos robustos si afectan al modelo.
+
+## tema y exito 
+
+```{r}
+# Etiquetas bonitas para exito
+df$exito_f <- factor(df$exito, levels = c(0,1),
+                     labels = c("No cumple","Sí cumple"))
+
+# Tabla tema × exito
+tab <- table(df$tema, df$exito_f)
+
+# Tasa de éxito por tema
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n <- rowSums(tab)
+
+# Ordenar (elige UNA de estas dos)
+ord <- order(rate, decreasing = TRUE)   # por tasa de éxito
+# ord <- order(n, decreasing = TRUE)    # por tamaño muestral
+
+rate <- rate[ord]
+n <- n[ord]
+
+# Línea base (tasa global)
+p_global <- mean(df$exito_f == "Sí cumple")
+
+# Plot horizontal para que se lean todos los temas
+par(mar = c(5, 16, 4, 2) + 0.1)
+
+bp <- barplot(rate,
+              horiz = TRUE,
+              xlim = c(0, 1),
+              col = "lightblue",
+              las = 1,
+              main = "Tasa de cumplimiento áureo por tema",
+              xlab = "P(Sí cumple)")
+
+abline(v = p_global, lty = 2)
+
+# Etiquetas con n
+text(x = rate, y = bp, labels = paste0("n=", n), pos = 4, cex = 0.8)
+
+par(mar = c(5,4,4,2) + 0.1)
+
+```
+Si la barra de un tema queda a la derecha de esa línea → ese tema tiene una tasa de éxito mayor que la media general.
+Si queda a la izquierda → menor que la media general.
+Se aprecian diferencias de tasa de éxito entre temas (algunas categorías quedan por encima y otras por debajo de la media general), lo que sugiere que el “tema” podría estar relacionado con el cumplimiento áureo.
+Pero hay que interpretar con mucha cautela los temas con n pequeño (p. ej., caza_animales n=106 o proceso_obra n=123), porque sus porcentajes pueden variar mucho por azar; las comparaciones más fiables son las de temas con n grande (p. ej., religioso n=2512, otros n=1216, retrato_corte n=995).
+
+#SEGUIMOOOSOOSOSOSOOSOOSOSOO
+
+
+##orientación con tam_cat
+```{r}
+# ORIENTACION vs TAM_CAT  (barras 100% por tamaño)
+tab <- table(df$orientacion, df$tam_cat)
+tab  # conteos
+
+prop_col <- prop.table(tab, 2)  # proporciones dentro de cada tam_cat
+round(prop_col, 3)
+
+cols <- c("skyblue3","orange2","gray50")  # vertical / horizontal / cuadrado (ajusta si quieres)
+
+barplot(prop_col,
+        beside = FALSE,
+        ylim = c(0, 1),
+        las = 1,
+        col = cols,
+        main = "Orientación dentro de cada tamaño (tam_cat)",
+        xlab = "Tamaño (tam_cat)",
+        ylab = "Proporción")
+
+legend("topright", legend = rownames(prop_col), fill = cols, bty = "n")
+
+```
+En los tres tamaños (pequeño, mediano y grande) prácticamente no aparecen obras “cuadrado” (proporción casi 0), así que la orientación dominante es horizontal/vertical.
+
+Sí hay diferencias entre categorías: en “mediano” aumenta la proporción de verticales (y bajan las horizontales) respecto a “grande” y “pequeño”, pero las diferencias no parecen enormes (el patrón general se mantiene).
+
+## tabla de areas
