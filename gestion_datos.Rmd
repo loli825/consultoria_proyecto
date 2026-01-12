@@ -161,7 +161,7 @@ cat("Frecuencia de cada técnica:\n")
 print(sort(colSums(df[, tec_cols, drop=FALSE]), decreasing = TRUE))
 ```
 
-A cotninuación proporcionamos un listado de los niveles originales y que dummies activa cada uno:
+A continuación proporcionamos un listado de los niveles originales y que dummies activa cada uno:
 ```{r}
 lab <- sub("^tec_", "", tec_cols)
 
@@ -175,7 +175,39 @@ dic_tec <- dic_tec[, c("tecnica", "activas")]
 dic_tec
 
 #convertimos a factor 
-df[tec_cols] <- lapply(df[tec_cols], as.factor)
+# df[tec_cols] <- lapply(df[tec_cols], as.factor)
+```
+
+Para confirmar si el tipod e codificación muultietiqueta con dummies es útil o no vamos a detectar cuantas observacines hacen uso de tal carácter contando cuantas ativan más de 1 dummy:
+```{r}
+n_tec <- rowSums(df[tec_cols] == 1)
+n_multietiqueta <- sum(n_tec > 1)
+
+n_multietiqueta
+```
+
+Vemos que el porcentaje de observaciones que activan más una técnica (después de nuetsra reagrupación de estas) es obviamente despreciable. Por esta razón y con el objetivo de simplificar nuestra base de datos, procedemos a reestablecer un único factor indicativo de la técnica utilizada, con los actuales valores de las dummies, y clasificaremos estas observaciones multietiqueta dentro de la categoria 'tec_mixta'.
+```{r}
+# contar cuantas tecnicas activas por fila
+n_tec <- rowSums(df[tec_cols] == 1)
+
+# nueva columna
+df$tecnica <- NA_character_
+
+# multietiqueta a 'mixta'
+df$tecnica[n_tec > 1] <- "mixta"
+
+# niveles según dummy
+idx_single <- which(n_tec == 1)
+
+if (length(idx_single) > 0) {
+  M <- df[idx_single, tec_cols, drop = FALSE] == 1
+  active_col <- tec_cols[max.col(M, ties.method = "first")]
+  df$tecnica[idx_single] <- sub("^tec_", "", active_col) # nombre arreglado
+}
+
+#comprobación
+sort(table(df$tecnica), decreasing = TRUE)
 ```
 
 **Recodificación de variable "soporte"**
@@ -857,13 +889,74 @@ df$tam_cat <- factor(
 df$tam_cat <- as.factor(df$tam_cat)
 ```
 
+## Manejo de desvalances
+
+Presentaremos las frecuencias de cada variable factor:
+```{r}
+cat <- c(
+  "tam_cat",
+  "orientacion",
+  "soporte_grp",
+  "sop_montaje",
+  "tecnica",
+  "tipo_autor",
+  "serie",
+  "fecha_cat",
+  "tema"
+)
+
+for (v in cat) {
+  cat("\n====================\n")
+  cat("Variable:", v, "\n")
+  print(table(df[[v]]))
+}
+```
+
+Para detectar roblemas reales debemos fijarnos no en el conteo marginal, sino cruzado con la variable objetivo. Fijaremos como indicio de problema cuando el recuento de "exito"='1' sea inferior a 5 en una categoría.
+```{r}
+y <- df$exito  
+
+for (v in cat) {
+  tab2 <- table(y, df[[v]])
+  m <- min(tab2)
+  if (m < 5) {  # umbral típico para problemas
+    cat("\n*** POSIBLE PROBLEMA (min celda <", 5, ") en:", v, "***\n")
+    print(tab2)
+  }
+}
+```
+
+Vemos que las únicas variables realmente problematicas son "orientacion" con el nivel 'cuadrado', "soporte_grp" con el nivel 'otros' y "tecnica" con los niveles 'acuosas', 'fresco' y 'otras'. 
+
+Comenzando con "orientación" podemos ver que es obvio el hecho de que en el nivel 'cuadrado' no va a aparecer ningún éxito por definición: si es cuadrado es imposible que siga la proporción aurea. No podemso simplemente eliminar estos casos, aunque sean pocos, porque estariamos generando un sesgo sistemático, pero lo que sí haremos será aplicar esta regla en el ajuste. Es decir, los cuadrados siempre serán catalogados como exito=0 y las interpretaciones se haran teniendo en cuenta la modificación en la inferencia, solo podremos inferir en aquellas obras no cuadradas.
+
+Las dos otras variables se solucionarán simplemente reagrupando sus niveles. Para "soporte_grp" reagruparemos 'Papel/Vitela' en 'Otros', y para "tecnica" reagruparemos únicamente en 'oleo', 'mixta' y 'otras'.
+```{r}
+# soporte_grp: mover "Papel/Vitela" a "Otros"
+df$soporte_grp <- as.character(df$soporte_grp)
+df$soporte_grp[df$soporte_grp == "Papel/Vitela"] <- "Otros"
+df$soporte_grp <- factor(df$soporte_grp)
+
+# tecnica: dejar solo "oleo", "mixta" y "otras"
+df$tecnica <- as.character(df$tecnica)
+df$tecnica[!(df$tecnica %in% c("oleo", "mixta"))] <- "otras"
+df$tecnica <- factor(df$tecnica)
+
+# comprobar
+cat("\n====================\n")
+cat("Frecuencias margincales:")
+table(df$soporte_grp)
+table(df$tecnica)
+cat("\n====================\n")
+cat("Frecuencias cruzadas:")
+table(df$exito, df$soporte_grp)
+table(df$exito, df$tecnica)
+```
+
 # BASE DE DATOS FINAL 
 
 Finalmente obtenemos la base de datos ya tratada ('df_completa') y una extracción solo con las variables útiles para el análisis ('df')
 ```{r}
-
-str(df)
-
 df_completa <- df[, c(
  
   # no útiles
@@ -886,7 +979,6 @@ df_completa <- df[, c(
   "soporte_grp",
   "sop_montaje",
   "tecnica",
-  tec_cols,
   "tipo_autor",
   "serie",
   "fecha_est",
@@ -902,7 +994,7 @@ df <- df[, c(
   "orientacion",
   "soporte_grp",
   "sop_montaje",
-  tec_cols,
+  "tecnica",
   "tipo_autor",
   "serie",
   "fecha_est",
@@ -910,11 +1002,9 @@ df <- df[, c(
   "tema"
 )]
 
+str(df_completa); str(df)
+
 # para exportar los archivos:
 write.csv(df_completa, "prado_gestionado.csv", row.names = FALSE)
 write.csv(df, "prado_variables.csv", row.names = FALSE)
 ```
-
-
-
-
