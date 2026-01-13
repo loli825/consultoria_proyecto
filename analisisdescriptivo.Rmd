@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(readr)
-df <- read_csv("consultoria_proyecto/prado_variables.csv")
+df <- read_csv("prado_variables.csv")
 ```
 
 Empezamos el análisis descriptivo construyendo para cada variable, una tabla de frecuencias y el gráfico de barras correspondiente, la forma más directa de entender cómo se reparte la información dentro del conjunto de datos. Antes de comparar con la variable respuesta (exito) o plantear cualquier modelo, necesitamos saber qué categorías aparecen, con qué peso y si existe algún patrón evidente en la composición de la muestra. 
@@ -415,35 +415,50 @@ La variable sop_montaje parece influir un poco: cuando la obra es “montaje”,
 La diferencia es pequeña y además hay muchísimas menos obras con montaje (276) que sin montaje (6759), así que no podemos asegurar que sea una diferencia “real” sin comprobarlo con un test/modelo.
 
 ```{r}
-tec_cols <- c("tec_oleo","tec_acuosas","tec_mixta","tec_fresco","tec_otras")
+# Etiquetas de exito
+df$exito_f <- factor(df$exito, levels = c(0,1),
+                     labels = c("No cumple","Sí cumple"))
 
-df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+# Serie como factor (con labels bonitos)
+df$serie_f <- factor(df$serie, levels = c(0,1),
+                     labels = c("No pertenece a serie", "Pertenece a serie"))
 
-# matriz: filas técnicas, columnas exito (proporciones dentro de cada técnica)
-mat <- sapply(tec_cols, function(v) {
-  idx <- df[[v]] == 1
-  prop.table(table(df$exito_f[idx]))
-})
+# Tabla serie x éxito
+tab <- table(df$serie_f, df$exito_f)
 
-mat <- t(mat)               # técnicas en filas
-mat[is.na(mat)] <- 0
+# Proporciones dentro de cada serie (cada fila suma 1)
+prop <- prop.table(tab, 1)
 
-# colores fijos por categoría de éxito
-cols <- c("red", "green")   # No cumple / Sí cumple
+# Ordenar por tasa de "Sí cumple" (opcional)
+rate <- prop[, "Sí cumple"]
+ord <- order(rate, decreasing = TRUE)
+prop <- prop[ord, , drop = FALSE]
+n <- rowSums(tab)[ord]
+
+# Colores fijos
+cols <- c("red", "green")  # No cumple / Sí cumple
 
 par(mar=c(8,4,4,2)+0.1)
-barplot(t(mat),
-        beside = FALSE,
-        ylim = c(0,1),
-        las = 2,
-        col = cols,
-        main = "Distribución de éxito entre obras con cada técnica",
-        ylab = "Proporción")
+bp <- barplot(t(prop),
+              beside = FALSE,
+              ylim = c(0,1),
+              las = 2,
+              col = cols,
+              main = "Distribución de éxito dentro de cada grupo de serie",
+              ylab = "Proporción",
+              xlab = "Serie")
 
 legend("topright",
        legend = c("No cumple","Sí cumple"),
        fill = cols,
        bty = "n")
+
+# n encima de cada barra
+text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
+
+# (Opcional) mirar tabla y proporciones
+tab
+round(prop, 3)
 
 ```
 
@@ -466,6 +481,7 @@ Pero hay que tener en cuenta el tamaño muestral muy desigual (hombre n=6161 vs 
 
 ## si forma parte de una serie y exito
 ```{r}
+# Etiquetas
 df$exito_f <- factor(df$exito, levels = c(0,1),
                      labels = c("No cumple","Sí cumple"))
 
@@ -473,11 +489,11 @@ df$serie_f <- factor(df$serie, levels = c(0,1),
                      labels = c("No pertenece a serie", "Pertenece a serie"))
 
 tab <- table(df$serie_f, df$exito_f)
+cols <- c("red", "green")  # No cumple / Sí cumple
 
-cols <- c("red", "green")
-
-barplot(t(tab),
-        beside = TRUE,
+# 1) UNA barra por etiqueta (apilada) con CONTEOS
+barplot(tab,
+        beside = FALSE,
         col = cols,
         las = 1,
         main = "Éxito según pertenencia a serie",
@@ -589,4 +605,86 @@ En los tres tamaños (pequeño, mediano y grande) prácticamente no aparecen obr
 
 Sí hay diferencias entre categorías: en “mediano” aumenta la proporción de verticales (y bajan las horizontales) respecto a “grande” y “pequeño”, pero las diferencias no parecen enormes (el patrón general se mantiene).
 
-## tabla de areas
+## orientación con tam_cat i con exito 
+```{r}
+# Factores bonitos
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+# Asegura orden (opcional)
+df$tam_cat <- factor(df$tam_cat, levels=c("pequeno","mediano","grande"))
+df$orientacion <- factor(df$orientacion, levels=c("horizontal","vertical","cuadrado"))
+
+# Tabla 3D: orientacion x tam_cat x exito
+tab3 <- table(df$orientacion, df$tam_cat, df$exito_f)
+
+# Colores fijos para éxito
+cols_ex <- c("red","green")  # No cumple / Sí cumple
+
+op <- par(no.readonly = TRUE)
+par(mfrow=c(1,3), mar=c(7,4,4,1)+0.1)  # 3 paneles
+
+for(tam in levels(df$tam_cat)){
+
+  tab_tam <- tab3[, tam, ]               # orientacion x exito
+  prop_tam <- prop.table(tab_tam, 1)     # dentro de cada orientacion suma 1
+
+  bp <- barplot(t(prop_tam),
+                beside=FALSE,
+                ylim=c(0,1),
+                las=2,
+                col=cols_ex,
+                main=paste("tam_cat =", tam),
+                ylab="Proporción",
+                xlab="Orientación")
+
+  # n por orientación (tamaño muestral)
+  n <- rowSums(tab_tam)
+  text(x=bp, y=1.02, labels=paste0("n=", n), xpd=TRUE, cex=0.8)
+}
+
+legend("topright",
+       legend=c("No cumple","Sí cumple"),
+       fill=cols_ex, bty="n", inset=c(-0.15,0))
+
+par(op)
+
+```
+En los tres tamaños (pequeño/mediano/grande) domina claramente el “No cumple” (rojo): las tasas de “Sí cumple” (verde) son bajas en general, así que no parece que el tamaño por sí solo cambie mucho el éxito.
+
+Dentro de cada tamaño, la orientación sí marca pequeñas diferencias: en “grande” la orientación vertical parece tener una proporción de “Sí cumple” algo mayor que horizontal, pero ojo con “cuadrado” porque tiene muy pocas observaciones (n muy pequeño) y esa barra no es fiable para comparar.
+
+## serie y soporte_grp
+```{r}
+# Serie con etiquetas bonitas (si ya la tienes, puedes saltarte esto)
+df$serie_f <- factor(df$serie, levels = c(0,1),
+                     labels = c("No pertenece a serie", "Pertenece a serie"))
+
+# Tabla: soporte (filas) x serie (columnas)
+tab <- table(df$soporte_grp, df$serie_f)
+tab  # conteos
+
+
+par(mar=c(6,4,4,12)+0.1, xpd=NA)  # MÁS margen derecho + permitir dibujar fuera
+bp <- barplot(prop,
+              beside = FALSE,
+              ylim = c(0,1),
+              las = 1,
+              col = cols,
+              main = "Soporte dentro de cada grupo de serie",
+              xlab = "Serie",
+              ylab = "Proporción")
+
+# n total por cada grupo de serie
+n_serie <- colSums(tab)
+text(x = bp, y = 1.02, labels = paste0("n=", n_serie), cex = 0.85)
+
+# Leyenda a la derecha (no se corta)
+legend("topright",
+       inset = c(-0.35, 0),
+       legend = rownames(prop),
+       fill = cols,
+       bty = "n",
+       cex = 0.9)
+
+```
+
