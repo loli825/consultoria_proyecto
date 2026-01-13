@@ -11,6 +11,26 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(readr)
 df <- read_csv("prado_variables.csv")
+
+df$exito <- as.factor(df$exito)
+df$tam_cat <- factor(
+  df$tam_cat,
+  levels = c("0", "1-10", "11-98", "99", "+100"),
+  ordered = TRUE
+)
+df$soporte_grp <-as.factor(df$soporte_grp)
+df$sop_montaje <-as.factor(df$sop_montaje)
+df$tecnica <- as.factor(df$tecnica)
+df$tipo_autor <- as.factor(df$tipo_autor)
+df$serie <- as.factor(df$serie)
+df$fecha_est <- as.integer(df$fecha_est)
+df$fecha_cat <- factor(
+  df$fecha_cat,
+  levels = c("0", "1-10", "11-98", "99", "+100"),
+  ordered = TRUE
+)
+df$tema <- as.factor(df$tema)
+
 ```
 
 Empezamos el análisis descriptivo construyendo para cada variable, una tabla de frecuencias y el gráfico de barras correspondiente, la forma más directa de entender cómo se reparte la información dentro del conjunto de datos. Antes de comparar con la variable respuesta (exito) o plantear cualquier modelo, necesitamos saber qué categorías aparecen, con qué peso y si existe algún patrón evidente en la composición de la muestra. 
@@ -48,6 +68,18 @@ hist(log1p(df$area), breaks = "FD", main = "Histograma de log1p(area)", xlab = "
 plot(density(log1p(df$area)), main = "Densidad de log1p(area)", xlab = "log1p(area)")
 
 ```
+## miramos la distribución de area y si esta sesgada
+Útil para ver si necesitas log(area+1) y detectar valores extremos.
+```{r}
+hist(df$area, breaks=40, main="Histograma de área", xlab="area")
+hist(log(df$area ), breaks=40, main="Histograma de log(area+1)", xlab="log(area)")
+boxplot(df$area, main="Boxplot área", ylab="area")
+boxplot(log(df$area), main="Boxplot log(area+1)", ylab="log(area+1)")
+
+```
+El área está muy sesgada a la derecha: la mayoría de obras tienen áreas pequeñas y hay pocas con áreas enormes (por eso el histograma “normal” queda aplastado y el boxplot de area sale con mil outliers).
+
+Al hacer log(area) la distribución queda mucho más “normalita” (campana) y el boxplot se vuelve legible → para comparar áreas entre grupos (tema, técnica, éxito, etc.)
 
 #tam_cat
 
@@ -686,5 +718,438 @@ legend("topright",
        bty = "n",
        cex = 0.9)
 
+```
+
+##soporte grp serie y exito 
+```{r}
+# Factores bonitos
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$serie_f <- factor(df$serie, levels=c(0,1),
+                     labels=c("No pertenece a serie","Pertenece a serie"))
+
+# Tabla 3D: soporte x serie x exito
+tab3 <- table(df$soporte_grp, df$serie_f, df$exito_f)
+
+# Orden soportes por nº total (para que sea estable y legible)
+tot_sop <- apply(tab3, 1, sum)
+tab3 <- tab3[order(tot_sop, decreasing=TRUE), , , drop=FALSE]
+
+# Etiquetas con saltos de línea
+ylab2 <- rownames(tab3)
+ylab2 <- gsub("Papel/Vitela", "Papel/\nVitela", ylab2)
+ylab2 <- gsub("Tabla/Panel", "Tabla/\nPanel", ylab2)
+
+cols <- c("red", "green")  # No cumple / Sí cumple
+
+op <- par(no.readonly=TRUE)
+
+# 3 columnas: panel izq, panel der, columna de leyenda
+layout(matrix(c(1,2,3), nrow=1), widths=c(1,1,0.55))
+
+for (s in levels(df$serie_f)) {
+
+  tab_s <- tab3[, s, , drop=FALSE][,,1:2]   # soporte x exito
+  tab_s <- tab_s[, c("No cumple","Sí cumple")]
+
+  prop_s <- prop.table(tab_s, 1)           # cada soporte suma 1 (proporción dentro de soporte)
+  prop_s[is.na(prop_s)] <- 0
+  n <- rowSums(tab_s)
+
+  par(mar=c(5, 9.5, 3.5, 2) + 0.1, xpd=NA)
+
+  bp <- barplot(t(prop_s),
+                horiz=TRUE,
+                names.arg=ylab2,
+                col=cols,
+                xlim=c(0,1),
+                las=1,
+                cex.names=0.9,
+                main=paste("Serie:\n", s),
+                xlab="Proporción",
+                border=NA)
+
+  axis(1, at=seq(0,1,0.2))
+  box()
+
+  # n al final de cada barra (a la derecha)
+  text(x=1.02, y=bp, labels=paste0("n=", n), pos=4, cex=0.8)
+}
+
+# Columna 3: leyenda limpia
+par(mar=c(0,0,0,0))
+plot.new()
+legend("center",
+       legend=c("No cumple","Sí cumple"),
+       fill=cols,
+       bty="n",
+       cex=1)
+
+par(op)
+
+```
+
+## serie i fecha estimada
+```{r}
+df$serie_f <- factor(df$serie, levels = c(0,1),
+                     labels = c("No pertenece a serie", "Pertenece a serie"))
+
+par(mar = c(6,6,4,2) + 0.1)
+
+boxplot(fecha_est ~ serie_f, data = df,
+        col = c("gray85","lightblue"),
+        pch = 16, cex = 0.7,
+        main = "Fecha estimada según pertenencia a serie",
+        xlab = "Serie",
+        ylab = "fecha_est (año)",
+        las = 1)
+
+# puntos con transparencia + muestra (para que se vea bien)
+set.seed(1)
+m <- min(800, nrow(df))
+idx <- sample(seq_len(nrow(df)), m)
+
+stripchart(df$fecha_est[idx] ~ df$serie_f[idx],
+           vertical = TRUE, method = "jitter",
+           pch = 16, cex = 0.35,
+           col = adjustcolor("black", alpha.f = 0.25),
+           add = TRUE)
+
+grid(nx = NA, ny = NULL)
+
+```
+
+#fecha estimada serie y exito
+```{r}
+# Factores bonitos
+df$exito_f <- factor(df$exito, levels = c(0,1),
+                     labels = c("No cumple","Sí cumple"))
+
+df$serie_f <- factor(df$serie, levels = c(0,1),
+                     labels = c("No pertenece a serie", "Pertenece a serie"))
+
+cols <- c("red", "green")  # No cumple / Sí cumple
+
+op <- par(no.readonly = TRUE)
+
+par(mfrow = c(1,2), mar = c(6,5,4,1) + 0.1, oma = c(0,0,2,0))
+
+for (s in levels(df$serie_f)) {
+  sub <- df[df$serie_f == s, , drop = FALSE]
+
+  bp <- boxplot(fecha_est ~ exito_f, data = sub,
+                col = cols,
+                main = paste("Serie:", s),
+                xlab = "Éxito",
+                ylab = "fecha_est (año)",
+                las = 1,
+                outline = TRUE)
+
+  grid(nx = NA, ny = NULL)
+
+  # n encima de cada caja
+  text(x = 1:2, y = par("usr")[4], labels = paste0("n=", bp$n),
+       xpd = TRUE, pos = 3, cex = 0.85)
+}
+
+mtext("Fecha estimada por éxito, separando si pertenece a serie", outer = TRUE, cex = 1.1)
+
+# leyenda (una sola vez)
+legend("topleft", inset = 0.02,
+       legend = levels(df$exito_f), fill = cols, bty = "n", cex = 0.9)
+
+par(op)
+
+```
+
+## tema vs tecnica 
+```{r}
+tema <- factor(df$tema)
+tec  <- factor(df$tecnica)  # niveles: oleo/mixta/otras (o los que tengas)
+
+tab  <- table(tema, tec)
+prop <- prop.table(tab, 1)        # cada tema suma 1
+n_tema <- rowSums(tab)
+
+# Ordenar temas por n (de mayor a menor)
+ord <- order(n_tema, decreasing = TRUE)
+prop <- prop[ord, , drop = FALSE]
+n_tema <- n_tema[ord]
+
+# Etiquetas más legibles
+tema_lab <- rownames(prop)
+tema_lab <- gsub("_", "\n", tema_lab)  # corta por guiones bajos
+
+# Colores (uno por técnica)
+cols <- rainbow(ncol(prop))
+names(cols) <- colnames(prop)
+
+op <- par(no.readonly = TRUE)
+
+# 2 paneles: gráfico + leyenda (así NO se pisa nunca)
+layout(matrix(c(1,2), 1, 2), widths = c(4.8, 1.6))
+
+par(mar = c(5, 12, 4, 1) + 0.1, xpd = NA)
+bp <- barplot(t(prop),
+              horiz = TRUE,
+              beside = FALSE,
+              xlim = c(0, 1),
+              las = 1,
+              col = cols[colnames(prop)],
+              names.arg = tema_lab,
+              main = "Distribución de técnicas dentro de cada tema",
+              xlab = "Proporción",
+              ylab = "Tema",
+              cex.names = 0.85)
+
+# n al final de cada barra
+text(x = 1.02, y = bp, labels = paste0("n=", n_tema), pos = 4, cex = 0.8)
+
+# Panel de la leyenda
+par(mar = c(0,0,0,0))
+plot.new()
+legend("center",
+       legend = colnames(prop),
+       fill = cols[colnames(prop)],
+       bty = "n",
+       cex = 1)
+
+layout(1)
+par(op)
+
+
+# (opcional) tablas
+tab
+round(prop, 3)
+
+
+
+
+
+```
+
+
+## tema vs tecnica y exito 
+```{r}
+# ==== TEMA x TÉCNICA, separado por ÉXITO (2 paneles + leyenda aparte) ====
+
+# (Opcional) para que se vea bien: abre ventana grande
+dev.new(width = 13, height = 5)
+# (Opcional alternativa) guardar bonito:
+# png("tema_tecnica_exito.png", width=1800, height=700, res=140)
+
+df$exito_f   <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tema_f    <- factor(df$tema)
+df$tecnica_f <- factor(df$tecnica)
+
+# tabla 3D: tema x técnica x éxito
+tab3 <- with(df, table(tema_f, tecnica_f, exito_f))
+
+# ordenar temas por N total (para que ambos paneles sean comparables)
+tab_total <- apply(tab3, c(1,2), sum)
+n_total   <- rowSums(tab_total)
+ord <- order(n_total, decreasing = TRUE)
+
+tab3 <- tab3[ord, , , drop=FALSE]
+tema_levels <- dimnames(tab3)[[1]]
+
+# etiquetas tema más legibles
+tema_lab <- gsub("_", "\n", tema_levels)
+
+# colores por técnica (automático, pero fijo)
+cols <- rainbow(nlevels(df$tecnica_f))
+names(cols) <- levels(df$tecnica_f)
+
+# preparar proporciones dentro de cada tema, por panel de éxito
+prop_list <- vector("list", length(levels(df$exito_f)))
+n_list    <- vector("list", length(levels(df$exito_f)))
+
+for (k in seq_along(levels(df$exito_f))) {
+  tab_k <- tab3[,,k]
+  n_k   <- rowSums(tab_k)
+  prop_k <- prop.table(tab_k, 1)   # cada tema suma 1
+  prop_k[is.na(prop_k)] <- 0
+  prop_list[[k]] <- prop_k
+  n_list[[k]] <- n_k
+}
+
+op <- par(no.readonly = TRUE)
+
+# layout: panel1 | panel2 | leyenda
+layout(matrix(c(1,2,3), 1, 3), widths = c(5.2, 5.2, 1.7))
+par(oma=c(0,0,2,0))  # margen externo para título general
+
+for (k in seq_along(levels(df$exito_f))) {
+
+  # margen izq grande solo en el primer panel (para que se lean los temas)
+  par(mar = c(4.5, ifelse(k==1, 12, 2), 3, 1) + 0.1, xpd = NA)
+
+  bp <- barplot(t(prop_list[[k]]),
+                horiz = TRUE,
+                beside = FALSE,
+                col = cols[colnames(prop_list[[k]])],
+                xlim = c(0,1),
+                las = 1,
+                names.arg = if (k==1) tema_lab else rep("", length(tema_lab)),
+                cex.names = 0.85,
+                cex.axis = 0.9,
+                main = paste("Éxito:", levels(df$exito_f)[k]),
+                xlab = "Proporción",
+                ylab = if (k==1) "Tema" else "")
+
+  # n por tema (a la derecha)
+  text(x = 1.02, y = bp, labels = paste0("n=", n_list[[k]]), pos = 4, cex = 0.75)
+}
+
+# panel leyenda (aparte)
+par(mar=c(0,0,0,0))
+plot.new()
+legend("center",
+       legend = levels(df$tecnica_f),
+       fill = cols[levels(df$tecnica_f)],
+       bty = "n",
+       cex = 1)
+
+mtext("Distribución de técnicas dentro de cada tema (separado por éxito)", outer=TRUE, cex=1.1)
+
+layout(1)
+par(op)
+
+# if (dev.cur() != 1) dev.off()  # <-- descomenta si usaste png()
+
+```
+
+##area vs fecha
+```{r}
+plot(df$fecha_est, log(df$area),
+     pch=16, cex=0.5,
+     xlab="fecha_est", ylab="log(area)",
+     main="Área vs fecha_est")
+lines(lowess(df$fecha_est, log(df$area)), lwd=2)
+
+```
+La línea LOWESS es la tendencia: como está casi plana (ligeramente hacia abajo), no parece que el área cambie mucho con la fecha (relación débil o casi nula). Las “rayas verticales” salen porque muchos años se repiten.
+
+```{r}
+# Asegura exito como factor con etiquetas
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+# Colores por exito
+col_ex <- ifelse(df$exito_f == "Sí cumple", "green3", "red3")
+
+# Scatter (con jitter suave en X para que no se monten tanto)
+x <- jitter(df$fecha_est, amount = 0.25)
+y <- log(df$area)
+
+plot(x, y,
+     pch = 16, cex = 0.5,
+     col = col_ex,
+     xlab = "fecha_est",
+     ylab = "log(area+1)",
+     main = "Área vs fecha_est (coloreado por éxito)")
+
+legend("topright",
+       legend = c("No cumple","Sí cumple"),
+       col = c("red3","green3"),
+       pch = 16, bty = "n")
+
+# Tendencia global
+lines(lowess(df$fecha_est, y), lwd = 2)
+
+# (Opcional) 2 tendencias: una por cada exito
+lines(lowess(df$fecha_est[df$exito_f=="No cumple"], y[df$exito_f=="No cumple"]), lwd=2, col="red3")
+lines(lowess(df$fecha_est[df$exito_f=="Sí cumple"], y[df$exito_f=="Sí cumple"]), lwd=2, col="green3")
+
+```
+En el gráfico, cada punto es una obra: el eje X es la fecha estimada y el eje Y es el tamaño (área) en escala logarítmica; los puntos verdes son las obras que sí cumplen y los rojos las que no cumplen. La idea es ver si “cumplir” se asocia a obras más grandes o a ciertas épocas, pero como las nubes de puntos se mezclan mucho y las líneas de tendencia (verde y roja) van muy parecidas, no se ve una diferencia clara: a lo sumo, la línea verde queda un pelín por encima en algunos tramos, lo que sugeriría que las que “sí cumplen” podrían ser ligeramente más grandes, pero la diferencia es pequeña y no parece que con fecha + área puedas predecir bien el éxito.
+
+##area por categorías (tam_cat / orientacion / soporte / tecnica)
+Para ver diferencias claras de tamaño (y outliers) por grupo.
+```{r}
+
+
+boxplot(log(df$area+1) ~ df$orientacion, las=2,
+        main="log(area+1) por orientación", xlab="orientación", ylab="log(area+1)")
+
+boxplot(log(df$area+1) ~ df$soporte_grp, las=2,
+        main="log(area+1) por soporte", xlab="soporte", ylab="log(area+1)")
+
+```
+En el boxplot de log(area+1) por orientación, lo que se ve es que las diferencias entre “horizontal”, “vertical” y “cuadrado” no son enormes: las medianas están bastante parecidas y las cajas se solapan mucho. Aun así, parece que las horizontales tienden a tener un área “típica” un pelín más alta (la línea del medio está algo más arriba) y en vertical aparecen más valores muy pequeños (puntitos bajos), o sea, hay más cuadros verticales con áreas muy pequeñas.
+
+En el boxplot de log(area+1) por soporte, aquí sí se aprecian diferencias más claras entre categorías: “Mural” y “Lienzo” suelen tener áreas más grandes (la caja y la mediana están más arriba), mientras que “Metal” y “Otros” suelen ser más pequeños (medianas más bajas). “Tabla/Panel” queda en medio, y en casi todos los soportes hay algunos cuadros enormes (puntos altos), pero son pocos y por eso salen como “outliers”.
+
+```{r}
+# Etiquetas de éxito
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+# Nos quedamos solo con NO-cuadrados
+df2 <- subset(df, orientacion != "cuadrado" & !is.na(area))
+
+# Quitar niveles vacíos ("cuadrado" desaparece de verdad)
+df2$orientacion <- droplevels(factor(df2$orientacion))
+df2$exito_f      <- droplevels(df2$exito_f)
+
+# Grupo = orientacion + exito (sin niveles vacíos)
+grp <- interaction(df2$orientacion, df2$exito_f, sep="\n", drop=TRUE)
+
+# Color por grupo (rojo = No cumple, verde = Sí cumple)
+col_grp <- ifelse(grepl("No cumple", levels(grp)), "red", "green")
+
+par(mar=c(9,4,4,2)+0.1)
+boxplot(log(df2$area + 1) ~ grp,
+        las=2,
+        col=col_grp,
+        main="log(area+1) por orientación y éxito (sin cuadrados)",
+        ylab="log(area+1)",
+        xlab="")
+
+legend("topright", legend=c("No cumple","Sí cumple"), fill=c("red","green"), bty="n")
+
+
+
+```
+
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+# ¿Cuántos "cuadrado" hay y cuántos de esos salen "Sí cumple"?
+with(df, table(orientacion, exito_f))
+
+# Mira las razones SOLO de los cuadrados que "sí cumplen"
+idx <- df$orientacion == "cuadrado" & df$exito_f == "Sí cumple"
+summary(df$razon[idx])
+head(df$razon[idx], 20)
+
+# Y mira cómo son las razones en TODOS los cuadrados
+summary(df$razon[df$orientacion=="cuadrado"])
+
+```
+```{r}
+
+# =========================
+# 2) log(area) ~ soporte_grp + exito
+# =========================
+par(mar=c(9,5,4,2)+0.1)
+
+k2 <- length(levels(df$soporte_grp))
+
+boxplot(y ~ df$soporte_grp * df$exito_f,
+        col  = rep(cols_ex, times = k2),
+        xaxt = "n",
+        las  = 1,
+        main = "log(area) por soporte y éxito",
+        ylab = "log(area)",
+        xlab = "")
+
+axis(1,
+     at = seq(1.5, by = 2, length.out = k2),
+     labels = levels(df$soporte_grp),
+     las = 2)
+
+abline(v = seq(2.5, by = 2, length.out = k2-1), col = "gray80", lty = 2)
+
+legend("topright", legend = levels(df$exito_f), fill = cols_ex, bty = "n")
+
+par(op)
 ```
 
