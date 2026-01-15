@@ -1,0 +1,111 @@
+-----------------------------------------------------------------------
+--> GUÍA FINAL (para entenderme)
+
+1) EFECTOS PRINCIPALES
+	- decisión bloques + orden
+	- ajuste modelos anidados (+ sensibilidades 1)
+	- comparación LRT + AIC/BIC(+ decisión "no aporta")
+	- modelo efectos principales
+	- modelo final
+	(* modelos secundarios)
+
+2) INTERACCIONES
+	- decisión interacciones
+	- ajuste modelos anidados
+	- comparación LRT
+	- modelo final (ef. principales + interacciones)
+	(* modelos secundarios)
+
+3) MODELOS ALTERNATIVOS (SENSIBILIDADES 2)
+	- Refinamiento modelo (tipos modelos)
+
+
+---------------------------------------------------------------------
+
+--> NOTAS ESTRUCTURA:
+
+- Preparación estricta del dataset: si usamos "orientacion" --> regla estructural de cuadrado (separar por n-cuadrados, solo en mod. con "orientación")
+
+- Orden bloques --> decidir orden con gráficos descriptivos/ #niveles ***
+
+- Regla comparación 
+	> LRT (anidados) --> aporta?
+	> AIC/BIC (parámetros) --> complejidad compensa?
+
+- INTERACCIONES --> decidir cuales con los graficos descriptivos (abril)
+
+
+----------------------------------------------------------------------
+
+--> NOTAS VARIABLES CONCRETAS:
+
+- area vs tam_cat 
+	1)tam_cat = interpretable
+	2)area = mejor (pero puede fallar) 
+al añadirlas probar con ambas y decidir cual es mejor:
+	- Criterio práctico:
+Si m_area mejora AIC/BIC y no introduce inestabilidad → elige area como principal.
+
+Si ambos dan conclusiones cualitativamente iguales → elige por comunicación (puedes quedarte con area principal y mostrar tam_cat en un apartado).
+
+Si area hace cosas raras (sensibilidad extrema a pocos puntos) y tam_cat es estable → considera tam_cat principal o usa robustez (log/spline/winsor). EXPLICACIÓN EN EL CHAT*
+
+- fecha_ancho --> se utiliza como incertidumbre, no se estudia efecto, y se modela de forma flexible (abril, mirar en análisis descriptivo)
+
+*** 
+
+
+----------------------------------------------------------------------
+--> TIPOS MODELOS 
+
+- Modelo lineal generalizado binario (GLM binomial) 
+
+ 	- principal: enlace logit --> interpretar OR (ods ratio)
+	- secundario: enlace cloglog (desbalence en respuesta, aunque con 12% de éxito no es del todo necesario) 
+
+- Regresión penalizada Firth -> estabilidad para niveles raros (solo si aparecen errores)
+
+- Poisson Robusta (RR ajustados) -> diferente interpretación (y ajustar por desbalance de éxito, auqnue no debería ser un problema) --> interpretar RR (risk ratio) 
+-> aplicar al modelo decidido con/sin Firth
+
+(no usar pensalización Ridge porque és más para predicción)
+
+-----------------------------------------------------------------------
+--> SENSIBILIDADES 1: hacer en el momento en que entre esa variable por primera vez
+
+- area vs tam_cat
+
+- fecha_est con spline vs lineal (si procede según grafico)
+
+- sop_montaje SI/NO (si procede segun grafico)
+
+--> SENSIBILIDADES 2: hacer sobre modelo final
+
+- tipos modelos
+
+
+-----------------------------------------------------------------------
+--> FILOSOFÍA ENFOQUE BLOQUES: 
+
+En vez de “buscar” el mejor modelo, pre-especificas:
+
+1)Un orden lógico de incorporación de variables (bloques) según teoría.
+
+2)Un modelo por bloque: vas añadiendo bloques completos (o casi completos).
+
+3)Evalúas cuánto aporta cada bloque:
+
+	- en ajuste (deviance/LRT, AIC/BIC),
+	- en estabilidad (EPV, SE, signos),
+	- y en interpretabilidad (probabilidades ajustadas).
+
+Esto es perfecto para objetivo descriptivo/explicativo porque:
+
+	- evita el “p-hacking” del stepwise,
+	- permite contar una historia causal/descriptiva (“primero controlamos morfología, luego técnica…”),
+	- y te da un informe replicable.
+
+
+
+
+ 
