@@ -1,0 +1,2662 @@
+---
+title: "analisisdescriptivoord"
+output: html_document
+date: "2026-01-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+setwd("~/Desktop/consultoria_proyecto")
+df <- read_csv("prado_variables.csv")
+
+df$exito <- as.factor(df$exito)
+df$tam_cat <- factor(
+  df$tam_cat,
+  levels = c("0", "1-10", "11-98", "99", "+100"),
+  ordered = TRUE
+)
+df$orientacion <- as.factor(df$orientacion)
+df$soporte_grp <-as.factor(df$soporte_grp)
+df$sop_montaje <-as.factor(df$sop_montaje)
+df$tecnica <- as.factor(df$tecnica)
+df$tipo_autor <- as.factor(df$tipo_autor)
+df$serie <- as.factor(df$serie)
+df$fecha_est <- as.integer(df$fecha_est)
+df$tema <- as.factor(df$tema)
+```
+Empezamos el análisis descriptivo construyendo para cada variable, una tabla de frecuencias y el gráfico de barras correspondiente, la forma más directa de entender cómo se reparte la información dentro del conjunto de datos. Antes de comparar con la variable respuesta (exito) o plantear cualquier modelo, necesitamos saber qué categorías aparecen, con qué peso y si existe algún patrón evidente en la composición de la muestra.
+
+Como control de calidad permite detectar problemas típicos en datos obtenidos por web scraping, como etiquetas duplicadas, niveles inesperados o valores codificados de manera especial.
+
+Las frecuencias son necesarias para interpretar correctamente lo que venga después. Si tenemos una categoría muy mayoritaria cualquier resultado puede estar condicionado por esa dominancia. Tener la proporción de cada nivel ayuda a contextualizar comparaciones; no es lo mismo observar un patrón en una categoría con miles de obras que en otra con muy pocas.
+
+Las clases minoritarias aun que ess habitual que algunas categorías tengan pocas observaciones.Si tenemos demasiados niveles con baja frecuencia hacen que los gráficos sean ilegibles y no podamos extraer conclusiones.
+
+En resumen, trabajar variable por variable es una etapa imprescindible porque permite verificar la coherencia de las variables, comprender la estructura real de los datos y anticipar problemas derivados de categorías raras. Esto asegura que las comparaciones posteriores con exito sean interpretables, estables y defendibles.
+
+
+##EXITO
+```{r}
+table(df$exito)
+v <- "exito"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+names(tab)[names(tab) == "0"] <- "0 (no cumple)"
+names(tab)[names(tab) == "1"] <- "1 (cumple)"
+barplot(tab, las = 1, main = "¿Cumple la proporción áurea?", ylab = "frequencia")
+```
+
+
+##AREA
+```{r}
+hist(df$area, breaks=40, main="Histograma de área", xlab="area")
+hist(log(df$area ), breaks=40, main="Histograma de log(area)", xlab="log(area)")
+boxplot(df$area, main="Boxplot área", ylab="area")
+boxplot(log(df$area), main="Boxplot log(area)", ylab="log(area)")
+```
+
+La variable area esta muy sesgada a la derecha: la mayoría de obras tienen áreas pequeñas y hay pocas con áreas enormes (por eso el histograma “normal” queda aplastado y el boxplot de area sale con mil outliers).
+
+Al hacer log(area) la distribución queda mucho más “normalita” (campana) y el boxplot se vuelve legible.
+
+## AREA CON ÉXITO
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+boxplot(log(df$area) ~ df$exito_f,
+        col = c("red","green"),
+        main = "Área (log(area)) según éxito",
+        xlab = "Éxito",
+        ylab = "log(area)",
+        las = 1)
+
+
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+x <- log(df$area )
+
+op <- par(no.readonly=TRUE)
+par(mfrow=c(1,2))
+
+hist(x[df$exito_f=="No cumple"], breaks=40,
+     main="No cumple", xlab="log(area)")
+hist(x[df$exito_f=="Sí cumple"], breaks=40,
+     main="Sí cumple", xlab="log(area)")
+
+par(op)
+
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+k <- 10  # 10 barras (puedes subir/bajar)
+br <- quantile(df$area, probs = seq(0, 1, length.out = k + 1), na.rm = TRUE)
+
+br <- unique(br)
+df$area_bin <- cut(df$area, breaks = br, include.lowest = TRUE)
+
+
+
+```
+
+Se observa que en casi todos los intervalos de área la gran mayoría de obras no cumplen la razón áurea, y solo una parte pequeña sí lo hace. No parece haber un cambio muy fuerte o claro del éxito al aumentar el área: el porcentaje de “sí cumple” es parecido entre grupos, aunque en algunos intervalos de áreas más grandes se intuye una ligera subida. En resumen, el área por sí sola no parece explicar claramente el cumplimiento de la razón áurea, porque el patrón es bastante estable y el “sí cumple” sigue siendo minoritario en casi todos los tamaños.
+
+
+
+##TAM_CAT
+```{r}
+table(df$tam_cat)
+v <- "tam_cat"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+barplot(tab, las = 1, main = "Tamaño", ylab = "frequencia")
+```
+
+##TAM_CAT CON ÉXITO 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+La mayoría de obras no cumplen la razón áurea, y el porcentaje que sí cumple es siempre pequeño. Además, las diferencias entre tamaños son bastante pequeñas: no hay un tipo de tamaño donde de repente aumente mucho el “sí cumple”. Como mucho, algunos tamaños tienen un poco más o un poco menos, pero el patrón general es el mismo en todos. En resumen, el tamaño de la obra, tal como está categorizado aquí, no parece marcar una diferencia clara en el cumplimiento de la razón áurea.
+
+```{r}
+
+df$exito_f <- factor(df$exito, levels = c(0, 1), labels = c("No cumple", "Sí cumple"))
+
+tab <- table(df$tam_cat, df$exito_f)
+
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n    <- rowSums(tab)
+
+ord  <- order(rate, decreasing = TRUE)
+rate <- rate[ord]
+n    <- n[ord]
+
+wrap_labels <- function(x, width = 18){
+  sapply(x, function(s) paste(strwrap(s, width = width), collapse = "\n"))
+}
+ylab2 <- wrap_labels(names(rate), width = 18)
+
+p_global <- mean(df$exito == 1)
+
+max_chars <- max(nchar(gsub("\n", "", ylab2)))
+left_mar  <- min(22, max(11, ceiling(max_chars/2) + 3))
+cex_txt   <- if (length(rate) > 20) 0.65 else if (length(rate) > 12) 0.8 else 0.95
+
+if (dev.cur() == 1) dev.new(width = 10, height = 6)
+
+op <- par(no.readonly = TRUE)
+par(mar = c(5, left_mar, 4, 2) + 0.1)
+
+xmax <- max(rate) * 1.35
+bp <- barplot(rate,
+              horiz = TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col = "lightblue",
+              las = 1,
+              cex.names = cex_txt,
+              main = "Tasa de cumplimiento áureo por tamaño (tam_cat)",
+              xlab = "P(Sí cumple)",
+              ylab = "")
+
+mtext("tam_cat", side = 2, line = left_mar - 2)
+
+abline(v = p_global, lty = 2, lwd = 2)
+text(x = rate, y = bp, labels = paste0("  n=", n), pos = 4, cex = 0.85)
+text(x = p_global, y = max(bp) + 0.7, labels = "media", pos = 3, cex = 0.8)
+
+par(op)
+
+```
+El tamaño de la obra parece estar relacionado con el cumplimiento áureo: las obras de tamaño grande presentan una probabilidad claramente mayor de cumplir, situándose por encima de la media global, mientras que los tamaños pequeño y mediano muestran tasas más bajas y similares entre sí, ambas por debajo de la media. Esto sugiere que tam_cat aporta información útil y podría ser una variable relevante a considerar en el modelo, ya que discrimina razonablemente entre niveles de éxito.
+
+##ORIENTACIÓN
+```{r}
+table(df$orientacion)
+v <- "orientacion"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+barplot(tab, las = 1, main = "Orientación", ylab = "frequencia")
+```
+
+##EXITO SEGÚN ORIENTACIÓN 
+```{r}
+# Tabla orientación x éxito
+tab <- table(df$orientacion, df$exito_f)
+
+# Proporciones dentro de cada orientación (cada fila suma 1)
+prop <- prop.table(tab, 1)
+
+cols <- c("red", "green")  # No cumple / Sí cumple
+
+par(mar=c(6,5,4,2)+0.1)
+bp <- barplot(t(prop),
+              beside = FALSE,      # apilado
+              ylim = c(0,1),       # todas igual de altas (100%)
+              col = cols,
+              las = 1,
+              main = "Éxito según orientación (proporciones)",
+              xlab = "Orientación",
+              ylab = "Proporción")
+
+legend("topleft",
+       legend = c("No cumple","Sí cumple"),
+       fill = cols,
+       bty = "n",
+       cex = 0.9)
+
+# (opcional) n encima de cada barra
+n <- rowSums(tab)
+text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
+
+```
+
+En las tres orientaciones la gran mayoría de obras no cumplen la razón áurea. En el caso de las obras cuadradas, prácticamente ninguna cumple, lo cual tiene sentido porque un cuadrado no puede ajustarse a la proporción áurea. En las orientaciones horizontal y vertical sí aparece un pequeño porcentaje de obras que cumplen, siendo ligeramente mayor en horizontal que en vertical, pero en ambos casos sigue siendo una minoría clara. En resumen, la orientación no cambia mucho la conclusión general: casi todas las obras no cumplen la razón áurea, aunque las no cuadradas tienen algo más de probabilidad de cumplir que las cuadradas.
+
+```{r}
+df$exito_f <- factor(df$exito, levels = c(0, 1), labels = c("No cumple", "Sí cumple"))
+
+tab <- table(df$orientacion, df$exito_f)
+
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n    <- rowSums(tab)
+
+ord  <- order(rate, decreasing = TRUE)
+rate <- rate[ord]
+n    <- n[ord]
+
+wrap_labels <- function(x, width = 18){
+  sapply(x, function(s) paste(strwrap(s, width = width), collapse = "\n"))
+}
+ylab2 <- wrap_labels(names(rate), width = 18)
+
+p_global <- mean(df$exito == 1)
+
+max_chars <- max(nchar(gsub("\n", "", ylab2)))
+left_mar  <- min(22, max(11, ceiling(max_chars/2) + 3))
+cex_txt   <- if (length(rate) > 20) 0.65 else if (length(rate) > 12) 0.8 else 0.95
+
+if (dev.cur() == 1) dev.new(width = 10, height = 6)
+
+op <- par(no.readonly = TRUE)
+par(mar = c(5, left_mar, 4, 2) + 0.1)
+
+xmax <- max(rate) * 1.35
+bp <- barplot(rate,
+              horiz = TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col = "lightblue",
+              las = 1,
+              cex.names = cex_txt,
+              main = "Tasa de cumplimiento áureo por orientación",
+              xlab = "P(Sí cumple)",
+              ylab = "")
+
+mtext("Orientación", side = 2, line = left_mar - 2)
+
+abline(v = p_global, lty = 2, lwd = 2)
+text(x = rate, y = bp, labels = paste0("  n=", n), pos = 4, cex = 0.85)
+text(x = p_global, y = max(bp) + 0.7, labels = "media", pos = 3, cex = 0.8)
+
+par(op)
+
+```
+
+La orientación horizontal muestra la mayor probabilidad de cumplimiento áureo y se sitúa ligeramente por encima de la media global, mientras que la orientación vertical queda algo por debajo. La categoría cuadrada presenta una tasa muy baja, pero su tamaño muestral es muy pequeño (n=33), por lo que no permite extraer conclusiones fiables. En conjunto, la orientación parece tener un efecto moderado, con diferencias visibles entre horizontal y vertical, por lo que podría considerarse en el modelo, aunque con cautela por el fuerte desequilibrio de tamaños entre categorías.
+
+#SOPORTE_GRP
+```{r}
+table(df$soporte_grp)
+v <- "soporte_grp"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+barplot(tab, las = 1, main = "Soporte", ylab = "frequencia")
+```
+
+##SOPORTE_GRP CON EXITO 
+
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+tab <- table(df$soporte_grp, df$exito_f)
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n <- rowSums(tab)
+ord <- order(rate, decreasing=TRUE)
+rate <- rate[ord]; n <- n[ord]
+ylab2 <- names(rate)
+ylab2 <- gsub("Papel/Vitela", "Papel/\nVitela", ylab2)
+ylab2 <- gsub("Tabla/Panel", "Tabla/\nPanel", ylab2)
+
+
+p_global <- mean(df$exito == 1)
+
+op <- par(no.readonly=TRUE)
+par(mar=c(5, 11, 4, 2) + 0.1)
+
+xmax <- max(rate) * 1.35
+bp <- barplot(rate,
+              horiz=TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col="lightblue",
+              las=1,
+              cex.names=0.95,
+              main="Tasa de cumplimiento áureo por soporte",
+              xlab="P(Sí cumple)",
+              ylab="")
+
+mtext("Soporte", side=2, line=3)
+
+abline(v = p_global, lty = 2, lwd = 2)
+text(x=rate, y=bp, labels=paste0("  n=", n), pos=4, cex=0.9)%%
+text(x=p_global, y=max(bp)+0.6, labels="media", pos=3, cex=0.8)
+
+par(op)
+
+```
+
+El gráfico sugiere que la probabilidad de cumplir la proporción áurea varía según el soporte (lienzo algo por encima de la media y metal/otros por debajo), por lo que esta variable podría aportar información al modelo.
+
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+tab <- table(df$soporte_grp, df$exito_f)
+
+# proporciones dentro de cada soporte (cada barra suma 1)
+prop <- prop.table(tab, 1)
+
+# ordenar por tasa de Sí cumple (opcional)
+rate <- prop[, "Sí cumple"]
+ord <- order(rate, decreasing=TRUE)
+prop <- prop[ord, , drop=FALSE]
+n <- rowSums(tab)[ord]
+
+cols <- c("red", "green")  # No cumple / Sí cumple
+
+op <- par(no.readonly=TRUE)
+par(mar=c(10,4,4,2)+0.1)
+
+bp <- barplot(t(prop),
+              beside = FALSE,
+              ylim = c(0,1),
+              las = 2,
+              col = cols,
+              main = "Éxito dentro de cada soporte (barras 100%)",
+              ylab = "Proporción",
+              xlab = "Soporte")
+
+legend("topright", legend = c("No cumple","Sí cumple"), fill = cols, bty = "n")
+
+# n encima
+text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
+
+par(op)
+
+```
+
+En el gráfico de éxito dentro de cada soporte se observa algo muy parecido: en todos los soportes (lienzo, mural, tabla/panel, otros y metal) la mayoría de las obras no cumplen la razón áurea. Aun así, hay pequeñas diferencias entre soportes: lienzo y mural parecen tener una proporción ligeramente mayor de obras que sí cumplen, mientras que metal y “otros” tienen proporciones todavía más bajas. En cualquier caso, en ningún soporte el cumplimiento es mayoritario, lo que indica que el tipo de soporte tampoco garantiza que una obra cumpla la razón áurea, aunque algunos soportes lo faciliten un poco más que otros.
+
+##SOP_MONTAJE
+```{r}
+table(df$sop_montaje)
+v <- "sop_montaje"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+names(tab)[names(tab) == "0"] <- "0 (No es un montaje)"
+names(tab)[names(tab) == "1"] <- "1 (Sí es un montaje)"
+
+barplot(tab, las = 1, main = "Soportes", ylab = "frequencia")
+```
+
+## SOP_MONTAJE Y EXITO 
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$sop_f <- factor(df$sop_montaje, levels=c(0,1), labels=c("No montaje","Sí montaje"))
+
+tab <- table(df$sop_f, df$exito_f)
+prop <- prop.table(tab, 1)
+n <- rowSums(tab)
+
+cols <- c("red","green")
+
+par(mar=c(6,4,4,2)+0.1)
+bp <- barplot(t(prop),
+              beside = FALSE,
+              ylim = c(0,1),
+              col = cols,
+              las = 1,
+              main = "Éxito según sop_montaje (proporciones)",
+              xlab = "sop_montaje",
+              ylab = "Proporción")
+
+legend("topright", legend = c("No cumple","Sí cumple"), fill = cols, bty = "n")
+text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
+
+tab
+round(prop, 3)
+
+```
+
+El gráfico muestra que las proporciones de “Sí cumple” son muy similares entre obras con y sin montaje, sin diferencias claras a nivel descriptivo. Por tanto, sop_montaje no parece una variable especialmente informativa y solo debería mantenerse en el modelo si demuestra aportar mejora en el ajuste al evaluarla conjuntamente con otras variables.
+
+```{r}
+df$exito_f <- factor(df$exito,
+                     levels = c(0, 1),
+                     labels = c("No cumple", "Sí cumple"))
+
+tab <- table(df$sop_montaje, df$exito_f)
+
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n    <- rowSums(tab)
+
+ord  <- order(rate, decreasing = TRUE)
+rate <- rate[ord]
+n    <- n[ord]
+
+wrap_labels <- function(x, width = 18){
+  sapply(x, function(s) paste(strwrap(s, width = width), collapse = "\n"))
+}
+ylab2 <- wrap_labels(names(rate), width = 18)
+
+
+p_global <- mean(df$exito == 1)
+
+max_chars <- max(nchar(gsub("\n", "", ylab2)))
+left_mar  <- min(22, max(11, ceiling(max_chars / 2) + 3))
+cex_txt   <- if (length(rate) > 20) 0.65 else if (length(rate) > 12) 0.8 else 0.95
+
+if (dev.cur() == 1) dev.new(width = 10, height = 6)
+
+op <- par(no.readonly = TRUE)
+par(mar = c(5, left_mar, 4, 2) + 0.1)
+
+xmax <- max(rate) * 1.35
+bp <- barplot(rate,
+              horiz = TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col = "lightblue",
+              las = 1,
+              cex.names = cex_txt,
+              main = "Tasa de cumplimiento áureo por soporte de montaje",
+              xlab = "P(Sí cumple)",
+              ylab = "")
+
+mtext("sop_montaje", side = 2, line = left_mar - 2)
+
+abline(v = p_global, lty = 2, lwd = 2)
+text(x = rate, y = bp, labels = paste0("  n=", n), pos = 4, cex = 0.85)
+text(x = p_global, y = max(bp) + 0.7, labels = "media", pos = 3, cex = 0.8)
+
+par(op)
+
+```
+
+Las obras con sop_montaje=1 tienen más probabilidad de cumplir que las de sop_montaje=0, porque su barra está por encima de la media. Como hay muy pocas con montaje (n=276) frente a muchas sin montaje (n=6759), hay que interpretarlo con cuidado, pero aun así parece una variable útil para incluir en el modelo.
+
+##TECNICA
+```{r}
+
+table(df$tecnica)
+v <- "tecnica"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+barplot(tab, las = 1, main = "Tecnica", ylab = "frequencia")
+```
+
+## TECNICA CON EXITO 
+
+```{r}
+
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tecnica_f <- factor(df$tecnica)
+
+tab <- table(df$tecnica_f, df$exito_f)
+prop <- prop.table(tab, 1)  
+n <- rowSums(tab)
+
+rate <- prop[, "Sí cumple"]
+ord <- order(rate, decreasing=TRUE)
+prop <- prop[ord, , drop=FALSE]
+n <- n[ord]
+
+cols <- c("red","green")
+
+par(mar=c(10,4,4,2)+0.1)
+bp <- barplot(t(prop),
+              beside = FALSE,
+              ylim = c(0,1),
+              col = cols,
+              las = 2,
+              main = "Éxito según técnica (proporciones)",
+              xlab = "Técnica",
+              ylab = "Proporción")
+
+legend("topright", legend=c("No cumple","Sí cumple"), fill=cols, bty="n")
+text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
+
+tab
+round(prop, 3)
+
+```
+
+Lo que se ve es que en ambos casos, con montaje y sin montaje, la gran mayoría de las obras no cumple la razón áurea. La proporción de obras que sí cumplen es muy parecida en los dos grupos y solo ligeramente mayor cuando hay montaje, pero la diferencia es pequeña. En resumen, el hecho de que una obra esté montada o no no parece tener un efecto claro ni fuerte sobre el éxito en cumplir la razón áurea; en ambos casos el incumplimiento sigue siendo lo normal.
+
+```{r}
+df$exito_f <- factor(df$exito, levels = c(0, 1), labels = c("No cumple", "Sí cumple"))
+
+tab <- table(df$tecnica, df$exito_f)
+
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n    <- rowSums(tab)
+
+ord  <- order(rate, decreasing = TRUE)
+rate <- rate[ord]
+n    <- n[ord]
+
+wrap_labels <- function(x, width = 18){
+  sapply(x, function(s) paste(strwrap(s, width = width), collapse = "\n"))
+}
+ylab2 <- wrap_labels(names(rate), width = 18)
+
+p_global <- mean(df$exito == 1)
+
+max_chars <- max(nchar(gsub("\n", "", ylab2)))
+left_mar  <- min(26, max(11, ceiling(max_chars/2) + 3))
+cex_txt   <- if (length(rate) > 25) 0.55 else if (length(rate) > 18) 0.7 else if (length(rate) > 12) 0.8 else 0.95
+
+if (dev.cur() == 1) dev.new(width = 11, height = 7)
+
+op <- par(no.readonly = TRUE)
+par(mar = c(5, left_mar, 4, 2) + 0.1)
+
+xmax <- max(rate) * 1.35
+bp <- barplot(rate,
+              horiz = TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col = "lightblue",
+              las = 1,
+              cex.names = cex_txt,
+              main = "Tasa de cumplimiento áureo por técnica",
+              xlab = "P(Sí cumple)",
+              ylab = "")
+
+mtext("Técnica", side = 2, line = left_mar - 2)
+
+abline(v = p_global, lty = 2, lwd = 2)
+text(x = rate, y = bp, labels = paste0("  n=", n), pos = 4, cex = 0.85)
+text(x = p_global, y = max(bp) + 0.7, labels = "media", pos = 3, cex = 0.8)
+
+par(op)
+
+```
+
+En el gráfico se ve que “oleo” está prácticamente en la media global de cumplimiento (muy parecido), “mixta” queda un poco por debajo y “otras” claramente por debajo. El problema es que casi todas las obras son óleo (n=6802) y las otras técnicas tienen muy pocos casos (n≈110–123), así que esas diferencias pueden ser poco fiables. En conjunto, técnica no parece separar mucho el éxito y yo la consideraría una variable con utilidad limitada para el modelo (como mucho, vigilar el grupo “otras”).
+
+##TIPO_AUTOR
+```{r}
+table(df$tipo_autor)
+
+v <- "tipo_autor"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+barplot(tab, las = 1, main = "Tipo de Autor", ylab = "frequencia")
+```
+
+## TIPO AUTOR CON EXITO 
+
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tipo_autor_f <- factor(df$tipo_autor)
+
+tab <- table(df$tipo_autor_f, df$exito_f)
+prop <- prop.table(tab, 1)   # proporciones dentro de cada tipo_autor
+n <- rowSums(tab)
+
+# ordenar por tasa de "Sí cumple" (opcional)
+rate <- prop[, "Sí cumple"]
+ord <- order(rate, decreasing=TRUE)
+prop <- prop[ord, , drop=FALSE]
+n <- n[ord]
+
+cols <- c("red","green")
+
+par(mar=c(9,4,4,2)+0.1)
+bp <- barplot(t(prop),
+              beside = FALSE,
+              ylim = c(0,1),
+              col = cols,
+              las = 2,
+              main = "Éxito según tipo de autor (proporciones)",
+              xlab = "Tipo de autor",
+              ylab = "Proporción")
+
+legend("topright", legend=c("No cumple","Sí cumple"), fill=cols, bty="n")
+text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
+
+tab
+round(prop, 3)
+
+```
+
+En todos los grupos (varios, mujer, hombre y anónimo) la mayoría de las obras no cumple la razón áurea, y la parte verde es siempre pequeña. Las proporciones de “sí cumple” son muy parecidas entre tipos de autor, sin un grupo que destaque claramente por cumplir mucho más que los demás. Esto sugiere que el éxito en cumplir la razón áurea no depende de quién sea el autor, sino que el incumplimiento es lo normal independientemente del tipo de autor.
+
+```{r}
+df$exito_f <- factor(df$exito, levels = c(0, 1), labels = c("No cumple", "Sí cumple"))
+
+tab <- table(df$tipo_autor, df$exito_f)
+
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n    <- rowSums(tab)
+
+ord  <- order(rate, decreasing = TRUE)
+rate <- rate[ord]
+n    <- n[ord]
+
+wrap_labels <- function(x, width = 18){
+  sapply(x, function(s) paste(strwrap(s, width = width), collapse = "\n"))
+}
+ylab2 <- wrap_labels(names(rate), width = 18)
+
+p_global <- mean(df$exito == 1)
+
+max_chars <- max(nchar(gsub("\n", "", ylab2)))
+left_mar  <- min(26, max(11, ceiling(max_chars/2) + 3))
+cex_txt   <- if (length(rate) > 25) 0.55 else if (length(rate) > 18) 0.7 else if (length(rate) > 12) 0.8 else 0.95
+
+if (dev.cur() == 1) dev.new(width = 11, height = 7)
+
+op <- par(no.readonly = TRUE)
+par(mar = c(5, left_mar, 4, 2) + 0.1)
+
+xmax <- max(rate) * 1.35
+bp <- barplot(rate,
+              horiz = TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col = "lightblue",
+              las = 1,
+              cex.names = cex_txt,
+              main = "Tasa de cumplimiento áureo por tipo de autor",
+              xlab = "P(Sí cumple)",
+              ylab = "")
+
+mtext("Tipo de autor", side = 2, line = left_mar - 2)
+
+abline(v = p_global, lty = 2, lwd = 2)
+text(x = rate, y = bp, labels = paste0("  n=", n), pos = 4, cex = 0.85)
+text(x = p_global, y = max(bp) + 0.7, labels = "media", pos = 3, cex = 0.8)
+
+par(op)
+
+```
+
+En el gráfico se ve que las categorías “varios” y “mujer” tienen una probabilidad de “Sí cumple” algo mayor que la media, mientras que “hombre” queda prácticamente en la media y “anónimo” algo por debajo. Sin embargo, el resultado está muy condicionado por el tamaño muestral: casi todo es “hombre” (n=6161) y “mujer”/“varios” tienen muy pocos casos (n=59 y n=154), así que esas diferencias pueden no ser fiables. Por eso, como variable para el modelo, tipo_autor parece tener una utilidad limitada y yo no la priorizaría; como mucho la dejaría solo si al ajustar el modelo aporta mejora clara (porque ahora mismo la señal viene de grupos pequeños).
+
+##SERIE 
+```{r}
+table(df$serie)
+v <- "serie"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+names(tab)[names(tab) == "0"] <- "0 (No)"
+names(tab)[names(tab) == "1"] <- "1 (Sí)"
+
+barplot(tab, las = 1, main = "Forma parte de una serie", ylab = "frequencia")
+```
+
+## SERIE CON EXITO 
+
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+if (is.numeric(df$serie) || is.integer(df$serie)) {
+  df$serie_f <- factor(df$serie, levels=c(0,1),
+                       labels=c("No pertenece a serie","Pertenece a serie"))
+} else {
+  df$serie_f <- factor(df$serie)
+}
+
+tab <- table(df$serie_f, df$exito_f)
+prop <- prop.table(tab, 1)   # proporciones dentro de cada grupo de serie
+n <- rowSums(tab)
+
+cols <- c("red","green")
+par(mar=c(6,4,4,2)+0.1)
+bp <- barplot(t(prop),
+              beside = FALSE,
+              ylim = c(0,1),
+              col = cols,
+              las = 1,
+              main = "Éxito según pertenencia a serie (proporciones)",
+              xlab = "Serie",
+              ylab = "Proporción")
+
+legend("topright", legend=c("No cumple","Sí cumple"), fill=cols, bty="n")
+text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
+
+tab
+round(prop, 3)
+
+```
+
+Tanto las obras que no pertenecen a una serie (0) como las que sí pertenecen (1) tienen proporciones muy parecidas: en ambos casos domina claramente el “no cumple” y solo una parte pequeña cumple la razón áurea. La diferencia entre estar en serie o no es mínima, así que parece que formar parte de una serie no influye de manera clara en el cumplimiento de la razón áurea.
+
+```{r}
+df$exito_f <- factor(df$exito, levels = c(0, 1), labels = c("No cumple", "Sí cumple"))
+
+serie2 <- df$serie
+if (is.numeric(serie2) || is.integer(serie2)) {
+  serie2 <- factor(serie2, levels = c(0, 1), labels = c("0 (No)", "1 (Sí)"))
+} else {
+  serie2 <- as.factor(serie2)
+}
+
+tab <- table(serie2, df$exito_f)
+
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n    <- rowSums(tab)
+
+ord  <- order(rate, decreasing = TRUE)
+rate <- rate[ord]
+n    <- n[ord]
+
+wrap_labels <- function(x, width = 18){
+  sapply(x, function(s) paste(strwrap(s, width = width), collapse = "\n"))
+}
+ylab2 <- wrap_labels(names(rate), width = 18)
+
+p_global <- mean(df$exito == 1)
+
+max_chars <- max(nchar(gsub("\n", "", ylab2)))
+left_mar  <- min(22, max(11, ceiling(max_chars/2) + 3))
+cex_txt   <- if (length(rate) > 20) 0.65 else if (length(rate) > 12) 0.8 else 0.95
+
+if (dev.cur() == 1) dev.new(width = 10, height = 6)
+
+op <- par(no.readonly = TRUE)
+par(mar = c(5, left_mar, 4, 2) + 0.1)
+
+xmax <- max(rate) * 1.35
+bp <- barplot(rate,
+              horiz = TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col = "lightblue",
+              las = 1,
+              cex.names = cex_txt,
+              main = "Tasa de cumplimiento áureo por serie",
+              xlab = "P(Sí cumple)",
+              ylab = "")
+
+mtext("Serie", side = 2, line = left_mar - 2)
+
+abline(v = p_global, lty = 2, lwd = 2)
+text(x = rate, y = bp, labels = paste0("  n=", n), pos = 4, cex = 0.85)
+text(x = p_global, y = max(bp) + 0.7, labels = "media", pos = 3, cex = 0.8)
+
+par(op)
+
+```
+
+En el gráfico se ve que cuando serie = 1 la probabilidad de “Sí cumple” es algo mayor que la media global, mientras que serie = 0 queda muy cerca de la media o ligeramente por debajo. La diferencia existe, pero no parece enorme, y además ambas categorías tienen muchos datos (n=1407 y n=5628), así que la comparación es bastante fiable. Sí la incluiría en el modelo, porque es una variable binaria simple y podría aportar una mejora pequeña pero real; luego ya se confirmaría si sigue siendo importante al meter el resto de variables.
+
+##FECHA_ESTIMADA
+```{r}
+x <- as.integer(df$fecha_est)
+x <- x[is.finite(x)]
+
+# breaks de 25
+xmin <- floor(min(x)/25)*25
+xmax <- ceiling(max(x)/25)*25
+br <- seq(xmin, xmax + 25, by = 25)   # +25 para que no se quede corto
+
+hist(x, breaks = br,
+     main = "Fecha estimada (bins de 25 años)",
+     xlab = "Año", ylab = "Frecuencia",
+     right = FALSE)
+
+```
+
+## FECHA Y EXITO 
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+x <- as.integer(df$fecha_est)
+ok <- is.finite(x) & !is.na(df$exito_f)
+x <- x[ok]
+ex <- df$exito_f[ok]
+
+bin_w <- 50  
+xmin <- floor(min(x)/bin_w)*bin_w
+xmax <- ceiling(max(x)/bin_w)*bin_w
+br <- seq(xmin, xmax + bin_w, by=bin_w)
+
+bin <- cut(x, breaks=br, right=FALSE, include.lowest=TRUE)
+
+tab <- table(ex, bin)
+prop <- prop.table(tab, 2)
+
+cols <- c("red","green")
+
+op <- par(no.readonly=TRUE)
+par(mar=c(7,4,4,2)+0.1)
+
+bp <- barplot(prop,
+              beside=FALSE,
+              col=cols,
+              ylim=c(0,1),
+              las=1,
+              names.arg = rep("", ncol(prop)),  # quita TODAS las etiquetas feas
+              main=paste0("Éxito por fecha_est (bins ", bin_w, " años) - proporciones"),
+              xlab="Intervalo (años)",
+              ylab="Proporción")
+
+k <- 8
+idx <- unique(round(seq(1, ncol(prop), length.out = k)))
+labs <- colnames(prop)[idx]
+text(x = bp[idx], y = -0.06, labels = labs, srt = 45, adj = 1, xpd = TRUE, cex = 0.8)
+
+legend("topright", legend=rownames(prop), fill=cols, bty="n")
+par(op)
+
+```
+En casi todos los periodos, la parte roja ocupa casi toda la barra y la verde es pequeña; la mayoría de obras no cumplen en cualquier época. Además, como el trocito verde cambia poco de una barra a otra, no parece que la fecha_est esté influyendo mucho en el éxito; los pequeños cambios que pueden ser simplemente porque en algunos periodos hay pocas obras y entonces el porcentaje se mueve más por azar.
+
+```{r}
+boxplot((df$fecha_est) ~ df$exito,
+        main = "Distribución de la fecha estimada según cumplimiento de la condición áurea",
+        xlab = "¿Cumple la condición áurea?",
+        ylab = "fecha estimada",
+        las = 1)
+```
+
+Se observan outliers de fechas muy tempranas en ambos grupos (más visibles en el grupo 0), que conviene revisar como posibles estimaciones poco precisas o casos especiales, pero no eliminarlos sin justificación histórica. La distribución del grupo que sí cumple (1) aparece ligeramente desplazada a fechas más recientes (mediana más alta), aunque hay solapamiento, por lo que la fecha podría influir de forma débil en el éxito.
+
+##FECHA_ANCHO
+```{r}
+hist(df$fecha_ancho, breaks=40, main="Histograma de fecha_ancho", xlab="area")
+```
+
+##TEMA 
+```{r}
+table(df$tema)
+
+v <- "tema"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+barplot(tab, las = 2, main = "Tema de la Obra", ylab = "frequencia")
+```
+
+##TEMA CON EXITO 
+```{r}
+df$exito_f <- factor(df$exito, levels = c(0,1),
+                     labels = c("No cumple","Sí cumple"))
+
+tab <- table(df$tema, df$exito_f)
+
+prop <- prop.table(tab, 1)
+
+cols <- c("red", "green")
+
+op <- par(no.readonly = TRUE)
+
+bp <- barplot(t(prop),
+              beside = FALSE,
+              col = cols,
+              ylim = c(0,1),
+              las = 2,
+              main = "Éxito según tema (proporciones)",
+              xlab = "Tema",
+              ylab = "Proporción")
+
+legend("topright",
+       legend = c("No cumple", "Sí cumple"),
+       fill = cols,
+       bty = "n")
+
+n <- rowSums(tab)
+text(x = bp, y = 1.02, labels = paste0("n=", n),
+     xpd = TRUE, cex = 0.8)
+
+par(op)
+
+```
+
+La gran mayoría de obras no cumple la razón áurea independientemente del tema. la parte verde es pequeña en todos los temas, así que cumplir la razón áurea es poco frecuente en general aun así, se ven pequeñas diferencias: algunos temas como paisaje/lugares, animales o alegoría tienen un poco más de verde que otros, mientras que temas como retrato/corte o vida cotidiana tienen menos. En resumen, el tema no parece marcar una diferencia muy grande en el cumplimiento de la razón áurea, porque en todos los temas domina claramente el “no cumple”.
+
+```{r}
+df$exito_f <- factor(df$exito, levels = c(0, 1), labels = c("No cumple", "Sí cumple"))
+
+tab <- table(df$tema, df$exito_f)
+
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n    <- rowSums(tab)
+
+ord  <- order(rate, decreasing = TRUE)
+rate <- rate[ord]
+n    <- n[ord]
+
+wrap_labels <- function(x, width = 18){
+  sapply(x, function(s) paste(strwrap(s, width = width), collapse = "\n"))
+}
+ylab2 <- wrap_labels(names(rate), width = 18)
+
+p_global <- mean(df$exito == 1)
+
+max_chars <- max(nchar(gsub("\n", "", ylab2)))
+left_mar  <- min(30, max(11, ceiling(max_chars/2) + 3))
+cex_txt   <- if (length(rate) > 30) 0.50 else if (length(rate) > 22) 0.65 else if (length(rate) > 15) 0.8 else 0.95
+
+if (dev.cur() == 1) dev.new(width = 12, height = 8)
+
+op <- par(no.readonly = TRUE)
+par(mar = c(5, left_mar, 4, 2) + 0.1)
+
+xmax <- max(rate) * 1.35
+bp <- barplot(rate,
+              horiz = TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col = "lightblue",
+              las = 1,
+              cex.names = cex_txt,
+              main = "Tasa de cumplimiento áureo por tema",
+              xlab = "P(Sí cumple)",
+              ylab = "")
+
+mtext("Tema", side = 2, line = left_mar - 2)
+
+abline(v = p_global, lty = 2, lwd = 2)
+text(x = rate, y = bp, labels = paste0("  n=", n), pos = 4, cex = 0.85)
+text(x = p_global, y = max(bp) + 0.7, labels = "media", pos = 3, cex = 0.8)
+
+par(op)
+
+```
+
+En el gráfico se ve que el tema sí cambia la probabilidad de “Sí cumple”: por ejemplo, paisaje_lugares está claramente por encima de la media, mientras que religioso, mitologia o proceso_obra quedan por debajo. Además, estas diferencias no solo aparecen en temas con pocos casos, porque hay temas con n grande (religioso, otros, retrato_corte, paisaje_lugares) que también se separan de la media, así que la señal parece bastante real. Sí añadiría tema en el modelo.
+
+
+## VARIABLES 2 A 2 
+
+### orientación con tam_cat
+```{r}
+tab <- table(df$orientacion, df$tam_cat)
+prop_col <- prop.table(tab, 2)  # proporciones
+round(prop_col, 3)
+
+cols <- c("skyblue3","orange2","gray50")  # vertical / horizontal / cuadrado (ajusta si quieres)
+
+barplot(prop_col,
+        beside = FALSE,
+        ylim = c(0, 1),
+        las = 1,
+        col = cols,
+        main = "Orientación dentro de cada tamaño (tam_cat)",
+        xlab = "Tamaño (tam_cat)",
+        ylab = "Proporción")
+
+legend("topright", legend = rownames(prop_col), fill = cols, bty = "n")
+```
+
+En los tres tamaños (pequeño, mediano y grande) prácticamente no aparecen obras “cuadrado” (proporción casi 0), así que la orientación dominante es horizontal/vertical.
+
+Sí hay diferencias entre categorías: en “mediano” aumenta la proporción de verticales (y bajan las horizontales) respecto a “grande” y “pequeño”, pero las diferencias no parecen enormes (el patrón general se mantiene).
+
+
+### orientación con tam_cat i con exito
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("0 (No cumple)","1 (Sí cumple)"))
+df$tam_cat <- factor(df$tam_cat, levels=c("pequeno","mediano","grande"))
+df$orientacion <- factor(df$orientacion, levels=c("horizontal","vertical","cuadrado"))
+
+tab3 <- table(df$orientacion, df$tam_cat, df$exito_f)
+
+cols_ex <- c("red","green")
+op <- par(no.readonly = TRUE)
+par(mfrow=c(1,3), mar=c(7,4,4,2)+0.1)
+
+for(tam in levels(df$tam_cat)){
+
+  tab_tam <- tab3[, tam, , drop=FALSE]   # <- importante drop=FALSE aquí
+  tab_tam <- tab_tam[, 1, ]              # ahora sí: matriz 2D (orientacion x exito)
+
+  prop_tam <- prop.table(tab_tam, 1)
+
+  bp <- barplot(t(prop_tam),
+                beside=FALSE,
+                ylim=c(0,1),
+                las=2,
+                col=cols_ex,
+                main=paste("tam_cat =", tam),
+                ylab="Proporción",
+                xlab="Orientación")
+
+  n <- rowSums(tab_tam)
+  text(x=bp, y=1.02, labels=paste0("n=", n), xpd=TRUE, cex=0.8)
+}
+
+legend("topright",
+       legend=c("No cumple","Sí cumple"),
+       fill=cols_ex, bty="n")
+
+par(op)
+
+```
+
+En los tres tamaños (pequeño/mediano/grande) domina claramente el “No cumple” (rojo): las tasas de “Sí cumple” (verde) son bajas en general, así que no parece que el tamaño por sí solo cambie mucho el éxito.
+
+Dentro de cada tamaño, la orientación sí marca pequeñas diferencias: en “grande” la orientación vertical parece tener una proporción de “Sí cumple” algo mayor que horizontal, pero ojo con “cuadrado” porque tiene muy pocas observaciones (n muy pequeño) y esa barra no es fiable para comparar.
+
+### serie y soporte_grp
+
+```{r}
+df$serie_f <- factor(df$serie, levels = c(0,1),
+                     labels = c("No pertenece a serie", "Pertenece a serie"))
+tab <- table(df$soporte_grp, df$serie_f)
+tab 
+```
+
+```{r}
+
+tab <- table(df$soporte_grp, df$serie)
+prop <- prop.table(tab, 2)
+
+cols <- rainbow(nrow(prop))  # o tus colores
+
+op <- par(no.readonly=TRUE)
+par(mar=c(6,4,4,12)+0.1, xpd=NA)
+
+bp <- barplot(prop,
+              beside = FALSE,
+              ylim = c(0,1),
+              las = 1,
+              col = cols,
+              main = "Soporte dentro de cada grupo de serie",
+              xlab = "Serie",
+              ylab = "Proporción")
+
+# n total por cada grupo (cada barra)
+n_serie <- colSums(tab)
+text(x = bp, y = 1.02, labels = paste0("n=", n_serie), cex = 0.85)
+
+legend("topright",
+       inset = c(-0.35, 0),
+       legend = rownames(prop),
+       fill = cols,
+       bty = "n",
+       cex = 0.9)
+
+par(op)
+
+```
+
+En el gráfico se ve que la composición de soportes es muy parecida entre las obras que no pertenecen a una serie (0) y las que sí pertenecen a una serie (1): en ambos casos domina claramente el lienzo y el resto de soportes tienen un peso pequeño. Las diferencias entre serie = 0 y serie = 1 son mínimas y no cambian el patrón general. Por tanto, el soporte no parece depender de la serie y este gráfico no sugiere una relación fuerte entre ambas variables.
+ 
+### soporte grp serie y exito
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$serie_f <- factor(df$serie, levels=c(0,1),
+                     labels=c("No pertenece a serie","Pertenece a serie"))
+
+tab3 <- table(df$soporte_grp, df$serie_f, df$exito_f)
+
+tot_sop <- apply(tab3, 1, sum)
+tab3 <- tab3[order(tot_sop, decreasing=TRUE), , , drop=FALSE]
+
+ylab2 <- rownames(tab3)
+ylab2 <- gsub("Papel/Vitela", "Papel/\nVitela", ylab2)
+ylab2 <- gsub("Tabla/Panel", "Tabla/\nPanel", ylab2)
+
+cols <- c("red", "green") 
+
+op <- par(no.readonly=TRUE)
+
+layout(matrix(c(1,2,3), nrow=1), widths=c(1,1,0.55))
+
+for (s in levels(df$serie_f)) {
+
+  tab_s <- tab3[, s, , drop=FALSE][,,1:2]   
+  tab_s <- tab_s[, c("No cumple","Sí cumple")]
+
+  prop_s <- prop.table(tab_s, 1) 
+  prop_s[is.na(prop_s)] <- 0
+  n <- rowSums(tab_s)
+
+  par(mar=c(5, 9.5, 3.5, 2) + 0.1, xpd=NA)
+
+  bp <- barplot(t(prop_s),
+                horiz=TRUE,
+                names.arg=ylab2,
+                col=cols,
+                xlim=c(0,1),
+                las=1,
+                cex.names=0.9,
+                main=paste("Serie:\n", s),
+                xlab="Proporción",
+                border=NA)
+
+  axis(1, at=seq(0,1,0.2))
+  box()
+
+  text(x=1.02, y=bp, labels=paste0("n=", n), pos=4, cex=0.8)
+}
+
+par(mar=c(0,0,0,0))
+plot.new()
+legend("center",
+       legend=c("No cumple","Sí cumple"),
+       fill=cols,
+       bty="n",
+       cex=1)
+```
+
+En este gráfico se ve que, dentro de cada tipo de soporte, la proporción de obras que cumplen y no cumplen es muy similar entre las que pertenecen a una serie y las que no pertenecen. El patrón se repite para lienzo, tabla/panel, metal, otros y mural, sin cambios claros en la proporción de “Sí cumple”. Por tanto, la pertenencia a una serie no parece modificar el efecto del soporte sobre el cumplimiento, y este gráfico no sugiere una interacción fuerte entre serie y soporte.
+
+### serie i fecha estimada
+
+```{r}
+df$serie_f <- factor(df$serie, levels = c(0,1),
+                     labels = c("No pertenece a serie", "Pertenece a serie"))
+
+par(mar = c(6,6,4,2) + 0.1)
+
+boxplot(fecha_est ~ serie_f, data = df,
+        col = c("gray85","lightblue"),
+        pch = 16, cex = 0.7,
+        main = "Fecha estimada según pertenencia a serie",
+        xlab = "Serie",
+        ylab = "fecha_est (año)",
+        las = 1)
+
+# puntos con transparencia + muestra (para que se vea bien)
+set.seed(1)
+m <- min(800, nrow(df))
+idx <- sample(seq_len(nrow(df)), m)
+
+stripchart(df$fecha_est[idx] ~ df$serie_f[idx],
+           vertical = TRUE, method = "jitter",
+           pch = 16, cex = 0.35,
+           col = adjustcolor("black", alpha.f = 0.25),
+           add = TRUE)
+
+grid(nx = NA, ny = NULL)
+```
+
+En este boxplot se ve que la fecha estimada de las obras que pertenecen a una serie y las que no pertenecen es muy parecida: las medianas están casi al mismo nivel y las cajas se solapan mucho. Como mucho, las que pertenecen a serie parecen ligeramente más concentradas (algo menos de dispersión), pero la diferencia es pequeña. En resumen, pertenecer a una serie no parece cambiar de forma clara la fecha estimada.
+
+### fecha estimada serie y exito
+
+```{r}
+df$exito_f <- factor(df$exito, levels = c(0,1),
+                     labels = c("No cumple","Sí cumple"))
+
+df$serie_f <- factor(df$serie, levels = c(0,1),
+                     labels = c("No pertenece a serie", "Pertenece a serie"))
+
+cols <- c("red", "green")  # No cumple / Sí cumple
+
+op <- par(no.readonly = TRUE)
+
+par(mfrow = c(1,2), mar = c(6,5,4,1) + 0.1, oma = c(0,0,2,0))
+
+for (s in levels(df$serie_f)) {
+  sub <- df[df$serie_f == s, , drop = FALSE]
+
+  bp <- boxplot(fecha_est ~ exito_f, data = sub,
+                col = cols,
+                main = paste("Serie:", s),
+                xlab = "Éxito",
+                ylab = "fecha_est (año)",
+                las = 1,
+                outline = TRUE)
+
+  grid(nx = NA, ny = NULL)
+
+  # n encima de cada caja
+  text(x = 1:2, y = par("usr")[4], labels = paste0("n=", bp$n),
+       xpd = TRUE, pos = 3, cex = 0.85)
+}
+
+mtext("Fecha estimada por éxito, separando si pertenece a serie", outer = TRUE, cex = 1.1)
+
+legend("topleft", inset = 0.02,
+       legend = levels(df$exito_f), fill = cols, bty = "n", cex = 0.9)
+```
+
+En este gráfico se ve que, tanto si la obra pertenece a una serie como si no, las que sí cumplen tienden a tener una fecha estimada ligeramente más reciente que las que no cumplen (la mediana verde está por encima de la roja en ambos paneles). La diferencia entre “cumple” y “no cumple” es parecida en los dos grupos de serie, y las cajas se solapan bastante. En resumen, el éxito parece más relacionado con la fecha estimada que con pertenecer o no a una serie, y no se aprecia un efecto claro adicional de la variable serie sobre esta relación.
+
+### tema vs tecnica
+
+```{r}
+tema <- factor(df$tema)
+tec  <- factor(df$tecnica) 
+
+tab  <- table(tema, tec)
+prop <- prop.table(tab, 1) 
+n_tema <- rowSums(tab)
+
+ord <- order(n_tema, decreasing = TRUE)
+prop <- prop[ord, , drop = FALSE]
+n_tema <- n_tema[ord]
+
+tema_lab <- rownames(prop)
+tema_lab <- gsub("_", "\n", tema_lab)  # corta por guiones bajos
+
+cols <- rainbow(ncol(prop))
+names(cols) <- colnames(prop)
+
+op <- par(no.readonly = TRUE)
+
+layout(matrix(c(1,2), 1, 2), widths = c(4.8, 1.6))
+
+par(mar = c(5, 12, 4, 1) + 0.1, xpd = NA)
+bp <- barplot(t(prop),
+              horiz = TRUE,
+              beside = FALSE,
+              xlim = c(0, 1),
+              las = 1,
+              col = cols[colnames(prop)],
+              names.arg = tema_lab,
+              main = "Distribución de técnicas dentro de cada tema",
+              xlab = "Proporción",
+              ylab = "Tema",
+              cex.names = 0.85)
+
+text(x = 1.02, y = bp, labels = paste0("n=", n_tema), pos = 4, cex = 0.8)
+
+par(mar = c(0,0,0,0))
+plot.new()
+legend("center",
+       legend = colnames(prop),
+       fill = cols[colnames(prop)],
+       bty = "n",
+       cex = 1)
+
+layout(1)
+par(op)
+
+tab
+round(prop, 3)
+```
+
+En este gráfico se ve que en todos los temas domina claramente la técnica óleo, ya que ocupa casi toda la barra en cada caso. Las técnicas mixta y otras aparecen solo de forma residual y su peso cambia muy poco entre temas. En resumen, el tema no parece condicionar de manera clara la técnica utilizada, porque la distribución es prácticamente la misma en todos los grupos.
+
+
+### tema vs tecnica y exito
+
+```{r}
+dev.new(width = 13, height = 5)
+
+df$exito_f   <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tema_f    <- factor(df$tema)
+df$tecnica_f <- factor(df$tecnica)
+
+tab3 <- with(df, table(tema_f, tecnica_f, exito_f))
+
+tab_total <- apply(tab3, c(1,2), sum)
+n_total   <- rowSums(tab_total)
+ord <- order(n_total, decreasing = TRUE)
+
+tab3 <- tab3[ord, , , drop=FALSE]
+tema_levels <- dimnames(tab3)[[1]]
+
+tema_lab <- gsub("_", "\n", tema_levels)
+
+cols <- rainbow(nlevels(df$tecnica_f))
+names(cols) <- levels(df$tecnica_f)
+
+prop_list <- vector("list", length(levels(df$exito_f)))
+n_list    <- vector("list", length(levels(df$exito_f)))
+
+for (k in seq_along(levels(df$exito_f))) {
+  tab_k <- tab3[,,k]
+  n_k   <- rowSums(tab_k)
+  prop_k <- prop.table(tab_k, 1)   # cada tema suma 1
+  prop_k[is.na(prop_k)] <- 0
+  prop_list[[k]] <- prop_k
+  n_list[[k]] <- n_k
+}
+
+op <- par(no.readonly = TRUE)
+
+layout(matrix(c(1,2,3), 1, 3), widths = c(5.2, 5.2, 1.7))
+par(oma=c(0,0,2,0)) 
+
+for (k in seq_along(levels(df$exito_f))) {
+
+  par(mar = c(4.5, ifelse(k==1, 12, 2), 3, 1) + 0.1, xpd = NA)
+
+  bp <- barplot(t(prop_list[[k]]),
+                horiz = TRUE,
+                beside = FALSE,
+                col = cols[colnames(prop_list[[k]])],
+                xlim = c(0,1),
+                las = 1,
+                names.arg = if (k==1) tema_lab else rep("", length(tema_lab)),
+                cex.names = 0.85,
+                cex.axis = 0.9,
+                main = paste("Éxito:", levels(df$exito_f)[k]),
+                xlab = "Proporción",
+                ylab = if (k==1) "Tema" else "")
+
+
+  text(x = 1.02, y = bp, labels = paste0("n=", n_list[[k]]), pos = 4, cex = 0.75)
+}
+
+par(mar=c(0,0,0,0))
+plot.new()
+legend("center",
+       legend = levels(df$tecnica_f),
+       fill = cols[levels(df$tecnica_f)],
+       bty = "n",
+       cex = 1)
+
+mtext("Distribución de técnicas dentro de cada tema (separado por éxito)", outer=TRUE, cex=1.1)
+
+layout(1)
+par(op)
+
+```
+
+En este gráfico se ve que, tanto cuando la obra cumple como cuando no cumple, la técnica óleo domina claramente en todos los temas, ocupando casi toda la proporción de cada barra. Las técnicas mixta y otras aparecen solo de forma puntual y sin un patrón claro que cambie entre éxito y no éxito. En resumen, la distribución de técnicas es prácticamente la misma independientemente del tema y del éxito, por lo que este gráfico no sugiere una relación fuerte entre técnica, tema y cumplimiento.
+
+### area vs fecha
+
+```{r}
+
+df$log_area <- log(df$area)
+
+plot(df$fecha_est_num, df$log_area,
+     main = "log(Área) vs Fecha Estimada",
+     xlab = "Fecha Estimada",
+     ylab = "log(Área)",
+     pch = 19,  # Usar puntos sólidos
+     col = rgb(0, 0, 1, 0.5),  # Color azul con algo de transparencia
+     cex = 0.7)  # Tamaño de los puntos
+
+# Añadir una línea de tendencia (si es relevante)
+abline(lm(df$log_area ~ df$fecha_est_num), col = "red", lwd = 2)
+
+```
+
+a línea LOWESS es la tendencia: como está casi plana (ligeramente hacia abajo), no parece que el área cambie mucho con la fecha (relación débil o casi nula). Las “rayas verticales” salen porque muchos años se repiten.
+
+### area vs fecha con éxito 
+
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+col_ex <- ifelse(df$exito_f == "Sí cumple", "green3", "red3")
+
+x <- jitter(df$fecha_est, amount = 0.25)
+y <- log(df$area)
+
+plot(x, y,
+     pch = 16, cex = 0.5,
+     col = col_ex,
+     xlab = "fecha_est",
+     ylab = "log(area+1)",
+     main = "Área vs fecha_est (coloreado por éxito)")
+
+legend("topright",
+       legend = c("No cumple","Sí cumple"),
+       col = c("red3","green3"),
+       pch = 16, bty = "n")
+
+lines(lowess(df$fecha_est, y), lwd = 2)
+
+lines(lowess(df$fecha_est[df$exito_f=="No cumple"], y[df$exito_f=="No cumple"]), lwd=2, col="red3")
+lines(lowess(df$fecha_est[df$exito_f=="Sí cumple"], y[df$exito_f=="Sí cumple"]), lwd=2, col="green3")
+```
+
+En el gráfico, cada punto es una obra: el eje X es la fecha estimada y el eje Y es el tamaño (área) en escala logarítmica; los puntos verdes son las obras que sí cumplen y los rojos las que no cumplen. La idea es ver si “cumplir” se asocia a obras más grandes o a ciertas épocas, pero como las nubes de puntos se mezclan mucho y las líneas de tendencia (verde y roja) van muy parecidas, no se ve una diferencia clara: a lo sumo, la línea verde queda un pelín por encima en algunos tramos, lo que sugeriría que las que “sí cumplen” podrían ser ligeramente más grandes, pero la diferencia es pequeña y no parece que con fecha + área puedas predecir bien el éxito.
+
+
+### area por orientación 
+
+```{r}
+boxplot(log(df$area) ~ df$orientacion, las=2,
+        main="log(area) por orientación", xlab="orientación", ylab="log(area)")
+
+```
+
+En el boxplot de log(area) por orientación, lo que se ve es que las diferencias entre “horizontal”, “vertical” y “cuadrado” no son enormes: las medianas están bastante parecidas y las cajas se solapan mucho. Aun así, parece que las horizontales tienden a tener un área “típica” un pelín más alta (la línea del medio está algo más arriba) y en vertical aparecen más valores muy pequeños (puntitos bajos), o sea, hay más cuadros verticales con áreas muy pequeñas.
+
+### area por orientación con exito 
+
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+df2 <- subset(df, orientacion != "cuadrado" & !is.na(area))
+
+df2$orientacion <- droplevels(factor(df2$orientacion))
+df2$exito_f      <- droplevels(df2$exito_f)
+
+grp <- interaction(df2$orientacion, df2$exito_f, sep="\n", drop=TRUE)
+
+col_grp <- ifelse(grepl("No cumple", levels(grp)), "red", "green")
+
+par(mar=c(9,4,4,2)+0.1)
+boxplot(log(df2$area + 1) ~ grp,
+        las=2,
+        col=col_grp,
+        main="log(area) por orientación y éxito (sin cuadrados)",
+        ylab="log(area)",
+        xlab="")
+
+legend("topright", legend=c("No cumple","Sí cumple"), fill=c("red","green"), bty="n")
+```
+
+Las obras que sí cumplen (verde) tienden a tener un log(area) más alto que las que no cumplen (rojo), tanto en orientación horizontal como vertical.
+Deberíamos incluir log(area) en el modelo porque muestra una separación bastante clara entre éxito y no éxito.
+La orientación apenas cambia el patrón, así que parece una variable secundaria (útil más para ajustar que por una relación fuerte).
+
+### area por soporte
+
+
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+with(df, table(orientacion, exito_f))
+```
+
+
+
+```{r}
+boxplot(log(df$area) ~ df$soporte_grp, las=2,
+        main="log(area) por soporte", xlab="soporte", ylab="log(area)")
+```
+
+Se observa que el tamaño (log(area)) cambia bastante según el soporte: mural y lienzo tienden a tener áreas más grandes, mientras que metal y otros son más pequeños, y tabla/panel queda intermedio.
+Esto indica que el soporte está muy relacionado con el área, así que puede actuar como factor de confusión si usamos log(area) para explicar el éxito.
+Deberíamos incluir soporte en el modelo (al menos como ajuste) y, si en otros gráficos se ve que el efecto de log(area) cambia por soporte, valorar también una interacción.
+
+### Area por técnica 
+
+```{r}
+boxplot(log(df$area) ~ df$tecnica_f,
+        main = "Area por técnica",
+        xlab = "Técnica",
+        ylab = "Área",
+        col = rainbow(length(levels(df$tecnica_f))),
+        outline = TRUE)
+
+```
+
+Las técnicas "oleo" y "mixta" presentan una distribución más dispersa de áreas, con valores atípicos notables. Esto puede indicar que, dependiendo de la técnica, los tamaños de las obras pueden variar considerablemente. La técnica "oleo" tiene valores extremos muy altos en comparación con otras técnicas. Este comportamiento podría ser relevante a la hora de considerar la técnica como una variable en el modelo.
+
+### Area por técnica y éxito 
+
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0, 1), labels=c("No cumple", "Sí cumple"))
+df$tecnica_f <- factor(df$tecnica)
+
+log_area <- log(df$area)
+
+interaction_var <- interaction(df$tecnica_f, df$exito_f, drop=TRUE)
+
+lst <- split(log_area, interaction_var)
+
+cols_exito <- c("red", "green")
+
+op <- par(no.readonly=TRUE)
+par(mar=c(7,5,4,2)+0.1)
+
+boxplot(lst,
+        col=cols_exito,
+        ylab="log(Área)",
+        xlab="Técnica y Éxito",
+        main="log(Área) por Técnica y Éxito",
+        las=2,
+        outline=TRUE)
+
+axis(1, at=1:length(levels(df$tecnica_f)), labels=levels(df$tecnica_f), las=2)
+abline(v=seq(2.5, by=2, length.out=length(levels(df$tecnica_f))-1), col="gray80", lty=2)
+
+legend("topright", legend=c("No cumple", "Sí cumple"), fill=cols_exito, bty="n")
+
+par(op)
+
+```
+La técnica "mixta" muestra una mayor diferencia entre los que cumplen y no cumplen, lo que puede indicar que es una variable significativa a considerar para el modelo. Las técnicas como "oleo" y "otras" no muestran una diferencia tan clara, lo que sugiere que su inclusión en el modelo podría no ser tan relevante sin un análisis más profundo.
+
+### Soporte por area y exito 
+
+```{r}
+par(mar=c(9,5,4,2)+0.1)
+
+k2 <- length(levels(df$soporte_grp))
+
+boxplot(y ~ df$soporte_grp * df$exito_f,
+        col  = rep(cols_ex, times = k2),
+        xaxt = "n",
+        las  = 1,
+        main = "log(area) por soporte y éxito",
+        ylab = "log(area)",
+        xlab = "")
+
+axis(1,
+     at = seq(1.5, by = 2, length.out = k2),
+     labels = levels(df$soporte_grp),
+     las = 2)
+
+abline(v = seq(2.5, by = 2, length.out = k2-1), col = "gray80", lty = 2)
+
+legend("topright", legend = levels(df$exito_f), fill = cols_ex, bty = "n")
+
+par(op)
+```
+
+En este gráfico se ve que, para casi todos los tipos de soporte, las obras que sí cumplen tienden a tener un área mayor (valores más altos de log(area)) que las que no cumplen, ya que las medianas verdes suelen estar por encima de las rojas. La diferencia es especialmente clara en mural, otros y tabla/panel, mientras que en lienzo y metal la separación existe pero es algo menor y hay más solapamiento. En conjunto, el área parece estar relacionada con el éxito y además ese efecto cambia según el soporte, lo que sugiere que tanto area como su interacción con soporte_grp podrían ser relevantes a considerar en el modelo.
+
+
+### orientación con soporte_grp
+
+```{r}
+tab_orient_soporte <- table(df$orientacion, df$soporte_grp)
+prop_orient_soporte <- prop.table(tab_orient_soporte, 2)
+
+cols <- c("orange", "purple", "blue", "green")
+
+barplot(prop_orient_soporte, 
+        beside = FALSE,  # Apilar las barras
+        col = cols,  # Colores para cada categoría
+        ylim = c(0, 1),  # Asegurar que las barras lleguen a 1
+        main = "Distribución de orientación por soporte_grp", 
+        xlab = "Soporte", 
+        ylab = "Proporción", 
+        las = 1) 
+
+legend("topright", 
+       legend = rownames(prop_orient_soporte), 
+       fill = cols, 
+       bty = "n", 
+       cex = 0.9)
+
+```
+
+### orientación con soporte_grp con éxito
+
+```{r}
+ori <- factor(df$orientacion)
+sup <- factor(df$soporte_grp)
+ex  <- factor(df$exito, levels = c(0,1), labels = c("No cumple","Sí cumple"))
+
+ok <- !is.na(ori) & !is.na(sup) & !is.na(ex)
+ori <- ori[ok]; sup <- sup[ok]; ex <- ex[ok]
+
+tab <- table(ori, sup, ex)
+
+ori_levels <- dimnames(tab)[[1]]
+sup_levels <- dimnames(tab)[[2]]
+ex_levels  <- dimnames(tab)[[3]]
+
+cols_ori <- rainbow(length(ori_levels)) 
+
+op <- par(no.readonly = TRUE)
+par(mfrow = c(1,2), mar = c(7,4,4,1) + 0.1, xpd = NA)
+
+for(i in seq_along(ex_levels)){
+  m <- tab[,, i, drop = FALSE]
+  m <- m[,,1] 
+
+  prop <- prop.table(m, 2)    
+  prop[!is.finite(prop)] <- 0   
+
+  barplot(as.matrix(prop),
+          beside = FALSE,
+          ylim = c(0,1),
+          col = cols_ori,
+          main = paste("Éxito:", ex_levels[i]),
+          xlab = "soporte_grp",
+          ylab = "Proporción",
+          las = 2)
+
+  abline(h = seq(0,1,0.2), col = "gray90")
+}
+
+legend("topright", inset = c(-0.25, 0),
+       legend = ori_levels, fill = cols_ori, bty = "n", cex = 0.9)
+
+par(op)
+
+```
+
+
+### orientación con técniva 
+
+```{r}
+ori <- factor(df$orientacion)
+tec <- factor(df$tecnica)
+
+ok <- !is.na(ori) & !is.na(tec)
+ori <- ori[ok]; tec <- tec[ok]
+
+tab <- table(ori, tec)          
+prop <- prop.table(tab, 2) 
+
+cols_ori <- rainbow(nlevels(ori))
+
+op <- par(no.readonly=TRUE)
+par(mar=c(7,4,4,2)+0.1, xpd=NA)
+
+barplot(as.matrix(prop),
+        beside = FALSE,
+        ylim = c(0,1),
+        col = cols_ori,
+        main = "Distribución de orientación dentro de cada técnica",
+        xlab = "Técnica",
+        ylab = "Proporción",
+        las = 2)
+
+abline(h = seq(0,1,0.2), col="gray")
+legend("topright", inset=c(-0.25,0),
+       legend=levels(ori), fill=cols_ori, bty="n", cex=0.9)
+
+par(op)
+
+```
+
+### orientación con técniva con exito 
+
+```{r}
+ori <- factor(df$orientacion)
+tec <- factor(df$tecnica)
+ex  <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+ok <- !is.na(ori) & !is.na(tec) & !is.na(ex)
+ori <- ori[ok]; tec <- tec[ok]; ex <- ex[ok]
+
+tab <- table(ori, tec, ex)
+
+ori_levels <- dimnames(tab)[[1]]
+tec_levels <- dimnames(tab)[[2]]
+ex_levels  <- dimnames(tab)[[3]]
+
+cols_ori <- rainbow(length(ori_levels))
+
+op <- par(no.readonly=TRUE)
+par(mfrow=c(1,2), mar=c(7,4,4,1)+0.1, xpd=NA)
+
+for(i in seq_along(ex_levels)){
+  m <- tab[,,i]
+  prop <- prop.table(m, 2)
+  prop[!is.finite(prop)] <- 0
+
+  barplot(as.matrix(prop),
+          beside=FALSE,
+          ylim=c(0,1),
+          col=cols_ori,
+          main=paste("Éxito:", ex_levels[i]),
+          xlab="Técnica",
+          ylab="Proporción",
+          las=2)
+
+  abline(h=seq(0,1,0.2), col="gray90")
+}
+
+legend("topright", inset=c(-0.25,0),
+       legend=ori_levels, fill=cols_ori, bty="n", cex=0.9)
+
+par(op)
+
+```
+
+
+### orientación fecha_est
+
+```{r}
+df$orientacion <- factor(df$orientacion)
+df$fecha_est_num <- as.numeric(df$fecha_est)  
+
+boxplot(fecha_est_num ~ orientacion,
+        data = df,
+        col = rainbow(length(levels(df$orientacion))),
+        main = "Distribución de fecha_est por orientación",
+        xlab = "Orientación",
+        ylab = "Fecha Estimada",
+        las = 2) 
+
+```
+
+### orientación fecha_est con exito 
+
+```{r}
+ori <- factor(df$orientacion)
+ex  <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+fe  <- as.numeric(df$fecha_est)
+
+ok <- !is.na(ori) & !is.na(ex) & is.finite(fe)
+ori <- ori[ok]; ex <- ex[ok]; fe <- fe[ok]
+
+# Colores por orientación (mismos en ambos paneles)
+ori_levels <- levels(ori)
+cols_ori <- c("blue", "orange", "gray")
+cols_ori <- cols_ori[seq_along(ori_levels)]  # por si hay 2 o 3 niveles
+
+op <- par(no.readonly=TRUE)
+par(mfrow=c(1,2), mar=c(7,4,4,5)+0.1)
+
+for (lev in levels(ex)) {
+  idx <- ex == lev
+  boxplot(fe[idx] ~ ori[idx],
+          las = 2,
+          col = cols_ori,
+          main = paste("fecha_est por orientación (", lev, ")", sep=""),
+          xlab = "Orientación",
+          ylab = "Fecha estimada",
+          outline = TRUE)
+  
+  legend("topright", legend=ori_levels, fill=cols_ori, bty="n", cex=0.9)
+}
+
+par(op)
+
+```
+
+
+### soporte_grp x tecnica 
+
+
+```{r}
+sup <- factor(df$soporte_grp)
+tec <- factor(df$tecnica)
+
+ok <- !is.na(sup) & !is.na(tec)
+sup <- sup[ok]; tec <- tec[ok]
+
+tab  <- table(tec, sup) 
+prop <- prop.table(tab, 2)     
+
+cols_tec <- rainbow(nrow(prop)) 
+
+op <- par(no.readonly=TRUE)
+par(mar=c(7,4,4,10)+0.1, xpd=NA) 
+
+bp <- barplot(as.matrix(prop),
+              beside = FALSE,
+              ylim = c(0,1),
+              col = cols_tec,
+              main = "Distribución de técnica dentro de cada soporte",
+              xlab = "soporte_grp",
+              ylab = "Proporción",
+              las = 2)
+
+abline(h = seq(0,1,0.2), col="gray90")
+
+n_sup <- colSums(tab)
+text(x = bp, y = 1.02, labels = paste0("n=", n_sup), cex = 0.8)
+
+legend("topright",
+       inset = c(-0.35, 0),
+       legend = rownames(prop),
+       fill = cols_tec,
+       bty = "n",
+       cex = 0.9)
+
+par(op)
+
+```
+
+
+### soporte_grp x tecnica con exito 
+
+```{r}
+sup <- factor(df$soporte_grp)
+tec <- factor(df$tecnica)
+ex  <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+ok <- !is.na(sup) & !is.na(tec) & !is.na(ex)
+sup <- sup[ok]; tec <- tec[ok]; ex <- ex[ok]
+
+tab <- table(tec, sup, ex) 
+
+tec_levels <- dimnames(tab)[[1]]
+sup_levels <- dimnames(tab)[[2]]
+ex_levels  <- dimnames(tab)[[3]]
+
+cols_tec <- rainbow(length(tec_levels)) 
+
+op <- par(no.readonly=TRUE)
+par(mfrow=c(1,2), mar=c(7,4,4,10)+0.1, xpd=NA)
+
+for(i in seq_along(ex_levels)){
+  m <- tab[,,i]
+  prop <- prop.table(m, 2)     
+  prop[!is.finite(prop)] <- 0   
+
+  bp <- barplot(as.matrix(prop),
+                beside=FALSE,
+                ylim=c(0,1),
+                col=cols_tec,
+                main=paste("Éxito:", ex_levels[i]),
+                xlab="soporte_grp",
+                ylab="Proporción",
+                las=2)
+
+  abline(h=seq(0,1,0.2), col="gray")
+
+  n_sup <- colSums(m)
+  text(x=bp, y=1.02, labels=paste0("n=", n_sup), cex=0.8)
+}
+
+legend("topright", inset=c(-0.35,0),
+       legend=tec_levels, fill=cols_tec, bty="n", cex=0.9)
+
+par(op)
+
+```
+
+
+### soporte_grp x fecha_estimada 
+
+```{r}
+sup <- factor(df$soporte_grp)
+fe  <- as.numeric(df$fecha_est)
+
+ok <- !is.na(sup) & is.finite(fe)
+sup <- sup[ok]; fe <- fe[ok]
+
+sup_levels <- levels(sup)
+cols_sup <- rainbow(length(sup_levels))
+
+op <- par(no.readonly=TRUE)
+par(mar=c(7,4,4,2)+0.1)
+
+boxplot(fe ~ sup,
+        col = cols_sup,
+        las = 2,
+        main = "fecha_est por soporte_grp",
+        xlab = "soporte_grp",
+        ylab = "Fecha estimada",
+        outline = TRUE)
+
+legend("topright", legend=sup_levels, fill=cols_sup, bty="n", cex=0.85)
+
+par(op)
+
+```
+
+
+
+### soporte_grp x fecha_estimada con exito 
+
+```{r}
+sup <- factor(df$soporte_grp)
+ex  <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+fe  <- as.numeric(df$fecha_est)
+
+ok <- !is.na(sup) & !is.na(ex) & is.finite(fe)
+sup <- sup[ok]; ex <- ex[ok]; fe <- fe[ok]
+
+sup_levels <- levels(sup)
+cols_sup <- rainbow(length(sup_levels))
+
+op <- par(no.readonly=TRUE)
+par(mfrow=c(1,2), mar=c(7,4,4,5)+0.1, xpd=NA)
+
+for(lev in levels(ex)){
+  idx <- ex == lev
+  boxplot(fe[idx] ~ sup[idx],
+          col = cols_sup,
+          las = 2,
+          main = paste("fecha_est por soporte_grp (", lev, ")", sep=""),
+          xlab = "soporte_grp",
+          ylab = "Fecha estimada",
+          outline = TRUE)
+  legend("topright", legend=sup_levels, fill=cols_sup, bty="n", cex=0.85)
+}
+
+par(op)
+
+```
+
+
+### técnica x fecha_estimada
+
+```{r}
+tec <- factor(df$tecnica)
+fe  <- as.numeric(df$fecha_est)
+
+ok <- !is.na(tec) & is.finite(fe)
+tec <- tec[ok]; fe <- fe[ok]
+
+tec_levels <- levels(tec)
+cols_tec <- rainbow(length(tec_levels))
+
+op <- par(no.readonly=TRUE)
+par(mar=c(7,4,4,6)+0.1, xpd=NA)
+
+boxplot(fe ~ tec,
+        col = cols_tec,
+        las = 2,
+        main = "fecha_est por técnica",
+        xlab = "Técnica",
+        ylab = "Fecha estimada",
+        outline = TRUE)
+
+legend("topright", inset=c(-0.25,0),
+       legend=tec_levels, fill=cols_tec, bty="n", cex=0.9)
+
+par(op)
+
+```
+
+
+
+### técnica x fecha_estimada con exito 
+
+```{r}
+tec <- factor(df$tecnica)
+ex  <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+fe  <- as.numeric(df$fecha_est)
+
+ok <- !is.na(tec) & !is.na(ex) & is.finite(fe)
+tec <- tec[ok]; ex <- ex[ok]; fe <- fe[ok]
+
+tec_levels <- levels(tec)
+cols_tec <- rainbow(length(tec_levels))
+
+op <- par(no.readonly=TRUE)
+par(mfrow=c(1,2), mar=c(7,4,4,8)+0.1, xpd=NA)
+
+for(lev in levels(ex)){
+  idx <- ex == lev
+  boxplot(fe[idx] ~ tec[idx],
+          col = cols_tec,
+          las = 2,
+          main = paste("fecha_est por técnica (", lev, ")", sep=""),
+          xlab = "Técnica",
+          ylab = "Fecha estimada",
+          outline = TRUE)
+  legend("topright", inset=c(-0.30,0),
+         legend=tec_levels, fill=cols_tec, bty="n", cex=0.85)
+}
+
+par(op)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## tipo autor 
+
+
+```{r}
+df$exito_f <- factor(df$exito, levels = c(0,1), labels = c("No cumple","Sí cumple"))
+df$tipo_autor_f <- factor(df$tipo_autor)
+df$orientacion_f <- factor(df$orientacion)
+df$soporte_f <- factor(df$soporte_grp)
+df$tecnica_f <- factor(df$tecnica)
+df$tema_f <- factor(df$tema)
+
+if (is.numeric(df$serie) || is.integer(df$serie)) {
+  df$serie_f <- factor(df$serie, levels = c(0,1),
+                       labels = c("No pertenece a serie","Pertenece a serie"))
+} else {
+  df$serie_f <- factor(df$serie)
+}
+
+if (is.numeric(df$sop_montaje) || is.integer(df$sop_montaje)) {
+  df$sop_montaje_f <- factor(df$sop_montaje, levels = c(0,1),
+                             labels = c("No montaje","Sí montaje"))
+} else {
+  df$sop_montaje_f <- factor(df$sop_montaje)
+}
+
+
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tipo_autor_f <- factor(df$tipo_autor)
+
+# tam_cat: si está roto (todo NA), lo reconstruimos desde area
+if ("tam_cat" %in% names(df)) {
+  if (all(is.na(df$tam_cat))) {
+    qs <- quantile(df$area, probs=c(1/3, 2/3), na.rm=TRUE)
+    df$tam_cat <- cut(df$area,
+                      breaks=c(-Inf, qs[1], qs[2], Inf),
+                      labels=c("pequeno","mediano","grande"),
+                      include.lowest=TRUE, ordered_result=TRUE)
+  } else {
+    df$tam_cat <- factor(as.character(df$tam_cat), ordered=TRUE)
+    if (all(c("pequeno","mediano","grande") %in% levels(df$tam_cat))) {
+      df$tam_cat <- factor(df$tam_cat, levels=c("pequeno","mediano","grande"), ordered=TRUE)
+    }
+  }
+}
+
+# serie y sop_montaje por si vienen como 0/1 numérico
+if ("serie" %in% names(df) && (is.numeric(df$serie) || is.integer(df$serie))) {
+  df$serie <- factor(df$serie, levels=c(0,1), labels=c("No serie","Sí serie"))
+} else if ("serie" %in% names(df)) df$serie <- factor(df$serie)
+
+if ("sop_montaje" %in% names(df) && (is.numeric(df$sop_montaje) || is.integer(df$sop_montaje))) {
+  df$sop_montaje <- factor(df$sop_montaje, levels=c(0,1), labels=c("No montaje","Sí montaje"))
+} else if ("sop_montaje" %in% names(df)) df$sop_montaje <- factor(df$sop_montaje)
+
+# factores típicos
+if ("orientacion" %in% names(df)) df$orientacion <- factor(df$orientacion)
+if ("soporte_grp" %in% names(df)) df$soporte_grp <- factor(df$soporte_grp)
+if ("tecnica" %in% names(df)) df$tecnica <- factor(df$tecnica)
+if ("tema" %in% names(df)) df$tema <- factor(df$tema)
+if ("fecha_est" %in% names(df)) df$fecha_est <- as.integer(df$fecha_est)
+if ("area" %in% names(df)) df$area <- as.numeric(df$area)
+
+# colapsar categorías si hay muchísimas (para que se lea)
+collapse_top <- function(f, top=12){
+  f <- factor(f)
+  tab <- sort(table(f), decreasing=TRUE)
+  keep <- names(tab)[seq_len(min(top, length(tab)))]
+  out <- as.character(f)
+  out[!(out %in% keep)] <- "Otros"
+  factor(out, levels=c(keep, "Otros"))
+}
+
+```
+
+
+## tipo de autor vs tema
+```{r}
+tab <- table(df$tipo_autor, df$tema)
+prop <- prop.table(tab, 1)
+n <- rowSums(tab)
+
+tema_levels <- colnames(prop)
+cols <- grDevices::rainbow(length(tema_levels))
+
+par(mar=c(9,4,4,12)+0.1)  
+bp <- barplot(t(prop),
+              beside=FALSE, ylim=c(0,1), las=2,
+              col=cols,
+              main="Temas por cada tipo de autor",
+              ylab="Proporción", xlab="Tipo de autor")
+text(x=bp, y=1.02, labels=paste0("n=", n), xpd=TRUE, cex=0.8)
+
+legend("topright", inset=c(-0.35,0), xpd=TRUE,
+       legend=tema_levels, fill=cols, bty="n", cex=0.8)
+
+tab
+round(prop, 3)
+
+```
+
+Los temas no se reparten igual según el tipo de autor: cambian bastante entre anónimo, hombre, mujer y varios.
+Pero “mujer” y “varios” tienen muy pocos casos, así que ahí las proporciones pueden engañar.
+Esto sugiere que tipo_autor y tema están relacionados, así que si metemos uno en el modelo el otro puede aportar poco (o habría que agrupar categorías).
+
+## tipo_auto vs tema con exito 
+
+```{r}
+
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tipo_autor_f <- factor(df$tipo_autor)
+df$tema_f <- factor(df$tema)
+
+tab3 <- with(df, table(tipo_autor_f, tema_f, exito_f))
+
+tab_total <- apply(tab3, c(1,2), sum)     
+tema_tot  <- colSums(tab_total) 
+ord_tema  <- order(tema_tot, decreasing = TRUE)
+
+tab3 <- tab3[, ord_tema, , drop=FALSE]
+tema_levels <- dimnames(tab3)[[2]]
+
+tema_lab <- gsub("_", "\n", tema_levels)
+
+cols <- grDevices::rainbow(length(tema_levels))
+names(cols) <- tema_levels
+
+op <- par(no.readonly = TRUE)
+
+layout(matrix(c(1,2,3), 1, 3), widths = c(5.2, 5.2, 2.2))
+par(oma=c(0,0,2,0))
+
+for (k in 1:length(levels(df$exito_f))) {
+
+  tab_k <- tab3[, , k, drop=FALSE][,,1] 
+  prop  <- prop.table(tab_k, 1)                  
+  prop[is.na(prop)] <- 0
+  n_aut <- rowSums(tab_k)
+
+  par(mar=c(9,4,4,1)+0.1, xpd=NA)
+
+  bp <- barplot(t(prop),
+                beside = FALSE,
+                ylim = c(0,1),
+                las = 2,
+                col = cols[colnames(prop)],
+                main = paste("Éxito:", levels(df$exito_f)[k]),
+                ylab = "Proporción",
+                xlab = "Tipo de autor")
+
+  text(x=bp, y=1.02, labels=paste0("n=", n_aut), xpd=TRUE, cex=0.8)
+}
+
+par(mar=c(0,0,0,0))
+plot.new()
+legend("center",
+       legend = tema_lab,
+       fill = cols[tema_levels],
+       bty = "n",
+       cex = 0.75)
+
+mtext("Temas por cada tipo_autor separado por éxito", outer=TRUE, cex=1.1)
+
+layout(1)
+par(op)
+
+```
+
+La distribución de temas por tipo de autor es bastante parecida entre “No cumple” y “Sí cumple”, no se ve un cambio claro que explique el éxito.
+Los grupos “mujer” y “varios” tienen muy pocos casos (n muy pequeño), así que cualquier diferencia ahí puede ser casualidad.
+En el descriptivo, tipo_autor no parece una variable clave para el modelo; si metemos tema, tipo_autor probablemente aportará poco.
+
+##tipo_autor vs tecnica
+```{r}
+tab <- table(df$tipo_autor, df$tecnica)
+prop <- prop.table(tab, 1)
+n <- rowSums(tab)
+
+tec_levels <- colnames(prop)
+cols <- grDevices::rainbow(length(tec_levels))
+
+par(mar=c(9,4,4,10)+0.1)
+bp <- barplot(t(prop),
+              beside=FALSE, ylim=c(0,1), las=2,
+              col=cols,
+              main="Distribución de técnicas dentro de cada tipo de autor",
+              ylab="Proporción", xlab="Tipo de autor")
+text(x=bp, y=1.02, labels=paste0("n=", n), xpd=TRUE, cex=0.8)
+
+legend("topright", inset=c(-0.25,0), xpd=TRUE,
+       legend=tec_levels, fill=cols, bty="n", cex=0.9)
+
+tab
+round(prop, 3)
+
+```
+
+Casi todo es óleo en anónimo/hombre/mujer, así que la técnica apenas cambia entre autores.
+Con tan poca diferencia, esta variable no parece que vaya a ayudar mucho a explicar el éxito (da poca “señal”).
+No debería ser prioritaria en el modelo; solo tendría sentido si en el gráfico técnica vs éxito se viera una diferencia clara.
+
+##tipo_autor vs tecnica con exito 
+
+```{r}
+
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tipo_autor_f <- factor(df$tipo_autor)
+df$tecnica_f <- factor(df$tecnica)
+
+tab3 <- with(df, table(tipo_autor_f, tecnica_f, exito_f))
+
+tab_total <- apply(tab3, c(1,2), sum)
+tec_tot   <- colSums(tab_total)   
+ord_tec   <- order(tec_tot, decreasing = TRUE)
+
+tab3 <- tab3[, ord_tec, , drop=FALSE]
+tec_levels <- dimnames(tab3)[[2]]
+
+tec_lab <- gsub("_", "\n", tec_levels)
+
+cols <- grDevices::rainbow(length(tec_levels))
+names(cols) <- tec_levels
+
+op <- par(no.readonly = TRUE)
+
+layout(matrix(c(1,2,3), 1, 3), widths = c(5.2, 5.2, 2.2))
+par(oma=c(0,0,2,0))
+
+for (k in 1:length(levels(df$exito_f))) {
+
+  tab_k <- tab3[, , k, drop=FALSE][,,1]
+  prop  <- prop.table(tab_k, 1)             
+  prop[is.na(prop)] <- 0
+  n_aut <- rowSums(tab_k)
+
+  par(mar=c(9,4,4,1)+0.1, xpd=NA)
+
+  bp <- barplot(t(prop),
+                beside = FALSE,
+                ylim = c(0,1),
+                las = 2,
+                col = cols[colnames(prop)],
+                main = paste("Éxito:", levels(df$exito_f)[k]),
+                ylab = "Proporción",
+                xlab = "Tipo de autor")
+
+  text(x=bp, y=1.02, labels=paste0("n=", n_aut), xpd=TRUE, cex=0.8)
+}
+
+par(mar=c(0,0,0,0))
+plot.new()
+legend("center",
+       legend = tec_lab,
+       fill = cols[tec_levels],
+       bty = "n",
+       cex = 0.9)
+
+mtext("Técnicas por cada tipo_autor separado por éxito", outer=TRUE, cex=1.1)
+
+layout(1)
+par(op)
+
+```
+
+En los dos paneles (No cumple vs Sí cumple) casi todo es la misma técnica en todos los tipos de autor, así que apenas hay diferencias visibles.
+Las pequeñas variaciones aparecen sobre todo en “varios”, pero tiene pocos casos y puede ser ruido.
+En el descriptivo, técnica (o tipo_autor) no parece clave para explicar el éxito aquí; no la priorizaríamos en el modelo con esta evidencia.
+
+##tipo_autor vs soporte_grp
+```{r}
+tab <- table(df$tipo_autor, df$soporte_grp)
+prop <- prop.table(tab, 1)
+n <- rowSums(tab)
+
+sup_levels <- colnames(prop)
+cols <- grDevices::rainbow(length(sup_levels))
+
+par(mar=c(9,4,4,10)+0.1)
+bp <- barplot(t(prop),
+              beside=FALSE, ylim=c(0,1), las=2,
+              col=cols,
+              main="Distribución de soportes dentro de cada tipo de autor",
+              ylab="Proporción", xlab="Tipo de autor")
+text(x=bp, y=1.02, labels=paste0("n=", n), xpd=TRUE, cex=0.8)
+
+legend("topright", inset=c(-0.25,0), xpd=TRUE,
+       legend=sup_levels, fill=cols, bty="n", cex=0.9)
+
+tab
+round(prop, 3)
+
+```
+
+La distribución de soportes es muy similar entre tipos de autor, destacando lienzo como soporte predominante, especialmente para anónimo y hombre.
+La diferencia en “mujer” y “varios” es pequeña debido al tamaño reducido de sus muestras.
+Dado que la distribución de soportes no cambia mucho con el tipo de autor, no parece ser una variable crucial para el modelo, a menos que se observe una interacción más fuerte con el éxito.
+
+##tipo_autor vs soporte_grp con exito
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tipo_autor_f <- factor(df$tipo_autor)
+df$soporte_f <- factor(df$soporte_grp)
+
+tab3 <- with(df, table(tipo_autor_f, soporte_f, exito_f))
+
+tab_total <- apply(tab3, c(1,2), sum)  
+sup_tot   <- colSums(tab_total)  
+ord_sup   <- order(sup_tot, decreasing = TRUE)
+
+tab3 <- tab3[, ord_sup, , drop=FALSE]
+sup_levels <- dimnames(tab3)[[2]]
+
+sup_lab <- sup_levels
+sup_lab <- gsub("Papel/Vitela", "Papel/\nVitela", sup_lab)
+sup_lab <- gsub("Tabla/Panel", "Tabla/\nPanel", sup_lab)
+
+cols <- grDevices::rainbow(length(sup_levels))
+names(cols) <- sup_levels
+
+op <- par(no.readonly = TRUE)
+
+layout(matrix(c(1,2,3), 1, 3), widths = c(5.2, 5.2, 2.2))
+par(oma=c(0,0,2,0))
+
+for (k in 1:length(levels(df$exito_f))) {
+
+  tab_k <- tab3[, , k, drop=FALSE][,,1]   
+  prop  <- prop.table(tab_k, 1)
+  prop[is.na(prop)] <- 0
+  n_aut <- rowSums(tab_k)
+
+  par(mar=c(9,4,4,1)+0.1, xpd=NA)
+
+  bp <- barplot(t(prop),
+                beside = FALSE,
+                ylim = c(0,1),
+                las = 2,
+                col = cols[colnames(prop)],
+                main = paste("Éxito:", levels(df$exito_f)[k]),
+                ylab = "Proporción",
+                xlab = "Tipo de autor")
+
+  text(x=bp, y=1.02, labels=paste0("n=", n_aut), xpd=TRUE, cex=0.8)
+}
+
+# Panel leyenda aparte
+par(mar=c(0,0,0,0))
+plot.new()
+legend("center",
+       legend = sup_lab,
+       fill = cols[sup_levels],
+       bty = "n",
+       cex = 0.9)
+
+mtext("Soportes en cada tipo_autor separado por éxito", outer=TRUE, cex=1.1)
+
+layout(1)
+par(op)
+
+```
+
+En los dos gráficos (éxito no cumple vs éxito sí cumple) la distribución de soportes es similar entre los tipos de autor.
+Lienzo predomina en todos los casos, con una ligera variación en "varios" que tiene más Tabla/Panel, pero esto está influenciado por el tamaño reducido de sus muestras.
+El soporte no parece ser una variable clave para el modelo, ya que no muestra mucha variabilidad en relación con el éxito.
+
+##tam_cat vs tipo de autor
+
+```{r}
+
+table(df$tam_cat, useNA = "ifany")
+tam_raw <- df$tam_cat
+
+if (all(is.na(tam_raw))) {
+  # RECREAR tam_cat desde area (terciles)
+  qs <- quantile(df$area, probs = c(1/3, 2/3), na.rm = TRUE)
+  df$tam_cat <- cut(df$area,
+                    breaks = c(-Inf, qs[1], qs[2], Inf),
+                    labels = c("pequeno", "mediano", "grande"),
+                    include.lowest = TRUE, ordered_result = TRUE)
+} else {
+  df$tam_cat <- factor(as.character(tam_raw))
+}
+
+if (all(c("pequeno","mediano","grande") %in% levels(df$tam_cat))) {
+  df$tam_cat <- factor(df$tam_cat, levels = c("pequeno","mediano","grande"), ordered = TRUE)
+}
+
+df$tipo_autor_f <- factor(df$tipo_autor)
+
+tab <- table(df$tipo_autor_f, df$tam_cat)
+prop <- prop.table(tab, 1)
+n <- rowSums(tab)
+
+tam_levels <- colnames(prop)
+cols <- grDevices::heat.colors(length(tam_levels))
+
+par(mar=c(9,4,4,10)+0.1)
+bp <- barplot(t(prop),
+              beside = FALSE, ylim = c(0,1), las = 2,
+              col = cols,
+              main = "tam_cat en cada tipo de autor",
+              ylab = "Proporción", xlab = "Tipo de autor")
+
+text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
+
+legend("topright", inset=c(-0.25,0), xpd=TRUE,
+       legend = tam_levels, fill = cols, bty = "n", cex = 0.9)
+
+tab
+round(prop, 3)
+
+```
+
+La distribución de los tamaños de las obras es bastante homogénea entre los tipos de autor, con una ligera prevalencia del tamaño "mediano" en todos los casos.
+A pesar de la diferencia en el tamaño, no parece haber una correlación clara con el éxito de las obras (verde y rojo).
+Esta variable podría no ser crítica para el modelo, ya que no hay una diferencia destacable que justifique su inclusión.
+
+##tam_cat vs tipo de autor con exito 
+
+```{r}
+tab <- table(df$tam_cat, df$tipo_autor, df$exito)
+
+prop <- prop.table(tab, 1) 
+prop_matrix <- apply(prop, c(1, 2), sum)
+
+cols_ex <- c("red", "green") 
+op <- par(no.readonly = TRUE)
+par(mar = c(6, 4, 4, 2) + 0.1)
+
+bp <- barplot(t(prop_matrix), 
+              beside = FALSE,  
+              col = cols_ex,
+              ylim = c(0, 1),
+              main = " Tam_cat por tipo de autor y éxito",
+              xlab = "Tipo de autor",
+              ylab = "Proporción",
+              legend.text = c("No cumple", "Sí cumple"),
+              args.legend = list(x = "topright", bty = "n"))
+
+n_totals <- rowSums(tab[,,1] + tab[,,2])  
+text(x = bp, y = 1.02, labels = paste0("n=", n_totals), xpd = TRUE, cex = 0.8)
+
+par(op)
+
+```
+
+De nuevo, la distribución de los tamaños de las obras (pequeño, mediano, grande) no muestra una relación clara con el éxito.
+Las barras son completamente verdes (lo que indica éxito) en todos los tamaños, sin diferencias importantes.
+Esta variable parece no ser relevante para el modelo, ya que no influye en la probabilidad de éxito de las obras.
+
+##tipo_autor vs orientacion
+```{r}
+tab <- table(df$tipo_autor, df$orientacion)
+prop <- prop.table(tab, 1)
+n <- rowSums(tab)
+
+ori_levels <- colnames(prop)
+cols <- c("gray50","orange2","skyblue3")[seq_along(ori_levels)]  # ajusta si quieres
+
+par(mar=c(9,4,4,2)+0.1)
+bp <- barplot(t(prop),
+              beside=FALSE, ylim=c(0,1), las=2,
+              col=cols,
+              main="Distribución de orientación dentro de cada tipo de autor",
+              ylab="Proporción", xlab="Tipo de autor")
+legend("topright", legend=ori_levels, fill=cols, bty="n")
+text(x=bp, y=1.02, labels=paste0("n=", n), xpd=TRUE, cex=0.8)
+
+tab
+round(prop, 3)
+
+```
+
+Este gráfico muestra la distribución de la orientación de las obras (horizontal, vertical, cuadrado) según el tipo de autor.
+Las obras de autores anónimos y hombres son predominantemente horizontales, mientras que las obras de mujeres y varios presentan una mayor proporción de obras verticales.
+Esta variable (orientación) podría ser relevante para el modelo si se confirma que influye en el éxito, ya que hay diferencias visibles en la distribución por tipo de autor.
+
+##tipo_autor vs area (boxplot de log(area))
+
+```{r}
+y <- log(df$area)
+
+par(mar=c(9,4,4,2)+0.1)
+boxplot(y ~ df$tipo_autor, las=2,
+        main="log(area) por tipo de autor",
+        xlab="Tipo de autor", ylab="log(area)")
+
+```
+
+El gráfico muestra la distribución del área (log(area)) según el tipo de autor. Las obras de autores anónimos tienden a tener un área más pequeña, mientras que las de hombres y mujeres muestran una mayor dispersión.
+Es posible que el área del objeto y el tipo de autor tengan alguna relación con el éxito, dado que las obras de hombres, por ejemplo, muestran una mayor varianza en el área.
+Deberíamos considerar incluir el tipo de autor en el modelo, ya que podría aportar información relevante sobre las características del éxito de las obras.
+
+## area por tipo de autor y exito 
+
+```{r}
+ df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tipo_autor_f <- factor(df$tipo_autor)
+
+area_num <- as.numeric(df$area)
+ok <- is.finite(area_num) & area_num > 0 & !is.na(df$exito_f) & !is.na(df$tipo_autor_f)
+
+y  <- log(area_num[ok])
+ta <- df$tipo_autor_f[ok]
+ex <- df$exito_f[ok]
+
+g   <- interaction(ta, ex, sep="|", drop=TRUE)
+lst <- split(y, g)
+
+ord_names <- as.vector(sapply(levels(ta), function(a) paste(a, levels(ex), sep="|")))
+ord_names <- ord_names[ord_names %in% names(lst)]
+lst <- lst[ord_names]
+
+k1 <- nlevels(ta)
+centers <- seq(1.5, by=2, length.out=k1)
+at <- as.vector(sapply(centers, function(cc) cc + c(-0.35, 0.35)))
+at <- at[seq_along(lst)]
+
+cols_ex <- c("red","green")
+col_vec <- rep(cols_ex, times=k1)[seq_along(lst)]
+
+op <- par(no.readonly=TRUE)
+par(mar=c(8,5,4,2)+0.1)  # Aumentar el margen inferior para mejorar la visibilidad de las etiquetas
+
+boxplot(lst,
+        at=at,
+        col=col_vec,
+        ylab="log(area)",
+        xlab="Tipo de autor",
+        main="log(area) por tipo de autor y éxito",
+        las=2,  # Rotar las etiquetas del eje y
+        outline=TRUE)
+
+axis(1, at=centers, labels=levels(ta), las=2)  # Rotar las etiquetas del eje X
+abline(v=seq(2.5, by=2, length.out=k1-1), col="gray80", lty=2)
+legend("topright", legend=levels(ex), fill=cols_ex, bty="n")
+
+par(op)
+
+```
+
+## tipo_autor vs fecha_est 
+
+```{r}
+df$tipo_autor_f <- factor(df$tipo_autor)
+
+# Asegúrate de que 'fecha_est' sea numérico
+fe <- as.numeric(df$fecha_est)
+
+# Elimina las filas con datos no válidos (NA y negativos)
+ok <- is.finite(fe) & !is.na(df$tipo_autor_f)
+
+y  <- fe[ok]
+ta <- df$tipo_autor_f[ok]
+
+# Crear el boxplot
+op <- par(no.readonly=TRUE)
+par(mar=c(7,5,4,2)+0.1)  # Margen para mejorar la legibilidad
+
+# Crear el boxplot de fecha_est por tipo de autor
+boxplot(y ~ ta,
+        col=c("blue", "pink", "yellow", "green"),
+        ylab="Fecha Estimada (fecha_est)",
+        xlab="Tipo de autor",
+        main="Fecha estimada por tipo de autor",
+        las=2,  # Rotar etiquetas del eje X
+        outline=TRUE)  # Incluir valores atípicos
+
+# Ajuste de los ejes
+axis(1, at=seq_along(levels(ta)), labels=levels(ta), las=2)
+
+par(op)  # Restaurar la configuración original
+
+```
+
+La variable "Tipo de autor" influye significativamente en la fecha estimada, con los autores "hombre" mostrando una mayor variabilidad en sus fechas. "Anonimo" y "varios" tienen distribuciones más concentradas, aunque con algunos valores atípicos. Se recomienda considerar esta variable en el modelo, ya que parece tener un efecto claro sobre las fechas estimadas.
+
+## tipo_autor vs fecha_est con exito 
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tipo_autor_f <- factor(df$tipo_autor)
+
+fe <- as.numeric(df$fecha_est)
+
+ok <- is.finite(fe) & !is.na(df$exito_f) & !is.na(df$tipo_autor_f)
+
+y  <- fe[ok]
+ta <- df$tipo_autor_f[ok]
+ex <- df$exito_f[ok]
+
+lev_ta <- levels(ta)
+lev_ex <- levels(ex)
+
+# CLAVE: mismo separador que usas al ordenar
+g <- interaction(ta, ex, sep="|", drop=TRUE)
+lst <- split(y, g)
+
+ord_names <- as.vector(sapply(lev_ta, function(a) paste(a, lev_ex, sep="|")))
+ord_names <- ord_names[ord_names %in% names(lst)]
+lst <- lst[ord_names]
+
+k1 <- length(lev_ta)
+centers <- seq(1.5, by=2, length.out=k1)
+at <- as.vector(sapply(centers, function(cc) cc + c(-0.35, 0.35)))
+at <- at[seq_along(lst)]
+
+cols_ex <- c("red","green")
+col_vec <- rep(cols_ex, times=k1)[seq_along(lst)]
+
+op <- par(no.readonly=TRUE)
+par(mar=c(7,5,4,2)+0.1)
+
+boxplot(lst,
+        at=at,
+        col=col_vec,
+        ylab="fecha_est (año)",
+        xlab="Tipo de autor",
+        main="Fecha estimada por tipo de autor y éxito",
+        las=2,
+        outline=TRUE)
+
+axis(1, at=centers, labels=lev_ta, las=2)
+abline(v=seq(2.5, by=2, length.out=k1-1), col="gray80", lty=2)
+legend("topright", legend=lev_ex, fill=cols_ex, bty="n")
+
+par(op)
+
+```
+
+Las fechas estimadas por tipo de autor muestran que "anónimo" y "hombre" tienen una mayor dispersión, con algunas obras muy antiguas, mientras que "mujer" y "varios" tienden a concentrarse en fechas más recientes. Las obras que cumplen con los requisitos tienden a estar más cerca de 1600-1800, mientras que las que no cumplen se sitúan más alejadas de esta fecha. Esto sugiere que el tipo de autor influye en la fecha estimada de la obra.
+
+## tipo_autor vs serie
+```{r}
+tab <- table(df$tipo_autor, df$serie)
+prop <- prop.table(tab, 1)
+n <- rowSums(tab)
+
+ser_levels <- colnames(prop)
+cols <- c("yellow","lightblue")[seq_along(ser_levels)]
+
+par(mar=c(9,4,4,2)+0.1)
+bp <- barplot(t(prop),
+              beside=FALSE, ylim=c(0,1), las=2,
+              col=cols,
+              main="Serie dentro de cada tipo de autor",
+              ylab="Proporción", xlab="Tipo de autor")
+legend("topright", legend=ser_levels, fill=cols, bty="n")
+text(x=bp, y=1.02, labels=paste0("n=", n), xpd=TRUE, cex=0.8)
+
+tab
+round(prop, 3)
+
+```
+
+La gráfica muestra la distribución de las obras dentro de la serie para cada tipo de autor. La mayoría de las obras de cada grupo de autor (anónimo, hombre, mujer, varios) no pertenecen a una serie (representadas en amarillo), mientras que una pequeña fracción sí pertenece a la serie (en azul). Esto sugiere que la pertenencia a una serie es poco frecuente en todos los grupos de autor.
+
+## tipo_autor vs serie con exito 
+
+```{r}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+df$serie_f <- factor(df$serie, levels=c(0,1),
+                     labels=c("0 (con serie)", "1 (con serie)"))
+
+df$tipo_autor_f <- factor(df$tipo_autor)
+
+tab3 <- table(df$tipo_autor_f, df$serie_f, df$exito_f)
+
+cols_ex <- c("red","green")
+
+op <- par(no.readonly=TRUE)
+par(mfrow=c(1,2), mar=c(7,4,4,2)+0.1)
+
+for (s in levels(df$serie_f)) {
+
+  tab_s <- tab3[, s, ]      
+  prop  <- prop.table(tab_s, 1)
+  bp <- barplot(t(prop),
+                beside=FALSE,
+                ylim=c(0,1),
+                las=2,
+                col=cols_ex,
+                main=paste("Serie:", s),
+                ylab="Proporción",
+                xlab="Tipo de autor")
+
+  n <- rowSums(tab_s)
+  text(x=bp, y=1.02, labels=paste0("n=", n), xpd=TRUE, cex=0.8)
+}
+
+legend("topright", legend=levels(df$exito_f), fill=cols_ex, bty="n")
+par(op)
+
+```
+
+La gráfica muestra la distribución de obras según el tipo de autor y si pertenecen o no a una serie. En general, la mayoría de las obras no pertenecen a una serie (representadas en rojo), con pocas excepciones que sí pertenecen (representadas en verde). Este patrón es consistente en todos los tipos de autor, lo que indica que la pertenencia a una serie es un fenómeno raro en todos los grupos.
+
