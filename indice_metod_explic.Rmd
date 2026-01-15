@@ -1,0 +1,151 @@
+---
+title: "índice, metodología y explicación dataset"
+author: "Manuela Lopez Cambron, 1673688"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# ÍNDICE 
+
+1. Introducción 
+
+1.1 Motivo del estudio
+
+1.2 Marco teórico
+
+1.3 Objectivos (hipótesis?)
+
+1.4 Presentación de los datos
+
+2. Presupuesto
+
+2. Gestión de datos
+
+2.1 Manejo de valores faltantes
+
+2.2 Transformación de variables
+
+2.3 Creación de nuevas variables
+
+2.4 Manejo de desbalances
+
+3. Análisis descriptivo
+
+(abril poner los puntos)
+
+3.? Manejo de outliers
+
+4. Análisis principal
+
+4.1 Efectos principales
+
+4.2 Interacciones
+
+4.3 Refinamiento del modelo: estimación y ajustes
+
+4.4 Validación del modelo (angel/marc)
+
+4.5 Análisis alternativos (angel/marc)
+
+(aquí es rollo poner alguna variable que yo haya quitado porque igualmente pensais que es interesante mirarlo, etc es jugar un poco con las variables para crear modelos que aunq no sean "el mejor" os den cosas interesante de interpretar)
+
+5. Resultados (angel/marc cambiad puntos o lo que querias pero estas cosas deberian estar)
+
+5.2 Efectos marginales 
+
+(aquí he pensado rollo calcular cosas interpretables a parte de los coeficientes propios del modelo, rollo como afecta cada variable es general a parte de como afectan sus niveles)
+
+5.1 Presentación de resultados (tablas/graficos visuales resumiento todos los resultados, nada de salidas de r)
+
+5.2 Interpretacion (muy detallada, de todo lo que se os ocurra, bien explicado todo)
+
+(igual 5.1 y 5.2 pueden ir juntos, depende de como lo planteeis)
+
+5.3 Hallazgos principales 
+
+(a modo de resumen rapido de que ha salido relevante, que leyendo esto alguien pueda tener las 4 ideas principales)
+
+6. Análisis secundarios (angel/marc)
+
+(son modelos estudiando otras cosas que no sea el exito, rollo aprovechar la base de datos creada para estudiar más cosas)
+
+7. Conlusiones
+
+7.1 Descubrimientos del estudio (angel/marc)
+
+(mucho más explicado sin tecnicismos, en interpretación sed tecnicos y aquí es más rollo aplicado a al realidad y habria que relacionarlo aquí con los obejtivo (y hipotesis) rollo que quede bien cerrado todo en plan teniamos una idea y nos ha llevado aquí, se ha cumplido o no, lo hemso conseguido o no, etc)
+
+7.2 Continuidad del proyecto: limitaciones y propuestas
+
+(limitaciones: cosas que hemos hecho mal, rollo donde hemos podido poner sesgos y hacerlo modo "facil" y se podria hacer mejor o si salen inconsistencias o cosas sin sentido pues decir aqui por que puede ser. Y propuestas: ideas para estudios futuros, tenemos que hacer incapie en que hemos creado un base de datos y que puede explotarse mucho mas, rollo darnos importancia no solo por el estudio sino por las diferentes posibilidades, y pensad en algunas concretas, que da nuetsra base de datos)
+
+(estos dos puntos 7.1 y 7.2 minimo deberian estar pero cambiadlo como querais)
+
+
+# Presentación de los datos
+
+Para el propósito del estudio se ha decidido estudiar la coleción de obras de arte del Prado, concretamente aquellas clasificadas como pinturas. Mediante web scraping, se ha extraido la ficha técnica de las 7.117 pinturas, la cual contiene la siguiente información: 
+
+Siempre (en todas las obras):
+
+  - Número de catálogo (asignado por el Prado, único por obra)
+
+  - Título
+
+  - Fecha
+
+Casi siempre:
+
+  - Técnica (7.114/7.117)
+
+  - Dimensión (7.107/7.117)
+
+  - Procedencia (7.098/7.117)
+
+  - Soporte (7.096/7.117)
+
+- A veces:
+
+  - Serie (1.415/7.117)
+
+Muy raros:
+
+  - Materia, Lugar de producción, Edición / Estado
+
+Están son las variables originales de las que se disponía, y después de la correspondiente gestión de datos se ha obtenido la base de datos final con un total de () registros y () variables preparadas para el análisis. En el archivo original, los valores faltantes se condificaban como "0", después de su apropiada gestión, se proporciona un dataset sin valores faltantes.
+
+**Diccionario de variables**
+
+- exito: Indicador de cumplimiento de "razón aurea" (categórica binaria, 2 niveles: 0 no, 1 sí)
+
+- area: Área de la pintura a partir de las dimensiones (numérica)
+
+- tam_cat:  Tamaño categorizado a aprtir del área usant cuantiles (categórica ordinal, utilizada como nominal, 3 niveles: pequena, mediano, grane)
+
+- orientación: Forma según comparación de dimensiones (categórica nominal, 3 niveles:vertical, horizontal, cuadrado)
+
+- soporte_grp: Agrupación de tipos de soporte en familias de material (categórica nominal, niveles: Lienzo, Tabla/Panel, Metal, Mural, Otros)
+
+- sop_montaje: Indicador de "montaje/transferencia" detectado en el campo soporte (cotegórica binaria, 2 niveles: 0 no, 1 sí)
+
+- tecnica: Agrupación de técnicas en grupos genéricos (categórica nominal, 3 niveles: mixta, oleo, otras)
+
+- tipo_autor: A partir de autor/autora/autores se creó un tipo de autoría (categórica nominal, 4 niveles: hombre, mujer, varios, anonimo)
+
+- serie: Indicador de pertenencia a serie (categórica binaria, 2 niveles: 0 no, 1 sí)
+
+- fecha_est: Año estimado a partir de la datación convertida en intervalo, año central de este (numérica)
+
+- fecha_ancho: Incertidumbre/ancho del intervalo temporal de datación (numérica)
+
+- tema: Tema asignado en función de términos clave encontrados en el texto original de título (categórica, 10 niveles: religioso, mitologia, retrato_corte, historia_aleagoria, paisajes_lugares, vida_cotidiana, bodegon_floral, caza_animales, proceso_obra, otros)
+
+## Metodología
+
+
+
+
