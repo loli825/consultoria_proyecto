@@ -13,6 +13,8 @@ Tareas ordenadas cronologicamente:
 
 - (MANUELA) gestion de datos y construcción de variables ('gestion_datos.Rmd' --> 'prado_gestionado.csv', 'prado_variables.csv')
 
+- (MANUELA) estructura informe (índice), metodología y explicación de la base de datos (indice_metod_explic.rmd)
+
 - (ABRIL)
 
 # ARCHIVOS

@@ -1,5 +1,5 @@
 ---
-title: "Arreglos csv"
+title: "gestión de datos"
 author: "Manuela Lopez Cambron, 1673688"
 date: "`r Sys.Date()`"
 output: html_document
@@ -606,25 +606,7 @@ Echamos un primer vistazo a la distribución de esta nueva variable "fecha_ancho
 table(df$fecha_ancho)
 ```
 
-Vemos picos claros en valores como '0' (exacta) y '99' (siglo), por esta razón decidimos crear una nueva variable llamada "fecha_cat" para captar mejor la estructura de la variable y mejorar la interpretación. Factorizamos y clasificamos en los siguientes niveles: '0' (fecha exacta), '1-10', (variabilidad baja), '11-98' (variabilidad moderada), '99' (grupo separado para fechas de siglo), '100+' (variabilidad alta).
-```{r}
-# grupos: 0, 1-10, 11-98, 99, +100
-df$fecha_cat <- ifelse(df$fecha_ancho == 0, "0",
-                        ifelse(df$fecha_ancho >= 1 & df$fecha_ancho <= 10, "1-10",
-                        ifelse(df$fecha_ancho >= 11 & df$fecha_ancho <= 98, "11-98",
-                        ifelse(df$fecha_ancho == 99, "99", "+100"))))
-
-# Factor con niveles estables y ordenados
-df$fecha_cat <- factor(
-  df$fecha_cat,
-  levels = c("0", "1-10", "11-98", "99", "+100"),
-  ordered = TRUE
-)
-
-# comprobación
-table(df$fecha_cat)
-df$fecha_ancho <- NULL
-```
+Vemos que la distribución de esta avriable está fuertemente influenciada por algunos picos, esto deberá tenerse ne cuneta en la modleización y se extenderá en el análisis descriptivo
 
 **Recodificación de variable "procedencia"**
 
@@ -636,7 +618,7 @@ tail(df$procedencia)
 
 Podemos observar que no existe ningun tipo de estructura que nos sea de utilidad en esta variable, además simplemente aporta información de la posesión de la obra, no de su lugar de producción, por lo que no la consideramos una característica propia de esta. Decidimos prescindir de esta variable, no se transformará para ver utilizada pero se conservará en la base de datos como mera información consultable.
 
-**Recodificación variable "titulo"**
+**Recodificación de variable "titulo"**
 
 Haremos uso de esta avriable para hacer una aproximación de la temática de cada obra utilizando sus palabras más frecuentes
 ```{r}
@@ -829,7 +811,7 @@ sort(table(df$tema), decreasing = TRUE)
 
 Finalmente listamos las variables que se han conservado en la abse de datos a modo de posibles consultas futuras, pero que no participaran de ningun modo en el analisis: "numero_catalalogo", "titulo", "url", "nombre_autor", "procedencia", "fecha".
 
-## CREACIÓN DE NUEVAS VARIABLES
+## Creación de nuevas variables
 
 En la sección anterior hemos transformado y también creado algunas variable con el fin único de reestructurar la información ya presente. Sin embargo, en esta sección podrecederemos a de alguna manera "generar" nueva información, que consideramos de posible utilidad, a partir de la que ya disponemos. 
 
@@ -853,6 +835,7 @@ tol <- 0.05 * phi
 
 df$exito <- as.integer(abs(df$razon - phi) <= tol)
 df$exito <- as.factor(df$exito)
+df$razon <- NULL
 
 str(df$exito)
 ```
@@ -883,11 +866,13 @@ df$tam_cat <- cut(df$area, breaks = c(-Inf, qs[1], qs[2], Inf),
 df$tam_cat <- factor(
   df$tam_cat,
   levels = c("pequeno","mediano","grande"),
-  ordered = TRUE
+  ordered = FALSE
 )
 
 df$tam_cat <- as.factor(df$tam_cat)
 ```
+
+Aunque los niveles de tamaño son ordenados por definición, decidimos no establecer orden en el factor, por simplicidad de interpretación.
 
 ## Manejo de desbalances
 
@@ -901,7 +886,6 @@ cat <- c(
   "tecnica",
   "tipo_autor",
   "serie",
-  "fecha_cat",
   "tema"
 )
 
@@ -919,7 +903,7 @@ y <- df$exito
 for (v in cat) {
   tab2 <- table(y, df[[v]])
   m <- min(tab2)
-  if (m < 5) {  # umbral típico para problemas
+  if (m < 5) {  
     cat("\n*** POSIBLE PROBLEMA (min celda <", 5, ") en:", v, "***\n")
     print(tab2)
   }
@@ -971,7 +955,6 @@ df_completa <- df[, c(
  
   # útiles
   "exito",
-  "razon",
   "area",
   "tam_cat",
   "orientacion",
@@ -982,13 +965,12 @@ df_completa <- df[, c(
   "tipo_autor",
   "serie",
   "fecha_est",
-  "fecha_cat",
+  "fecha_ancho",
   "tema"
 )]
 
 df <- df[, c(
   "exito",
-  "razon",
   "area",
   "tam_cat",
   "orientacion",
@@ -998,7 +980,7 @@ df <- df[, c(
   "tipo_autor",
   "serie",
   "fecha_est",
-  "fecha_cat",
+  "fecha_ancho",
   "tema"
 )]
 
