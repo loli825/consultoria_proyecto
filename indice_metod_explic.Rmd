@@ -17,61 +17,133 @@ knitr::opts_chunk$set(echo = TRUE)
 
 1.2 Marco teórico
 
-1.3 Objectivos (hipótesis?)
+1.3 Objetivos y hipótesis
 
 1.4 Presentación de los datos
 
 2. Presupuesto
 
-2. Gestión de datos
+3. Gestión de datos
 
-2.1 Manejo de valores faltantes
+3.1 Manejo de valores faltantes
 
-2.2 Transformación de variables
+3.2 Transformación de variables
 
-2.3 Creación de nuevas variables
+3.3 Creación de nuevas variables
 
-2.4 Manejo de desbalances
+3.4 Manejo de desbalances
 
-3. Análisis descriptivo
+4. Análisis descriptivo
 
 (abril poner los puntos)
 
-3.? Manejo de outliers
+3.? Manejo de outliers (explicación angel)
 
-4. Análisis principal
+5. Análisis principal
 
-4.1 Efectos principales
+5.1 Efectos principales
 
-4.2 Interacciones
+5.2 Interacciones
 
-4.3 Refinamiento del modelo: estimación y ajustes
+5.3 Refinamiento del modelo
 
-4.4 Validación del modelo (angel/marc)
+5.4 Validación del modelo (angel/marc)
 
-4.5 Análisis alternativos (angel/marc)
+5.5 Modelos alternativos y validación (validación ángel/marc)
 
-(aquí es rollo poner alguna variable que yo haya quitado porque igualmente pensais que es interesante mirarlo, etc es jugar un poco con las variables para crear modelos que aunq no sean "el mejor" os den cosas interesante de interpretar)
+6. Resultados (angel/marc)
 
-5. Resultados (angel/marc cambiad puntos o lo que querias pero estas cosas deberian estar)
+6.1 Modelo principal 
 
-5.2 Efectos marginales 
+6.1 Efectos marginales 
 
-(aquí he pensado rollo calcular cosas interpretables a parte de los coeficientes propios del modelo, rollo como afecta cada variable es general a parte de como afectan sus niveles)
+6.2 Presentación de resultados 
 
-5.1 Presentación de resultados (tablas/graficos visuales resumiento todos los resultados, nada de salidas de r)
+6.3 Interpretacion 
 
-5.2 Interpretacion (muy detallada, de todo lo que se os ocurra, bien explicado todo)
+6.4 Resultados de los modelos alternativos
 
-(igual 5.1 y 5.2 pueden ir juntos, depende de como lo planteeis)
-
-5.3 Hallazgos principales 
-
-(a modo de resumen rapido de que ha salido relevante, que leyendo esto alguien pueda tener las 4 ideas principales)
+5.5 Hallazgos principales 
 
 6. Análisis secundarios (angel/marc)
 
-(son modelos estudiando otras cosas que no sea el exito, rollo aprovechar la base de datos creada para estudiar más cosas)
+7. Conlusiones
+
+7.1 Descubrimientos del estudio (angel/marc)
+
+7.2 Continuidad del proyecto: limitaciones y propuestas
+
+### INDICE EXPLICADO
+
+1. Introducción 
+
+1.1 Motivo del estudio
+
+1.2 Marco teórico
+
+1.3 Objetivos y hipótesis
+
+1.4 Presentación de los datos
+
+2. Presupuesto
+
+3. Gestión de datos
+
+3.1 Manejo de valores faltantes
+
+3.2 Transformación de variables
+
+3.3 Creación de nuevas variables
+
+3.4 Manejo de desbalances
+
+4. Análisis descriptivo
+
+(abril poner los puntos)
+
+3.? Manejo de outliers (explicación angel)
+
+5. Análisis principal
+
+5.1 Efectos principales
+
+5.2 Interacciones
+
+5.3 Refinamiento del modelo
+
+5.4 Validación del modelo (angel/marc)
+
+5.5 Modelos alternativos y validación (validación ángel/marc)
+
+6. Resultados (angel/marc cambiad puntos o lo que querias pero estas cosas deberian estar)
+
+6.1 Modelo principal (aquí os pondre el modelo y vosotros haceis el summary y tal)
+
+6.1 Efectos marginales 
+
+(aquí he pensado rollo calcular cosas interpretables a parte de los coeficientes propios del modelo, rollo como afecta cada variable es general a parte de como afectan sus niveles. cambiadle el nombre a la sección o lo que queráis para que cuadre con lo que hagais)
+
+6.2 Presentación de resultados 
+
+(tablas/graficos visuales resumiento todos los resultados, nada de salidas de r, poner los coefs y ls cosas del summary y las cosas que hayas calculado en efectos amrginales. solo del modelo principal)
+
+6.3 Interpretacion 
+
+(muy detallada, de todo lo que se os ocurra, bien explicado todo)
+
+(igual podeis juntar 6.2 y 6.3 depende de como lo querais pantlear)
+
+6.4 Resultados de los modelos alternativos
+
+(lo mimso que los puntos anteriores (presentar los modelos alternativos que hay 2, efectos amrginales y resultados). h epensado poenrlo todo  junto porque es como menos importante
+
+5.5 Hallazgos principales 
+
+(a modo de resumen rapido de que ha salido relevante, que leyendo esto alguien pueda tener las 4 ideas principales. tanto del mdoelo principal como de lso secundarios)
+
+6. Análisis secundarios (angel/marc)
+
+(son modelos estudiando otras cosas que no sea el exito, rollo aprovechar la base de datos creada para estudiar más cosas. no es totalmente necesario pero si estaria guay ahcer al menos un análisis secundario con otro variable como resultado)
 
 7. Conlusiones
 
@@ -81,7 +153,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 7.2 Continuidad del proyecto: limitaciones y propuestas
 
-(limitaciones: cosas que hemos hecho mal, rollo donde hemos podido poner sesgos y hacerlo modo "facil" y se podria hacer mejor o si salen inconsistencias o cosas sin sentido pues decir aqui por que puede ser. Y propuestas: ideas para estudios futuros, tenemos que hacer incapie en que hemos creado un base de datos y que puede explotarse mucho mas, rollo darnos importancia no solo por el estudio sino por las diferentes posibilidades, y pensad en algunas concretas, que da nuetsra base de datos)
+(limitaciones: cosas que hemos hecho mal, rollo donde hemos podido poner sesgos y hacerlo modo "facil" y se podria hacer mejor o si salen inconsistencias o cosas sin sentido pues decir aqui por que puede ser. Y propuestas: ideas para estudios futuros, tenemos que hacer incapie en que hemos creado un base de datos y que puede explotarse mucho mas, rollo darnos importancia no solo por el estudio sino por las diferentes posibilidades, y pensad en algunas concretas, que da nuetsra base de datos) (aquí estaria guya relacionar el estudioq ue hemos hecho con lo que aprendimos del otro articuloq ue analizamos)
 
 (estos dos puntos 7.1 y 7.2 minimo deberian estar pero cambiadlo como querais)
 
@@ -120,11 +192,11 @@ Están son las variables originales de las que se disponía, y después de la co
 
 **Diccionario de variables**
 
-- exito: Indicador de cumplimiento de "razón aurea" (categórica binaria, 2 niveles: 0 no, 1 sí)
+- exito: Indicador de cumplimiento de "razón aurea", con error del 5% (categórica binaria, 2 niveles: 0 no, 1 sí)
 
-- area: Área de la pintura a partir de las dimensiones (numérica)
+- area: Área de la pintura a partir de las dimensiones, tamaño en formato numérico (numérica)
 
-- tam_cat:  Tamaño categorizado a aprtir del área usant cuantiles (categórica ordinal, utilizada como nominal, 3 niveles: pequena, mediano, grane)
+- tam_cat:  Tamaño categorizado a partir del área usant cuantiles (categórica ordinal, utilizada como nominal, 3 niveles: pequena, mediano, grane)
 
 - orientación: Forma según comparación de dimensiones (categórica nominal, 3 niveles:vertical, horizontal, cuadrado)
 
@@ -144,8 +216,50 @@ Están son las variables originales de las que se disponía, y después de la co
 
 - tema: Tema asignado en función de términos clave encontrados en el texto original de título (categórica, 10 niveles: religioso, mitologia, retrato_corte, historia_aleagoria, paisajes_lugares, vida_cotidiana, bodegon_floral, caza_animales, proceso_obra, otros)
 
+
 ## Metodología
 
+**Regla estructural 'cuadrado'**
+
+Como se informarmó anteriormente, la categoría 'cuadrado' de la variable "orientacion" genera ceros estructurales, ya que por definición los cuadros cuadrados nunca seguirán la proporción aurea. Además, la presencia de una categoría con ausencia completa del evento induce separación perfecta en modelos binarios, lo que puede producir estimaciones inestables o no finitas y distorsionar la estimación de efectos del resto de covariables. Por estos motivos, se restringió el análisis inferencial a la subpoblación con orientacion $\neq$ "cuadrado". Debido a esta modificación, la inferencia de nuestro estudio solo será aplicable a esta subpoblación. 
+
+
+!!!! --> nuevas dimensiones dataset (7002)
+
+```{r}
+# restringir a no-cuadrado
+df <- subset(df, orientacion != "cuadrado")
+df$orientacion <- droplevels(df$orientacion)
+```
+
+
+**Estructura por bloques** + sensibilidades 1
+
+--> filosofía enfoque por bloques (historia a contar)
+
+1) Datación + incertidumbre (fecha_est, fecha_ancho)
+
+- indicar porque fecha_est como spline natural ns(fecha_est,3) --> para permitir una relación no lineal entre época y probabilidad de éxito. (deberia verse en analisis descriptivo!!!) ****
+
+- indicar porque "fecha_ancho" como $log(1+fecha\_ancho)$ --> porque haymuchos 0 y solo log no funciona bien (deberia verse n el analisis decsriptivo !!!!!!) ****
+
+
+
+2) Morfología (log(area), orientacion) + (tam_cat)
+
+3) Material y tecnica (soporte_grp, tecnica) + (sop_montaje)
+
+4) Iconografia (tema)
+
+5) Autoría y serie (tipo_autor, serie)
+
+**Interacciones**
+
+**Comparaciones**
+
+- igual mirar tmabien SE de los coefs para ver si son my grandes (significaria coefs inestables) ??? ****
+
+**Ajustes** (sensibilidades 2, tipo modelo)
 
 
 

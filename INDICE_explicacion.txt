@@ -1,0 +1,84 @@
+ÍNDICE
+
+1. Introducción 
+
+1.1 Motivo del estudio
+
+1.2 Marco teórico
+
+1.3 Objetivos y hipótesis
+
+1.4 Presentación de los datos
+
+2. Presupuesto
+
+3. Gestión de datos
+
+3.1 Manejo de valores faltantes
+
+3.2 Transformación de variables
+
+3.3 Creación de nuevas variables
+
+3.4 Manejo de desbalances
+
+4. Análisis descriptivo
+
+(abril poner los puntos)
+
+3.? Manejo de outliers (explicación angel)
+
+5. Análisis principal
+
+5.1 Efectos principales
+
+5.2 Interacciones
+
+5.3 Refinamiento del modelo
+
+5.4 Validación del modelo (angel/marc)
+
+5.5 Modelos alternativos y validación (validación ángel/marc)
+
+6. Resultados (angel/marc cambiad puntos o lo que querias pero estas cosas deberian estar)
+
+6.1 Modelo principal (aquí os pondre el modelo y vosotros haceis el summary y tal)
+
+6.1 Efectos marginales 
+
+(aquí he pensado rollo calcular cosas interpretables a parte de los coeficientes propios del modelo, rollo como afecta cada variable es general a parte de como afectan sus niveles. cambiadle el nombre a la sección o lo que queráis para que cuadre con lo que hagais)
+
+6.2 Presentación de resultados 
+
+(tablas/graficos visuales resumiento todos los resultados, nada de salidas de r, poner los coefs y ls cosas del summary y las cosas que hayas calculado en efectos amrginales. solo del modelo principal)
+
+6.3 Interpretacion 
+
+(muy detallada, de todo lo que se os ocurra, bien explicado todo)
+
+(igual podeis juntar 6.2 y 6.3 depende de como lo querais pantlear)
+
+6.4 Resultados de los modelos alternativos
+
+(lo mimso que los puntos anteriores (presentar los modelos alternativos que hay 2, efectos amrginales y resultados). h epensado poenrlo todo  junto porque es como menos importante
+
+5.5 Hallazgos principales 
+
+(a modo de resumen rapido de que ha salido relevante, que leyendo esto alguien pueda tener las 4 ideas principales. tanto del mdoelo principal como de lso secundarios)
+
+6. Análisis secundarios (angel/marc)
+
+(son modelos estudiando otras cosas que no sea el exito, rollo aprovechar la base de datos creada para estudiar más cosas. no es totalmente necesario pero si estaria guay ahcer al menos un análisis secundario con otro variable como resultado)
+
+7. Conlusiones
+
+7.1 Descubrimientos del estudio (angel/marc)
+
+(mucho más explicado sin tecnicismos, en interpretación sed tecnicos y aquí es más rollo aplicado a al realidad y habria que relacionarlo aquí con los obejtivo (y hipotesis) rollo que quede bien cerrado todo en plan teniamos una idea y nos ha llevado aquí, se ha cumplido o no, lo hemso conseguido o no, etc)
+
+7.2 Continuidad del proyecto: limitaciones y propuestas
+
+(limitaciones: cosas que hemos hecho mal, rollo donde hemos podido poner sesgos y hacerlo modo "facil" y se podria hacer mejor o si salen inconsistencias o cosas sin sentido pues decir aqui por que puede ser. Y propuestas: ideas para estudios futuros, tenemos que hacer incapie en que hemos creado un base de datos y que puede explotarse mucho mas, rollo darnos importancia no solo por el estudio sino por las diferentes posibilidades, y pensad en algunas concretas, que da nuetsra base de datos) (aquí estaria guya relacionar el estudioq ue hemos hecho con lo que aprendimos del otro articuloq ue analizamos)
+
+(estos dos puntos 7.1 y 7.2 minimo deberian estar pero cambiadlo como querais)
+

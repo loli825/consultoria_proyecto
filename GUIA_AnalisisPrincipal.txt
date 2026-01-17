@@ -24,35 +24,52 @@
 
 --> NOTAS ESTRUCTURA:
 
-- Preparación estricta del dataset: si usamos "orientacion" --> regla estructural de cuadrado (separar por n-cuadrados, solo en mod. con "orientación")
+- regla estructural de cuadrado (subdataset solo con no-cuadrado)
 
-- Orden bloques --> decidir orden con gráficos descriptivos/ #niveles ***
+- Orden bloques:
+	1) Datación + incertidumbre (fecha_est, fecha_ancho)
+
+	2) Morfología (log(area), orientacion) + (tam_cat)
+
+	3) Material y tecnica (soporte_grp, tecnica) + (sop_montaje)
+
+	4) Iconografia (tema)
+
+	5) Autoría y serie (tipo_autor, serie)
 
 - Regla comparación 
 	> LRT (anidados) --> aporta?
 	> AIC/BIC (parámetros) --> complejidad compensa?
 
-- INTERACCIONES --> decidir cuales con los graficos descriptivos (abril)
+- INTERACCIONES: decidir cuales con los graficos descriptivos (abril)
+
+- NIVEL REFERENCIA: ángel/marc mirar según como queráis interpretar (yo he puesto la más frecuente)
 
 
 ----------------------------------------------------------------------
 
 --> NOTAS VARIABLES CONCRETAS:
 
+- orientación: por deficion cuadradosiempre porovoca exito=0 --> debe aplicare esta regla determinista cuándo se utilice esta variable (y tener en cuenta en las interpretaciones --> inferencia solo a no-cuadrados)
+
 - area vs tam_cat 
 	1)tam_cat = interpretable
 	2)area = mejor (pero puede fallar) 
-al añadirlas probar con ambas y decidir cual es mejor:
-	- Criterio práctico:
-Si m_area mejora AIC/BIC y no introduce inestabilidad → elige area como principal.
+al añadirlas probar con ambas y decidir cual es mejor.
+Criterio práctico:
+	- si "area" presenta problemas o no mejora sustancialmente más que "tam_cat", permitimos ajuste flexible (spline) y si no funciona elejimos "tam_cat" 
 
-Si ambos dan conclusiones cualitativamente iguales → elige por comunicación (puedes quedarte con area principal y mostrar tam_cat en un apartado).
+!! si tam_cat mejor ACI/BIC que área no podemos directamente escogerlo, primeor tenemso que permitir felixibilidad en área (por si hay una relación no linela qu no puede captar) y entonces comparar esta opcio flexible con tam_cat porque sino no son comparables
 
-Si area hace cosas raras (sensibilidad extrema a pocos puntos) y tam_cat es estable → considera tam_cat principal o usa robustez (log/spline/winsor). EXPLICACIÓN EN EL CHAT*
+	- si "area" mejora sustanciamente más que "tam_cat", elejimos "area"
 
-- fecha_ancho --> se utiliza como incertidumbre, no se estudia efecto, y se modela de forma flexible (abril, mirar en análisis descriptivo)
+	- si "area" y "tam_cat" proporcionan resultados cualitativamente iguales, elejimos "area" pero manteniendo el modelo secundario "tam_cat" para interpretaciones claras.
 
-*** 
+- fecha_ancho --> se utiliza como incertidumbre, no se estudia efecto, y se modela de forma flexible 
+	1) lineal -> log1p(fecha_ancho) 
+	2) no-lineal -> log1p(fecha_ancho) + spline
+
+(igual me toca recuperar fecha_cat si nada funciona, o alguna variante categorizada, espero que no)
 
 
 ----------------------------------------------------------------------
@@ -70,14 +87,15 @@ Si area hace cosas raras (sensibilidad extrema a pocos puntos) y tam_cat es esta
 
 (no usar pensalización Ridge porque és más para predicción)
 
+
 -----------------------------------------------------------------------
 --> SENSIBILIDADES 1: hacer en el momento en que entre esa variable por primera vez
 
-- area vs tam_cat
+- area vs tam_cat 
 
-- fecha_est con spline vs lineal (si procede según grafico)
+- fecha_ancho
 
-- sop_montaje SI/NO (si procede segun grafico)
+- sop_montaje SI/NO 
 
 --> SENSIBILIDADES 2: hacer sobre modelo final
 

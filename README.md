@@ -15,6 +15,8 @@ Tareas ordenadas cronologicamente:
 
 - (MANUELA) estructura informe (índice), metodología y explicación de la base de datos (indice_metod_explic.rmd)
 
+- (MANUELA) analisis principal (efectos marginales, interacciones y ajsutes) y modelos secundarios --> (analisis_principal.Rmd)
+
 - (ABRIL)
 
 # ARCHIVOS

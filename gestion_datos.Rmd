@@ -990,3 +990,9 @@ str(df_completa); str(df)
 write.csv(df_completa, "prado_gestionado.csv", row.names = FALSE)
 write.csv(df, "prado_variables.csv", row.names = FALSE)
 ```
+
+Por último, comprobamos no haber introducido algún dato faltante:
+```{r}
+colSums(is.na(df))
+```
+

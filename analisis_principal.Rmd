@@ -1,0 +1,684 @@
+---
+title: "Análisis Principal"
+author: "Manuela Lopez Cambron, 1673688"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r}
+df <- read.csv("prado_variables.csv", stringsAsFactors = TRUE)
+
+df$sop_montaje <- as.factor(df$sop_montaje)
+df$serie <- as.factor(df$serie)
+
+str(df)
+```
+
+# ANÁLISIS PRINCIPAL
+
+Primeramente generamos la submuestra de la población aplicando la regla estructural de 'cuadrado'.
+```{r}
+# 0) Regla estructural: excluir "cuadrado"
+df <- subset(df, orientacion != "cuadrado")
+df$orientacion <- droplevels(df$orientacion)
+dim(df)
+```
+
+Continuamos con un total de 7002 pinturas
+
+Fijamos también los niveles de referencia para las variables factor. El nivel más frecuente como referencia para todos los factores a excepción de "tam_cat" donde por interpretabilidad se define la referencia en 'pequeno' y las variables binarias "sop_montaje" y "serie" donde se fija el valor "no"
+```{r}
+# 1) Niveles de los factores binarios 
+df$sop_montaje <- factor(df$sop_montaje, levels = c(0, 1), labels = c("no", "si"))
+df$serie       <- factor(df$serie,       levels = c(0, 1), labels = c("no", "si"))
+
+# 2) tam_cat nominal con referencia "pequeno"
+df$tam_cat <- factor(df$tam_cat, levels = c("pequeno", "mediano", "grande"))
+df$tam_cat <- relevel(df$tam_cat, ref = "pequeno")
+
+# 3) Binarios con referencia "no"
+df$sop_montaje <- relevel(df$sop_montaje, ref = "no")
+df$serie       <- relevel(df$serie, ref = "no")
+
+# 4) Referencias = nivel más frecuente (para el resto de factores)
+ref_orientacion <- names(sort(table(df$orientacion), decreasing = TRUE))[1]
+df$orientacion  <- relevel(df$orientacion, ref = ref_orientacion)
+
+ref_soporte <- names(sort(table(df$soporte_grp), decreasing = TRUE))[1]
+df$soporte_grp <- relevel(df$soporte_grp, ref = ref_soporte)
+
+ref_tecnica <- names(sort(table(df$tecnica), decreasing = TRUE))[1]
+df$tecnica  <- relevel(df$tecnica, ref = ref_tecnica)
+
+ref_autor <- names(sort(table(df$tipo_autor), decreasing = TRUE))[1]
+df$tipo_autor <- relevel(df$tipo_autor, ref = ref_autor)
+
+ref_tema <- names(sort(table(df$tema), decreasing = TRUE))[1]
+df$tema <- relevel(df$tema, ref = ref_tema)
+
+str(df)
+```
+
+# Efectos principales
+
+Para deterinar los efectos principales del modelo se seguirá la estructura por bloques definida en al sección de metodología
+
+**Modelo nulo**
+
+Como punto de partida se ajustó un modelo nulo (solos intercepto), sin covariables. Este modelo proporcionará la referencia sobre el cual iremos cuantificando el aporte de los bloques que se añadirán sucesivamente. En un modelo binario como el nuestro, el intercepto del modelo nulo estima la probabilidad media de éxito en la muestra. Recordemos que estaremos trabajando en todo momento con la sub-muestra no-cuadrado.
+
+```{r}
+# Modelo nulo (solo intercepto)
+m0 <- glm(exito ~ 1, data = df, family = binomial(link = "logit"))
+
+# Resumen del modelo
+cat("\nResumen del modelo:\n")
+summary(m0)
+
+# Probabilidad media estimada de éxito (a partir del intercepto)
+cat("\nProbabilidad estimada de éxito:\n")
+p0 <- plogis(coef(m0)[1])
+p0
+```
+
+**Bloque 1: Datación y control de incertidumbre**
+
+Se incorpora la variable "fecha_est" mediante spline y su covariable de incertidumbre "fecha_ancho", comparando especificación lineal vs flexible (spline).
+
+```{r}
+library(splines)
+
+# Transformación log(fecha_ancho)
+df$log_ancho <- log1p(df$fecha_ancho)
+
+# Modelo A: control lineal en log_ancho
+m1_lin <- glm(exito ~ ns(fecha_est, 3) + log_ancho,
+              data = df, family = binomial(link = "logit"))
+
+# Modelo B: control flexible (spline) en log_ancho
+m1_spl <- glm(exito ~ ns(fecha_est, 3) + ns(log_ancho, 3),
+              data = df, family = binomial(link = "logit"))
+
+# Resúmenes (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m1_lin (control lineal):\n")
+summary(m1_lin)
+cat("\nResumen del modelo m1_spl (control flexible spline):\n")
+summary(m1_spl)
+```
+
+Comprobamos la aportación del bloque comparando ambas especificaciones con el modelo nulo:
+
+```{r}
+# Comparación --> aporte del Bloque 1
+
+# Información
+cat("\nAporte de información del Bloque 1 (control lineal):\n")
+anova(m0, m1_lin, test="Chisq")
+cat("\nAporte de información del Bloque 1 (control flexible spline):\n")
+anova(m0, m1_spl, test="Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m0, m1_lin, m1_spl)
+BIC(m0, m1_lin, m1_spl)
+```
+
+Comparamos también las dos formas funcionales del control:
+
+```{r}
+# Comparación --> formas funcionales
+cat("\nAporte de información entre opciones (m1_lin vs m1_spl)\n")
+anova(m1_lin, m1_spl, test="Chisq")
+```
+
+El aporte del bloque 1 es claramente significativo. Ambas especificaciones mejoraron significativamente el modelo nulo (LRT $p=9.933e-11$, $p=3.085e-10$). Sin embargo, la especificación flexible no proporcionó mejora adicional frente a la lineal (LRT $p = 0.2026$) y presentó peor ajuste penalizado por complejidad (AIC y BIC mayores). Por esta razón, se adoptó para los modelos posteriores la especificación lineal $log(1+fecha\_ancho)$ como ajuste definitivo del control de incertidumbre en la datación. 
+
+Modelo resultante después de añadir Bloque 1:
+```{r}
+m1 <- m1_lin
+```
+
+**Bloque 2: Morfología**
+
+Se incorporan las variables morfológicas de tamaño i formato, "area" y "orientación" respectivamente. Se evaluará si aportan infomración adiciona, una vez controlado el efecto de datación (bloque 1). La variable "area" se introducirá mediante una transformación logarítmica $log(area)$ (puedo ser tratada de manera flexible, si se observaran problemas. También se proporcinará un modelo secundario sustituyendo "area" por "tam_cat" (categorización de área), y se compararán. Se decidirá el mejor modelo siguiendo las idicaciones de la sección de metodología, que resumidamente dictan lo siguiente: 
+
+- si "area" presenta problemas o no mejora sustancialmente más que "tam_cat", permitimos ajuste flexible (spline) y si no funciona elejimos "tam_cat"
+
+- si "area" mejora sustanciamente más que "tam_cat", elejimos "area"
+
+- si "area" y "tam_cat" proporcionan resultados cualitativamente iguales, elejimos "area" pero manteniendo el modelo secundario "tam_cat" para interpretaciones claras.
+
+```{r}
+# Trnasformación log(area)
+df$log_area <- log(df$area)
+
+# BLOQUE 2 (principal candidato): log(area) + orientacion
+m2_area <- update(m1, . ~ . + log_area + orientacion)
+
+# BLOQUE 2 (secundario): tam_cat + orientacion
+m2_tamcat <- update(m1, . ~ . + tam_cat + orientacion)
+
+# Resúmenes (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m2_area (+ log_area + orientacion):\n")
+summary(m2_area)
+
+cat("\nResumen del modelo m2_tamcat (+ tam_cat + orientacion):\n")
+summary(m2_tamcat)
+
+# Comparación --> aporte del Bloque 2
+
+# Información
+cat("\nAporte de información del Bloque 2 (tamaño continuo):\n")
+anova(m1, m2_area, test="Chisq")
+
+cat("\nAporte de información del Bloque 2 (tamaño categórico):\n")
+anova(m1, m2_tamcat, test="Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m1, m2_area, m2_tamcat)
+BIC(m1, m2_area, m2_tamcat)
+```
+
+
+Ambas opciones del tamaño (log(area) continua vs. tam_cat categórica) aportan información adicional tras controlar la datación (LRT $p< 2.2e-16$ en mabos casos). Sin embargo, la especificación categórica presenta mejor ajuste–complejidad con AIC y BIC sustancialmente menores (AIC: 5055.282 vs 4995.578; BIC: 5103.259 vs 5050.410). 
+
+Antes de seleccionar "tam_cat" debemos tener en cuenta que podría haber una relación no lineal que actualmente $log(area)$ no esta pudiendo capturar. Por esta razón y dado que "area" ha demostrado mejorar el ajuste, frente al modelo anterior (m1), flexibilizaremos su especificacion (spline) y entonces volveremos a comparar con "tam_cat", para asegurar una decisión justa y cerrada.
+
+```{r}
+# Version flexible de log(area)
+m2_area_spl <- update(m1, . ~ . + splines::ns(log_area, 3) + orientacion)
+
+# Resúmenes (por si aparecen warnings / coeficientes raros / SE enormes)
+summary(m2_area_spl)
+
+# Comparaciones
+cat("\nAporte de la opción log(area) flexible")
+anova(m1, m2_area_spl, test="Chisq")
+
+cat("\nComplejidad de la opción log(area) flexible")
+AIC(m2_area, m2_area_spl, m2_tamcat)
+BIC(m2_area, m2_area_spl, m2_tamcat)
+```
+
+El modelo con $log(area)$ lineal mejoró el ajuste, y al permitir no linealidad, el ajuste mejoró frente al lineal (AIC: 5017.2 vs 5055.3). Sin embargo, la especificación categórica "tam_cat" presentó el mejor compromiso ajuste–complejidad, con AIC y BIC claramente inferiores (AIC: 4995.6 vs 5017.241; BIC: 5050.4 vs 5078.9), superando también a la versión flexible del tamaño continuo. Por ello, se seleccionó "tam_cat" como representación principal del tamaño para los modelos posteriores.  
+
+También se considera manejar en un modelo alternativo la opción de especificación continua del tamaño en versión lineal (log(area) sin spline). El único obejtivo de mantener esta opción como alternativa es el de aportar un modelo más parsimonioso de manera que, aunque su versión flexible mostró un mejor ajuste, no cumple con nuestro objetivo. Vemos que log(area) añade 1 parámetro (uno menso que "tam_cat")m mientras que ns(log(area),3) añade 3 parámetros (uno más que "tam_cat").
+
+Modelo resultante después de añadir Bloque 2:
+```{r}
+m2 <- m2_tamcat
+```
+
+Opción alternativa: especificación continua del tamaño en versión lineal (log(area))
+
+**Bloque 3: Material y técnica**
+
+Se incorporan las variables "soporte" y "tecnica" para evaluar si aporta infomración adicional, una vez controlado los efectos de datación (Bloque 1) y morfología (Bloque 2).  Se evaluará adicionalmente la inclusión de "sop_montaje" como extensión del bloque 3, comparando el modelo con y sin dicha covariable. 
+```{r}
+# BLOQUE 3 (versión base): soporte + técnica
+m3_base <- update(m2, . ~ . + soporte_grp + tecnica)
+
+# Resúmenes (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m3_base (soporte_grp + tecnica):\n")
+summary(m3_base)
+
+# Comparación--> aporte del Bloque 3
+
+# Información
+cat("\nAporte de información del Bloque 3:\n")
+anova(m2, m3_base, test = "Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m2, m3_base)
+BIC(m2, m3_base)
+```
+
+La inclusión conjunta de "soporte_grp" y "tecnica" produjo una mejora significativa respecto al modelo con datación y morfología (LRT $p = 0.0016$) también mejoró el ajuste penalizado por AIC ($\triangle AIC \approx -9.4$), aunque el BIC aumentó ($\triangle BIC \approx +31.7$) (mayor penalización por el número de parámetros añadidos). Debido al objetivo descriptivo de nuestro estudio, se necide mantener el bloque por su relevancia teòrica y por la evidencia global de aporte de información.
+
+Extenderemos este bloque añadiendo ahora la variable "sop_montaje", de menos interés conceptual pero con posibles implicaciones en el modelo.
+
+```{r}
+# BLOQUE 3 (extendido): + sop_montaje
+m3_montaje <- update(m3_base, . ~ . + sop_montaje)
+
+# Resúmenes (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m3_montaje (+ sop_montaje):\n")
+summary(m3_montaje)
+
+# Comparación--> aporte de sop_montaje
+
+# Información
+cat("\nAporte de informacion de sop_montaje (m3_montaje vs m3_base):\n")
+anova(m3_base, m3_montaje, test = "Chisq")
+
+cat("\nComplejidad de sop_montaje:\n")
+AIC(m2, m3_base, m3_montaje)
+BIC(m2, m3_base, m3_montaje)
+```
+
+Se observó una mejora significativa del ajuste respecto al modelo sin esta covariable (LRT $p = 0.009$). El AIC disminuyó ($\triangle AIC \approx -4.8$), indicando una mejora del ajuste penalizado por complejidad, aunque el BIC aumentó ligeramente ($\triangle BIC \approx +2$), el incremento fue pequeño. Por tanto, se retuvo "sop_montaje" en el modelo para los bloques posteriores.
+
+Sin embargo, debemos recordar que aunque el incremento en BIC para la incluión de "sop_montaje" fue pequeño, la inclusión de Bloque 3 ya produjo aumento fuerte en BIC por lo que la complejidad añadida de todo el bloque más el extra sí representa un valor sustancial ($\triangle _{total} BIC \approx +33.76$). Por esta razón se ha decidido contemplar como modelo alternativo la opción sin este bloque.
+
+Modelo resultante después de añadir Bloque 3:
+```{r}
+m3 <- m3_montaje
+```
+
+Opción alternativa: modelo sin Bloque 3 (y sin sop_montaje)
+
+**Bloque 4: Iconografía**
+
+Se incorpora la avriable "tema" para evaluar si la iconografía de la pintura aporta información adicional sobre la probabilidad de exito, una vez controlados los efectos de datacion (Bloque 1), morfología (Bloque 2) y material/tecnica (Bloque 3). 
+
+```{r}
+# BLOQUE 4: + tema
+m4 <- update(m3, . ~ . + tema)
+
+# Resumen (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m4 (+ tema):\n")
+summary(m4)
+
+# Comparación--> aporte del Bloque 4
+# Información
+cat("\nAporte de información del Bloque 4:\n")
+anova(m3, m4, test = "Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m3, m4)
+BIC(m3, m4)
+```
+
+El bloque iconográfico (tema) mejoró significativamente el ajuste (LRT $p = 0.0018$) y redujo el AIC ($\triangle AIC \approx -8.3$), pero incrementó fuertemente el BIC ($\triangle BIC \approx +53$), reflejando un aumento importante de complejidad por el número de niveles de tema (se añaden 9 parámetros). Dado que el objetivo principal del estudio es caracterizar el éxito con un modelo parsimonioso y fácilmente interpretable, se decidió mantener como modelo principal el que excluye tema. 
+
+Sin embargo, dado el interés interpretativo de de la iconografía, se mantiene el modelo con tema como análisis complementario específico para interpretar relaciones temáticas. 
+Por lo tanto, el modelo resultante después del Bloque 4 es el 'm3' y la opción alternativa contempla la inclusión de "tema"
+
+**Bloque 5: autoría y serie**
+
+Se incorporan las variables tipo_autor y serie para evaluar si la información de autoría y pertenencia a serie aporta información adicional sobre la probabilidad de éxito, una vez controlados los efectos de datación (Bloque 1), morfología (Bloque 2) y material/técnica (Bloque 3)
+
+```{r}
+# BLOQUE 5: + tipo_autor + serie
+m5 <- update(m3, . ~ . + tipo_autor + serie)
+
+# Resumen (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m5 (+ tipo_autor + serie):\n")
+summary(m5)
+
+# Comparación--> aporte del Bloque 5
+# Información
+cat("\nAporte de información del Bloque 5:\n")
+anova(m3, m5, test = "Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m3, m5)
+BIC(m3, m5)
+
+```
+
+El Bloque 5 (autoría y serie) mejoró significativamente el modelo previo (LRT $p=0.0056$) y redujo el AIC ($\triangle AIC \approx -6.6$), aunque incrementó fuertemente el BIC ($\triangle BIC \approx +20.8$), reflejando un aumento de complejidad. En este caso podemos observar algo  interesante, los coeficientes pertenecientes a "tipo_autor" no serultaron significativos, mientras que el de "serie=1" sí. Esto reflexa que el efecto significativo dentro del bloque parece concentrarse en serie. Para confirmar este hecho, se evaluará la contribución independiente de cada variable, mediante modelos parciales, antes de tomar una decisión formal sobre el modelo principal.
+
+```{r}
+# modelos parciales del Bloque 5
+m5_serie <- update(m3, . ~ . + serie)
+m5_autor <- update(m3, . ~ . + tipo_autor)
+
+# Comparaciones --> aportes de los mdoelos parciales dle Bloque 5
+# Información
+cat("\nAporte de información de 'serie':\n")
+anova(m3, m5_serie, test="Chisq")
+cat("\nAporte de información de 'tipo_autor':\n")
+anova(m3, m5_autor, test="Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m3, m5_serie, m5_autor, m5)
+BIC(m3, m5_serie, m5_autor, m5)
+```
+
+Efectivamente la variable "serie" sí demostró aportar información adicional (LRT $p=0.0011$) mientras que "autor" no lo hizó (LRT $p=0.2277$). También se observa como el mdoelo que solo incluye serie mejoró tanto el AIC como el BIC respecto al anterior modelo aceptado 'm3' ($\triangle AIC \approx -8.6$, $\triangle BIC \approx -1.7$), como al modelo completo 'm5'. Como ver además como el modelo que incluye "tipo_autor" presenta los valores más elevados tanto en AIC como en BIC, superando incluso los del modelo completo 'm5'. Se decide prescindir de la variable "tipo_autor" y conservar el modelo únicamente con la inclusión de "serie".
+
+Modelo resultante después de añadir Bloque 5:
+
+```{r}
+m5 <- m5_serie
+```
+
+**Resumen**
+
+EL modelo final seleccionado incluye las variables .... y es el siguiente
+
+!!!!!!!!!!!!!!!! hacer bien !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+```{r}
+m_final <- glm(
+  exito ~ ns(fecha_est, 3) + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie,
+  data = df, family = binomial(link = "logit")
+)
+summary(m_final)
+```
+
+# Interacciones
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Modelos alternativos
+
+Las alternativas de enlace y penalización ya se evaluaron sobre el modelo principal por lo que los modelos complementarios se presentan bajo la versión base: el enlace logit.
+
+Dado el interés interpretativo de tema, y visto que sí aporta información adicional pero incrementa fuertemente la complejidad (muchos niveles), su inclusión se analiza en esta sección de modelos alternativos siguiendo las siguientes estrategias:
+
+1) Un modelo con tema ajustado por el conjunto completo de covariables del modelo principal
+
+2) Un modelo con tema sin el bloque de material/técnica/montaje para estimar una asociación más global
+
+3) Adicionalmente, una versión parsimoniosa usando log(area) lineal para cada caso anterior
+
+De esta manera se explorará el efecto de tema tanto controlando las covariables de técnica/soporte/montaje como sin ellas para, de esta manera, poder obtener también una estimación global de su asociación con la respuesta. Esta decisión viene dada por consecuencia de nuestros objetivos e hipótesis principales. En un inicio se planteó la posibilidad de que la iconografía de la pintura podía estar relacionada con el cumplimiento de la razón áurea, por esta razón queremos explorar el efecto global de esta variable "tema", aun sabiendo que el efecto de técnica y soporte pudiera estar incluido en la relación, ya que este modelo no pretende estimar un efecto causal directo sino capturar asociación total que puede incluir diferencias mediadas por técnica/soporte. Por otra parte. Con el objetivo de no sesgar totalmente la interpretación, también se estudiará el efecto en conjunto con estas variables: "soporte_grp" y "tecncia", las cuales también eran de interés. Finalmente se contempla la posibilidad de cambiar la especificación del tamaño por su versión continua lineal (log(area)) con el objetivo de simplemente controlar el efecto del tamaño, pero sin interés interpretativo en esta sección.
+
+
+**Ajsute de modelos**
+
+Procedemos a ajustar todos los modelos candidatos
+
+```{r}
+# =========================================================
+# MODELOS ALTERNATIVOS CON TEMA (resumen compacto)
+
+# =========================================================
+# 1) ESPECIFICACIÓN DE MODELOS (sin summary)
+# =========================================================
+cat("\n==============================\n1) ESPECIFICACION DE MODELOS\n==============================\n")
+
+# Modelo final principal (sin tema, con Bloque 3, tamaño categórico)
+m_final <- glm(
+  exito ~ ns(fecha_est, 3) + log_ancho + tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje + serie,
+  data = df, family = binomial(link = "logit")
+)
+cat("\n[m_final] creado: ajuste completo + tam_cat (SIN tema)\n")
+
+# Ajuste completo + tema (tam_cat)
+mT_full_tam <- update(m_final, . ~ . + tema)
+cat("[mT_full_tam] creado: ajuste completo + tam_cat (CON tema)\n")
+
+# Modelo final equivalente con log_area (sin tema)
+m_final_area <- glm(
+  exito ~ ns(fecha_est, 3) + log_ancho + log_area + orientacion +
+    soporte_grp + tecnica + sop_montaje + serie,
+  data = df, family = binomial(link = "logit")
+)
+cat("[m_final_area] creado: ajuste completo + log_area (SIN tema)\n")
+
+# Ajuste completo + tema (log_area)
+mT_full_area <- update(m_final_area, . ~ . + tema)
+cat("[mT_full_area] creado: ajuste completo + log_area (CON tema)\n")
+
+# Sin Bloque 3 + tam_cat (sin tema)
+m_noB3_tam <- glm(
+  exito ~ ns(fecha_est, 3) + log_ancho + tam_cat + orientacion + serie,
+  data = df, family = binomial(link = "logit")
+)
+cat("[m_noB3_tam] creado: SIN Bloque 3 + tam_cat (SIN tema)\n")
+
+# Sin Bloque 3 + tema (tam_cat)
+mT_noB3_tam <- update(m_noB3_tam, . ~ . + tema)
+cat("[mT_noB3_tam] creado: SIN Bloque 3 + tam_cat (CON tema)\n")
+
+# Sin Bloque 3 + log_area (sin tema)
+m_noB3_area <- glm(
+  exito ~ ns(fecha_est, 3) + log_ancho + log_area + orientacion + serie,
+  data = df, family = binomial(link = "logit")
+)
+cat("[m_noB3_area] creado: SIN Bloque 3 + log_area (SIN tema)\n")
+
+# Sin Bloque 3 + tema (log_area)
+mT_noB3_area <- update(m_noB3_area, . ~ . + tema)
+cat("[mT_noB3_area] creado: SIN Bloque 3 + log_area (CON tema)\n")
+
+# =========================================================
+# 2) COMPARACIONES ANOVA (mínimas, aporte de informacion)
+# =========================================================
+cat("\n==============================\n2) COMPARACIONES (LRT - ANOVA)\n==============================\n")
+
+cat("\n[2.1] Aporte de tema (ajuste completo, tam_cat): m_final vs mT_full_tam\n")
+print(anova(m_final, mT_full_tam, test = "Chisq"))
+
+cat("\n[2.2] Aporte de tema (ajuste completo, log_area): m_final_area vs mT_full_area\n")
+print(anova(m_final_area, mT_full_area, test = "Chisq"))
+
+cat("\n[2.3] Aporte de tema (SIN Bloque 3, tam_cat): m_noB3_tam vs mT_noB3_tam\n")
+print(anova(m_noB3_tam, mT_noB3_tam, test = "Chisq"))
+
+cat("\n[2.4] Aporte de tema (SIN Bloque 3, log_area): m_noB3_area vs mT_noB3_area\n")
+print(anova(m_noB3_area, mT_noB3_area, test = "Chisq"))
+```
+
+Para comezar podemos ver que tema siempre resulta significativo en cunato aprte de información, es decir, independientemente de como controlemos el tamaño y de si incluimos o no el BLoque 3 (tecnica/soporte/montaje), tema añade información. Este resultado avala nuestra intención de realizar esta rección para interpretar la asociación de la iconografía con el cumplimeinto de la razón aurea.
+
+**Comparación de modelos**
+
+Para decidir que modelo o modelos interpretar utilizaremos los criterios AIC/BIC. Se muestras sus valores para cada modelo, y una tabla de incrementos, de manera que sea legible.
+```{r}
+# =========================================================
+# 3) TABLA AIC/BIC (todos los modelos)
+# =========================================================
+cat("\n==============================\n3) TABLA AIC / BIC\n==============================\n")
+
+mods <- list(
+  m_final      = m_final,
+  mT_full_tam  = mT_full_tam,
+  m_final_area = m_final_area,
+  mT_full_area = mT_full_area,
+  m_noB3_tam   = m_noB3_tam,
+  mT_noB3_tam  = mT_noB3_tam,
+  m_noB3_area  = m_noB3_area,
+  mT_noB3_area = mT_noB3_area
+)
+
+ic_tab <- data.frame(
+  modelo = names(mods),
+  df     = sapply(mods, function(m) attr(logLik(m), "df")),
+  AIC    = sapply(mods, AIC),
+  BIC    = sapply(mods, BIC),
+  row.names = NULL
+)
+
+print(ic_tab[order(ic_tab$AIC), ])
+```
+
+
+Dado que pretendemos explorar la asociacion de tema tanto controlando por las covariables del BLoque 3 como sin ellas, seleccionaremos de cada una la que proporcione mejores valores de AIC/BIC. 
+
+```{r}
+# =========================================================
+# Dataframe de deltas (con tema - sin tema) para AIC y BIC
+# =========================================================
+
+delta_ic <- data.frame(
+  situacion = c(
+    "Ajuste completo + tam_cat",
+    "Ajuste completo + log_area",
+    "Sin Bloque 3 + tam_cat",
+    "Sin Bloque 3 + log_area"
+  ),
+  modelo_sin_tema = c("m_final", "m_final_area", "m_noB3_tam", "m_noB3_area"),
+  modelo_con_tema = c("mT_full_tam", "mT_full_area", "mT_noB3_tam", "mT_noB3_area"),
+  AIC_sin = c(AIC(m_final),      AIC(m_final_area),  AIC(m_noB3_tam),  AIC(m_noB3_area)),
+  AIC_con = c(AIC(mT_full_tam),  AIC(mT_full_area),  AIC(mT_noB3_tam), AIC(mT_noB3_area)),
+  BIC_sin = c(BIC(m_final),      BIC(m_final_area),  BIC(m_noB3_tam),  BIC(m_noB3_area)),
+  BIC_con = c(BIC(mT_full_tam),  BIC(mT_full_area),  BIC(mT_noB3_tam), BIC(mT_noB3_area)),
+  stringsAsFactors = FALSE
+)
+
+# Deltas: (con tema - sin tema)
+delta_ic$delta_AIC <- delta_ic$AIC_con - delta_ic$AIC_sin
+delta_ic$delta_BIC <- delta_ic$BIC_con - delta_ic$BIC_sin
+
+# (Opcional) Redondeo para informe
+delta_ic$AIC_sin   <- round(delta_ic$AIC_sin, 3)
+delta_ic$AIC_con   <- round(delta_ic$AIC_con, 3)
+delta_ic$BIC_sin   <- round(delta_ic$BIC_sin, 3)
+delta_ic$BIC_con   <- round(delta_ic$BIC_con, 3)
+delta_ic$delta_AIC <- round(delta_ic$delta_AIC, 3)
+delta_ic$delta_BIC <- round(delta_ic$delta_BIC, 3)
+
+# Mostrar tabla ordenada (por mejora AIC: más negativo = mejor)
+delta_ic <- delta_ic[order(delta_ic$delta_AIC), ]
+
+delta_ic
+delta_ic[c("situacion", "delta_AIC", "delta_BIC")]
+```
+
+Podemos ver que en ambos casos, con la inclusión del Bloque 3 (tecnica/soporte/montaje) o sin ella, los modelos preferibles son aquellos con una especificación categórica del tamaño, es decir, utilizando "tam_cat" en vez de "area". Por esta razón queda eliminada la opción alternativa que se había planteado en relación al tamaño.
+
+Los modelos finales que se utilizaran para interpretar la sociación de "tema" son 'mT_full_tam' y 'mT_noB3_tam'.
+
+**Modelos alternativos finales**
+
+Modelos alternativos finales:
+```{r}
+# asociación ajustado
+mA1 <- mT_full_tam
+
+# asociación global
+mA2 <- mT_noB3_tam
+```
+
+**Validación**
+
+!!!!!!!!!!!!!!!!!! (angel/marc) !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11
+
+creo que se tendría que validar estas dos mdoelos asi un poco por encima 
+
+
+
+
+
+
+
+
+
+
+
