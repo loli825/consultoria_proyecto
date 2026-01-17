@@ -239,11 +239,9 @@ df$orientacion <- droplevels(df$orientacion)
 
 1) Datación + incertidumbre (fecha_est, fecha_ancho)
 
-- indicar porque fecha_est como spline natural ns(fecha_est,3) --> para permitir una relación no lineal entre época y probabilidad de éxito. (deberia verse en analisis descriptivo!!!) ****
+- indicar porque fecha_est como spline natural ns(fecha_est,3) --> para permitir una relación no lineal entre época y probabilidad de éxito. (probar con y sin sline y decidir)
 
 - indicar porque "fecha_ancho" como $log(1+fecha\_ancho)$ --> porque haymuchos 0 y solo log no funciona bien (deberia verse n el analisis decsriptivo !!!!!!) ****
-
-
 
 2) Morfología (log(area), orientacion) + (tam_cat)
 
@@ -255,9 +253,17 @@ df$orientacion <- droplevels(df$orientacion)
 
 **Interacciones**
 
+
+
 **Comparaciones**
 
 - igual mirar tmabien SE de los coefs para ver si son my grandes (significaria coefs inestables) ??? ****
+
+- efectos principales: LRT(95%) AIC/BIC
+
+- interacciones: LRT (99%) AIC/BIC(>10)
+
+- indicar tipor de LRT (test = Chiq)
 
 **Ajustes** (sensibilidades 2, tipo modelo)
 

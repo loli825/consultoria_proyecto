@@ -5,6 +5,9 @@ date: "`r Sys.Date()`"
 output: pdf_document
 ---
 
+!!!!!!!!!!!!!! REESCRIBIR VALORES LRT/AIC/BIC (conclusiones iguales pero diferentes valores)
+
+
 ```{r}
 df <- read.csv("prado_variables.csv", stringsAsFactors = TRUE)
 
@@ -83,12 +86,12 @@ p0
 
 **Bloque 1: Datación y control de incertidumbre**
 
-Se incorpora la variable "fecha_est" mediante spline y su covariable de incertidumbre "fecha_ancho", comparando especificación lineal vs flexible (spline).
+Se incorpora la variable "fecha_est" mediante y su covariable de incertidumbre "fecha_ancho", comparando especificación lineal vs flexible (spline) en ambas variables.
 
 ```{r}
 library(splines)
 
-# Transformación log(fecha_ancho)
+# Transformación log1p(fecha_ancho)
 df$log_ancho <- log1p(df$fecha_ancho)
 
 # Modelo A: control lineal en log_ancho
@@ -133,9 +136,30 @@ anova(m1_lin, m1_spl, test="Chisq")
 
 El aporte del bloque 1 es claramente significativo. Ambas especificaciones mejoraron significativamente el modelo nulo (LRT $p=9.933e-11$, $p=3.085e-10$). Sin embargo, la especificación flexible no proporcionó mejora adicional frente a la lineal (LRT $p = 0.2026$) y presentó peor ajuste penalizado por complejidad (AIC y BIC mayores). Por esta razón, se adoptó para los modelos posteriores la especificación lineal $log(1+fecha\_ancho)$ como ajuste definitivo del control de incertidumbre en la datación. 
 
+Finalmente comprobaremos las formas funcionales de "fecha_est" para ver si la especificación flexible es realmente necesaria para nuestro modelo o no. 
+
+```{r}
+m1_lin_fecha <- glm(exito ~ fecha_est + log_ancho,
+              data = df, family = binomial(link = "logit"))
+```
+
+```{r}
+# Comparación
+# Información
+cat("\nAporte de de la opción fecha_est felxible:\n")
+anova(m1_lin_fecha, m1_lin, test="Chisq")
+
+# Complejidad
+cat("\nComplejidad de la opción fecha_est flexible:\n")
+AIC(m1_lin,m1_lin_fecha)
+BIC(m1_lin,m1_lin_fecha)
+```
+
+Vemos que en temrinos generales la especificación lineal es preferible frente a la flexible en terminos de LRT como AIC. Sin embargo la mejora de AIC es débil frente a una fuerte penalización en BIC ($\triangle AIC \approx -2$ vs $\triangle BIC \approx 12$). Teniendo en cuenta nuestro objetivo descriptivo, y no predictivo, decidimos seleccionar la versión lineal por facilidad interpretativa. Por otro lado también consideramos esta opción mejor en términos de parsimonia, ya que añadimos menos parámetros al modelo, y dado que la mayoría de las variables són facotres y nuestra variables respuesta fuertemente desbalanceada. Sin embargo, dejamos constancia del hecho que la especificación flexible con spline par fecha_est mejora sustancialmente el análisis. 
+
 Modelo resultante después de añadir Bloque 1:
 ```{r}
-m1 <- m1_lin
+m1 <- m1_lin_fecha
 ```
 
 **Bloque 2: Morfología**
@@ -214,7 +238,7 @@ Opción alternativa: especificación continua del tamaño en versión lineal (lo
 
 **Bloque 3: Material y técnica**
 
-Se incorporan las variables "soporte" y "tecnica" para evaluar si aporta infomración adicional, una vez controlado los efectos de datación (Bloque 1) y morfología (Bloque 2).  Se evaluará adicionalmente la inclusión de "sop_montaje" como extensión del bloque 3, comparando el modelo con y sin dicha covariable. 
+Se incorporan las variables "soporte" y "tecnica" para evaluar si aporta infomración adicional, una vez controlados los efectos de datación (Bloque 1) y morfología (Bloque 2).  Se evaluará adicionalmente la inclusión de "sop_montaje" como extensión del bloque 3, comparando el modelo con y sin dicha covariable. 
 ```{r}
 # BLOQUE 3 (versión base): soporte + técnica
 m3_base <- update(m2, . ~ . + soporte_grp + tecnica)
@@ -351,13 +375,12 @@ m5 <- m5_serie
 
 **Resumen**
 
-EL modelo final seleccionado incluye las variables .... y es el siguiente
+!!!!!!!!! explicar un poco que ha pasado !!!!!!!!!!!!!!!!!
 
-!!!!!!!!!!!!!!!! hacer bien !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+Después de evaluar los efectos principales, el modelo principal es el siguiente:
 ```{r}
 m_final <- glm(
-  exito ~ ns(fecha_est, 3) + log_ancho +
+  exito ~ fecha_est + log_ancho +
     tam_cat + orientacion +
     soporte_grp + tecnica + sop_montaje +
     serie,
@@ -367,6 +390,381 @@ summary(m_final)
 ```
 
 # Interacciones
+
+Para decidir que variables son candidatas de entrar al modelo primero traeremos las conclusiones obre estas obtenidas en el análisis descriptivo. En dicha sección de determinó que las más plausibles era "soporte_grp x fecha_est", "tecnica x fecha_est", "soporte_grp x tam_cat", "tecnica x tam_cat" y "soporte_grp x orientacion". Graficaremos los correspondientes gráficos de interacción para estas opciones y seleccionaremos las mejores, que seguidamente serán comprobadas con pruebas formales.
+
+**Gráficos de interacción**
+
+Graficamos $P(exito=1)$ predicha por el modelo, fijando el resto de covariables en valores de referencia/mediana.
+
+```{r}
+# niveles de referencia factores ([1] porque ya se especificó al inicio del análisis)
+ref_tam_cat      <- levels(df$tam_cat)[1]
+ref_orientacion  <- levels(df$orientacion)[1]
+ref_soporte_grp  <- levels(df$soporte_grp)[1]
+ref_tecnica      <- levels(df$tecnica)[1]
+ref_sop_montaje  <- levels(df$sop_montaje)[1]
+ref_serie        <- levels(df$serie)[1]
+
+# niveles de referencia numéricas (mediana)
+fecha0     <- median(df$fecha_est)
+log_ancho0 <- median(df$log_ancho)
+
+# =========================================================
+# 1) soporte_grp × fecha_est
+# =========================================================
+m_int_SopFecha <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    soporte_grp:fecha_est,
+  data = df, family = binomial(link = "logit")
+)
+
+x <- seq(min(df$fecha_est, na.rm = TRUE), max(df$fecha_est, na.rm = TRUE), length.out = 200)
+lev <- levels(df$soporte_grp)
+
+nd <- expand.grid(
+  fecha_est = x,
+  soporte_grp = lev,
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+nd$log_ancho   <- log_ancho0
+nd$tam_cat     <- ref_tam_cat
+nd$orientacion <- ref_orientacion
+nd$tecnica     <- ref_tecnica
+nd$sop_montaje <- ref_sop_montaje
+nd$serie       <- ref_serie
+
+eta <- predict(m_int_SopFecha, newdata = nd, type = "link")
+
+plot(range(x), range(eta), type = "n",
+     xlab = "fecha_est", ylab = "logit{P(exito=1)}",
+     main = "Interacción: soporte_grp × fecha_est (escala logit)")
+
+for (i in seq_along(lev)) {
+  idx <- nd$soporte_grp == lev[i]
+  lines(nd$fecha_est[idx], eta[idx], lty = i, lwd = 2)
+}
+legend("bottomright", legend = lev, lty = seq_along(lev), lwd = 2, bty = "n")
+
+
+# =========================================================
+# 2) tecnica × fecha_est
+# =========================================================
+m_int_TecFecha <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    tecnica:fecha_est,
+  data = df, family = binomial(link = "logit")
+)
+
+x <- seq(min(df$fecha_est, na.rm = TRUE), max(df$fecha_est, na.rm = TRUE), length.out = 200)
+lev <- levels(df$tecnica)
+
+nd <- expand.grid(
+  fecha_est = x,
+  tecnica = lev,
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+nd$log_ancho   <- log_ancho0
+nd$tam_cat     <- ref_tam_cat
+nd$orientacion <- ref_orientacion
+nd$soporte_grp <- ref_soporte_grp
+nd$sop_montaje <- ref_sop_montaje
+nd$serie       <- ref_serie
+
+eta <- predict(m_int_TecFecha, newdata = nd, type = "link")
+
+plot(range(x), range(eta), type = "n",
+     xlab = "fecha_est", ylab = "logit{P(exito=1)}",
+     main = "Interacción: tecnica × fecha_est (escala logit)")
+
+for (i in seq_along(lev)) {
+  idx <- nd$tecnica == lev[i]
+  lines(nd$fecha_est[idx], eta[idx], lty = i, lwd = 2)
+}
+legend("bottomright", legend = lev, lty = seq_along(lev), lwd = 2, bty = "n")
+
+
+# =========================================================
+# 3) soporte_grp × tam_cat
+# =========================================================
+m_int_SopTam <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    soporte_grp:tam_cat,
+  data = df, family = binomial(link = "logit")
+)
+
+nd <- expand.grid(
+  tam_cat     = levels(df$tam_cat),
+  soporte_grp = levels(df$soporte_grp),
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+nd$fecha_est    <- fecha0
+nd$log_ancho    <- log_ancho0
+nd$orientacion  <- ref_orientacion
+nd$tecnica      <- ref_tecnica
+nd$sop_montaje  <- ref_sop_montaje
+nd$serie        <- ref_serie
+
+nd$eta <- predict(m_int_SopTam, newdata = nd, type = "link")
+
+interaction.plot(x.factor = nd$tam_cat, trace.factor = nd$soporte_grp,
+                 response = nd$eta, type = "b", pch = 19,
+                 xlab = "tam_cat", ylab = "logit{P(exito=1)} ajustada",
+                 main = "Interacción: soporte_grp × tam_cat (escala logit)")
+
+
+# =========================================================
+# 4) tecnica × tam_cat
+# =========================================================
+m_int_TecTam <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    tecnica:tam_cat,
+  data = df, family = binomial(link = "logit")
+)
+
+nd <- expand.grid(
+  tam_cat = levels(df$tam_cat),
+  tecnica = levels(df$tecnica),
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+nd$fecha_est    <- fecha0
+nd$log_ancho    <- log_ancho0
+nd$orientacion  <- ref_orientacion
+nd$soporte_grp  <- ref_soporte_grp
+nd$sop_montaje  <- ref_sop_montaje
+nd$serie        <- ref_serie
+
+nd$eta <- predict(m_int_TecTam, newdata = nd, type = "link")
+
+interaction.plot(x.factor = nd$tam_cat, trace.factor = nd$tecnica,
+                 response = nd$eta, type = "b", pch = 19,
+                 xlab = "tam_cat", ylab = "logit{P(exito=1)} ajustada",
+                 main = "Interacción: tecnica × tam_cat (escala logit)")
+
+
+# =========================================================
+# 5) soporte_grp × orientacion
+# =========================================================
+m_int_SopOri <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    soporte_grp:orientacion,
+  data = df, family = binomial(link = "logit")
+)
+
+nd <- expand.grid(
+  orientacion = levels(df$orientacion),
+  soporte_grp = levels(df$soporte_grp),
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+nd$fecha_est    <- fecha0
+nd$log_ancho    <- log_ancho0
+nd$tam_cat      <- ref_tam_cat
+nd$tecnica      <- ref_tecnica
+nd$sop_montaje  <- ref_sop_montaje
+nd$serie        <- ref_serie
+
+nd$eta <- predict(m_int_SopOri, newdata = nd, type = "link")
+
+interaction.plot(x.factor = nd$orientacion, trace.factor = nd$soporte_grp,
+                 response = nd$eta, type = "b", pch = 19,
+                 xlab = "orientacion", ylab = "logit{P(exito=1)} ajustada",
+                 main = "Interacción: soporte_grp × orientacion (escala logit)")
+
+```
+
+1) soporte_grp x fecha_est
+
+Esta interacción plantea algunas preguntas, ya que aunque podemos observar algunos indicios vemos que existe una categoría, Tabla/Panel, que presenta una fuerte diferencia. Esto nos hace pensar en que puede tratarse de una escasez de datos en el extremo. 
+
+Comprobamos frecuencias y recuento de éxitos por combinación:
+
+```{r}
+# Rangos observados por soporte
+tapply(df$fecha_est, df$soporte_grp, range)
+
+# Cortes de fecha_cat
+grp_fecha <- cut(df$fecha_est,
+breaks = c(1100, 1400, 1700, 2000),
+include.lowest = TRUE)
+
+cat("\nFrecuencias por combinación:\n")
+xtabs(~ soporte_grp + grp_fecha, data = df)
+
+cat("\nRecuento de éxitos por combinación:\n")
+xtabs(exito ~ soporte_grp + grp_fecha, data = df)
+```
+
+Estos resultados explican la fomra rara del gráfico "soporte_grp x fecha_est". Vemos como en el tramo [1100, 1400] todo son frecuencias bajas y celdas vacías. Por esta razón el modelo interpreta que esas fechas la probabilidad de éxito es tan baja. Consecuentemente, decidimos descartar esta interacción por inconsistencia de resultados resultantes de extrapolación del modelo en regiones sin datos.
+
+2) tenica x fecha_est
+
+Vemos indicios claros de interacción y un claro cruce: ólea pasa de estar por debajo a por encima. Sin embargo, estas observaciones podrían estar de nuevo sesgadas por falta de datos en algunos periodos. comporbamos recuentos:
+
+```{r}
+cat("\nFrecuencias por combinación:\n")
+xtabs(~ tecnica + grp_fecha, data=df)
+
+cat("\nRecuento de éxitos por combinación:\n")
+xtabs(exito ~ tecnica + grp_fecha, data=df)
+```
+"
+Efectivamente podemos ver como la variable "tecnica" está fuertemente sesgada debido al nivel 'oleo'. Aunque esta variable forma parte de nuestras hipótesis principales, su inclusión ya se aceptó de manera separada asumiendo un aumento de complejidad elevado (incremente significativo en BIC en Bloque 2 de efectos principales), por lo que su interés conceptual e interpretativo ya fue considerado. Por esta razón preferimos descartar su interacción
+
+3) tecnica x tam_cat
+
+De nuevo vemos puntos extremos de manera que comprobaremos recuentos:
+
+```{r}
+cat("\nFrecuencias por combinación:\n")
+xtabs(~ tecnica + tam_cat, data=df)
+
+cat("\nRecuento de éxitos por combinación:\n")
+xtabs(exito ~ tecnica + tam_cat, data=df)
+```
+
+Obtenemos los mismo resultados en esta interacción con "tecnica": nivel 'oloe' fuertemente predominante. Se descarta esta interacción.
+
+4) soporte_grp x tam_cat
+
+A primera vista podemos ver algunos incidios pero no determinantes de modificación del efecto. Podrían explicarse por la baja frecuencia de algunas combinaciones: 
+
+```{r}
+cat("\nFrecuencias por combinación:\n")
+xtabs(~ soporte_grp + tam_cat, data=df)
+
+cat("\nRecuento de éxitos por combinación:\n")
+xtabs(exito ~ soporte_grp + tam_cat, data=df)
+```
+
+Efectivamente vemos que categorías como Metal-grande o Mural-pequeño presentan frecuencias realmente bajas, además los exitos se concentran alrededor de las categoría 'Lienzo' y 'Table/Panel' lo cual es lógico ya que són las categorías mayoritarias. Sin embargo se decide aceptar esta interacción como candidata para las posteriores pruebas formales, ya que es una hipótesis central del estudio.
+
+5) soporte_grp x orientacion
+
+Esta interacción ha resultado la menos relevante, pero aun con incidios de posible interacción. Comprobaremos también los recuentos:
+
+```{r}
+cat("\nFrecuencias por combinación:\n")
+xtabs(~ soporte_grp + orientacion, data=df)
+
+cat("\nRecuento de éxitos por combinación:\n")
+xtabs(exito ~ soporte_grp + orientacion, data=df)
+```
+
+Vemso el mismo patrón para la variable respuesta: los éxitos se concentran al rededor de 'Lienzo', sin embargo no vemos fuertes desbalances para los grupos de orientación. La mantenemos como posble candidata a pruebas
+
+**Pruebas formales**
+
+Decidimos testear las siguientes interacciones: "soporte_grp x tam_cat" y "soporte_grp x orientacion". Ambas opciones parecen plausibles tanto por su representación gráfica como por interpretación conceptual, además concretamente "soporte x tam_cat" se incluía en nuestras hipótesis, de manera que consideramos muy apropiada esta selección.
+
+Comprobaremos en primer caso la inclusión de cada interacción de manera separada para estudiar si cada una por separado aporta información al modelo y su compromiso ajuste-complejidad.
+
+```{r}
+# soporte_grp x tam_cat
+cat("\n==============================\n soporte_grp x tam_cat \n==============================\n")
+m_soporte_tamcat <- update(m_final, . ~ . + soporte_grp:tam_cat)
+anova(m_final, m_soporte_tamcat, test = "Chisq")
+AIC(m_final, m_soporte_tamcat)
+BIC(m_final, m_soporte_tamcat)
+
+# soporte_grp x orientacion
+cat("\n==============================\n soporte_grp x orientacion \n==============================\n")
+m_soporte_orientacion <- update(m_final, . ~ . + soporte_grp:orientacion)
+anova(m_final, m_soporte_orientacion, test = "Chisq")
+AIC(m_final, m_soporte_orientacion)
+BIC(m_final, m_soporte_orientacion)
+```
+
+Vemos que ambas interacciones demuestran mejorar significativamente el modelo aportando informacion (LRT($99%$) $p<0.01$) i reduciendo el AIC ($\triangle AIC \approx -7; -10$). Aunque el BIC aumento en los dos casos ($\triangle BIC \approx +47; +17$). Por interés interpretativo decidimos mantener el modelo con la interacción "soporte_grp x tam_cat" como base y procedemos a examinar el modelo completo anidado con la otra interacción. 
+
+```{r}
+m_completo <- update(m_soporte_tamcat, . ~ . + soporte_grp:orientacion)
+
+anova(m_final, m_soporte_tamcat, test = "Chisq")
+AIC(m_final, m_soporte_tamcat)
+BIC(m_final, m_soporte_tamcat)
+```
+
+Vemos que la inclusión de la interacción "soporte_grp x orientación" sigue siendo significativa una vez controlado el efecto de "soporte_grp x tam_cat", sin embargo provoca un brave problema de complejidad ($\triangle BIC \approx +74$) que no consideramos aceptable ni necesario en este punto análisis. En consecuencia descartamos la interaccion con orientación una vez controlado por tamaño. Además ya detectamos anteriormente existencia de celdas problemáticas en soporte, que pueden provocar separación, por lo que algunos coeficientes pueden volverse fuertemente inestables. Por esta razón, debemos mencionar que la interacción con tamaño se mantendrá pero con interpretación principalmente en 'Lienzo' y 'Tabla/Panel'
+
+Finalmente se decide definir el modelo principal con únicamente la interacción "soporte_grp x tam_cat" con el obejtivo de dar respuesta a nuestra hipótesis, pero teniendo en cuenta el fuerte aumento de BIC y la existencia de posible inestabilidad, se considera conservar el modelo sin interacciones como alternativo con el fin de explorar más rigurosamente los efectos principales.
+
+**Resumen**
+
+Después de evaluar las interacciones, el modelo principal es el siguiente:
+
+```{r}
+m_completo <- glm(
+  exito ~
+    fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    soporte_grp:tam_cat,
+  data = df,
+  family = binomial(link = "logit")
+)
+
+summary(m_completo)
+```
+
+Y el modelo reducido conservado como alternativo, sin interacciones, es el siguiente:
+```{r}
+m_reducido <- glm(
+  exito ~
+    fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie,
+  data = df,
+  family = binomial(link = "logit")
+)
+```
+
+##
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -486,6 +884,24 @@ summary(m_final)
 # Modelos alternativos
 
 Las alternativas de enlace y penalización ya se evaluaron sobre el modelo principal por lo que los modelos complementarios se presentan bajo la versión base: el enlace logit.
+
+**Modelo simplificado**
+
+Dada la complejidad y posible separación debida a la interacción "soporte_grp x tam_cat", se ha decidido estudiar también la posibilidad del modelo simplificado sin interacciones:
+
+```{r}
+m_reducido <- glm(
+  exito ~
+    fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie,
+  data = df,
+  family = binomial(link = "logit")
+)
+```
+
+**Variable tema**
 
 Dado el interés interpretativo de tema, y visto que sí aporta información adicional pero incrementa fuertemente la complejidad (muchos niveles), su inclusión se analiza en esta sección de modelos alternativos siguiendo las siguientes estrategias:
 
