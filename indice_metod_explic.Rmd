@@ -45,7 +45,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 5.2 Interacciones
 
-5.3 Refinamiento del modelo
+5.3 Diagnóstico de ajuste y correcciones
 
 5.4 Validación del modelo (angel/marc)
 
@@ -245,7 +245,7 @@ df$orientacion <- droplevels(df$orientacion)
 
 2) Morfología (log(area), orientacion) + (tam_cat)
 
-3) Material y tecnica (soporte_grp, tecnica) + (sop_montaje)
+3) Material y tecnica (soporte_grp, tecnica) + (sop_montaje, como "control")
 
 4) Iconografia (tema)
 
