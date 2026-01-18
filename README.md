@@ -15,7 +15,7 @@ Tareas ordenadas cronologicamente:
 
 - (MANUELA) estructura informe (índice), metodología y explicación de la base de datos (indice_metod_explic.rmd)
 
-- (MANUELA) analisis principal (efectos marginales, interacciones y ajsutes) y modelos secundarios --> (analisis_principal.Rmd)
+- (MANUELA) analisis principal (efectos principales, interacciones, diagnóstico de ajuste y correcciones) y modelos secundarios --> (analisis_principal.Rmd)
 
 - (ABRIL)
 
@@ -182,3 +182,19 @@ CONTENIDO: base de datos preparada para el analisis
 CONTENIDO: base de datos preparada para el analisis
 
 - Contiene únicamente las variables analizables
+
+## analisis_principal.Rmd 
+
+CONTENIDO: análisis principal (sin validación formal del mdoelo principal)
+
+ESTRUCTURA: contiene las sigueintes subsecciones
+
+- Efectos principales (Bloque1, Bloque2, BLoque3, Bloqu4, Bloque5, Resumen y estructura final de efectos principales)
+
+- Interacciones (Gráficos de interaccions y con recuentos de exito, Pruebas formales, Resumen y estructura final de interacciones)
+
+- Diagnóstico de ajsute y correcciones (Diagnóstico preliminar, Separación, Colinealidad, Resumen y modelo principal)
+
+- Validación (FALTA !!!! angel/marc)
+
+- Modelos alternativos (Modelo sin interacciones, Modelo con tema jsutado, Modelo con tema global)
