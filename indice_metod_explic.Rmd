@@ -21,23 +21,23 @@ knitr::opts_chunk$set(echo = TRUE)
 
 1.4 Presentación de los datos
 
-2. Presupuesto
+2. Gestión de datos
 
-3. Gestión de datos
+2.1 Manejo de valores faltantes
 
-3.1 Manejo de valores faltantes
+2.2 Transformación de variables
 
-3.2 Transformación de variables
+2.3 Creación de nuevas variables
 
-3.3 Creación de nuevas variables
+2.4 Manejo de desbalances
 
-3.4 Manejo de desbalances
+3. Metodología
 
 4. Análisis descriptivo
 
 (abril poner los puntos)
 
-3.? Manejo de outliers (explicación angel)
+4.? Manejo de outliers (explicación angel)
 
 5. Análisis principal
 
@@ -63,15 +63,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 6.4 Resultados de los modelos alternativos
 
-5.5 Hallazgos principales 
+6.5 Hallazgos principales 
 
-6. Análisis secundarios (angel/marc)
+7. Análisis secundarios (angel/marc)
 
-7. Conlusiones
+8. Conlusiones
 
-7.1 Descubrimientos del estudio (angel/marc)
+8.1 Descubrimientos del estudio (angel/marc)
 
-7.2 Continuidad del proyecto: limitaciones y propuestas
+8.2 Continuidad del proyecto: limitaciones y propuestas
 
 ### INDICE EXPLICADO
 
@@ -188,7 +188,7 @@ Muy raros:
 
   - Materia, Lugar de producción, Edición / Estado
 
-Están son las variables originales de las que se disponía, y después de la correspondiente gestión de datos se ha obtenido la base de datos final con un total de () registros y () variables preparadas para el análisis. En el archivo original, los valores faltantes se condificaban como "0", después de su apropiada gestión, se proporciona un dataset sin valores faltantes.
+Están son las variables originales de las que se disponía, y después de la correspondiente gestión de datos se ha obtenido la base de datos final con un total de 7.002 registros y 12 variables preparadas para el análisis. En el archivo original, los valores faltantes se condificaban como "0", después de su apropiada gestión, se proporciona un dataset sin valores faltantes.
 
 **Diccionario de variables**
 
@@ -219,29 +219,31 @@ Están son las variables originales de las que se disponía, y después de la co
 
 ## Metodología
 
+Como enfoque general se decidieron adoptar procedimientos que permitieran contar una historia en relación a las variables que finalmente se involucren. No solo obtener resultados automatizados sinó estudiar en profundidad cómo unas variables, en presencia o no de otras, afectan a la probabilidad de observar el evento de interés. Por lo tanto, no se presentará un único modelo, pues consideramos que dado el gran alcance de nuestra base de datos, no existe un único modelo óptimo para estudiarla, sino diversas combinaciones de variables que respondan a preguntas de distinto enfoque.   
+
+Como aprendimos en la última práctica, gracias a la lectura del artículo "A hypotesis is a liability", la persecución de nuestras hipótesis no debe ser el único objetivo de un buen estudio. Debemos recordar la importancia de trabajar los datos tanto bajo la ciencia diurna como la nocturna, de manera que mantengamos la mente y los ojos abiertos a nuevas posibilidades aunque siempre en presencia y ayuda de procedimientos y técnicas adecuadas que nos permitan analizarlos rigurosamente.
+
+Por esta razón, se descartan los métodos de selección automática tipo stepwise con el fin de controlar cada paso interno que este tipo de procesos esconden. En su lugar, se hará uso de una filosofía de selección basada en bloques conceptuales que definen las variables. Estos bloques se introducirán uno por uno por uno de manera que se irá construyendo un modelo principal sobre el que trabajaremos pero también se irá guardando la información obtenida en cada paso no fructifero de manera que se utilizará para generar otros modelos alternativos que nos permitan estudiar la variable respuesta desde otro enfoque. Esta filosofía pretende ser adecuada para explorar al máximo nuestra base de datos y darnos información potencialmente interesante sobre todas y cada una de las variables.
+
+Por otro lado debemos poder actuar de forma estadísticamente correcta, por lo que en esta sección se detallan los procedimientos y técnicas utilizadas, además de los criterios preestablecimos en relación a las sucesivas decisiones que se tomarán para derivar tanto el modelo principal como los alternativos.
+
 **Regla estructural 'cuadrado'**
 
-Como se informarmó anteriormente, la categoría 'cuadrado' de la variable "orientacion" genera ceros estructurales, ya que por definición los cuadros cuadrados nunca seguirán la proporción aurea. Además, la presencia de una categoría con ausencia completa del evento induce separación perfecta en modelos binarios, lo que puede producir estimaciones inestables o no finitas y distorsionar la estimación de efectos del resto de covariables. Por estos motivos, se restringió el análisis inferencial a la subpoblación con orientacion $\neq$ "cuadrado". Debido a esta modificación, la inferencia de nuestro estudio solo será aplicable a esta subpoblación. 
+Primera deberemos modificar nuestra abse de datos de manera que se eliminarán las observaciones de pinturas cuadradas. Como se informó anteriormente, la categoría 'cuadrado' de la variable "orientacion" genera ceros estructurales, ya que por definición los cuadros cuadrados nunca seguirán la proporción aurea. La presencia de una categoría con ausencia completa del evento induce separación perfecta en modelos binarios, lo que puede producir estimaciones inestables o no finitas y distorsionar la estimación de efectos del resto de covariables. Por estos motivos, se restringió el análisis inferencial a la subpoblación con orientacion $\neq$ "cuadrado". Gracias a esta modificación podemos introducir la variable "orientación" sin problemas, pero la inferencia de nuestro estudio solo será aplicable a esta subpoblación. 
 
+**Modelos y correcciones**
 
-!!!! --> nuevas dimensiones dataset (7002)
+La base para el análisis serán Modelos Lineales Generalizados (GLZ/GLM). No se contempla la utilización de modelos mixtos dado que no hay presencia aparente de estructura por bloques. Las observaciones se consideran independientes entre sí, puesto que disponemos de una única medición de cada variable para cada obra, ni ninguna variable que naturalmente las pueda estructurar. Nuestra variable respuesta es de tipo binaria, por lo que asumiremos una distribución Binomial con enlace logit (enlace canónico de la distribución). Es decir trabajaremos en todo momento con regresiones logísticas.
 
-```{r}
-# restringir a no-cuadrado
-df <- subset(df, orientacion != "cuadrado")
-df$orientacion <- droplevels(df$orientacion)
-```
+Dado el desbalance y la posible separación a la que podremos enfrentarnos, se considerará añadir una reducción de sesgo con un enfoque Firth.
 
+**Selección de efectos principales** 
 
-**Estructura por bloques** + sensibilidades 1
+Es en este punto donde se remarca la filosofía por bloques utilizada: para la selección de las covariables que formarán parte del modelo principal, y las que se mantendrán para los modelos alternativos. 
 
---> filosofía enfoque por bloques (historia a contar)
+Las variables han sido clasificadas en los siguientes bloques según su interpretación conceptual:
 
 1) Datación + incertidumbre (fecha_est, fecha_ancho)
-
-- indicar porque fecha_est como spline natural ns(fecha_est,3) --> para permitir una relación no lineal entre época y probabilidad de éxito. (probar con y sin sline y decidir)
-
-- indicar porque "fecha_ancho" como $log(1+fecha\_ancho)$ --> porque haymuchos 0 y solo log no funciona bien (deberia verse n el analisis decsriptivo !!!!!!) ****
 
 2) Morfología (log(area), orientacion) + (tam_cat)
 
@@ -251,21 +253,24 @@ df$orientacion <- droplevels(df$orientacion)
 
 5) Autoría y serie (tipo_autor, serie)
 
-**Interacciones**
+Comenzaremos con un modelo nulo sobre el cual se irán añadiendo estos bloques de variables sucesivamente y uno por uno. En cada paso se valorará si el bloque demuestra o no mejora respecto el modelo anterior. Se analizará si éste aporta información adicional mediante comparación de modelos anidados y el coste en complejidad que refleja. Si el veredicto es positivo, entonces se mantendrá el bloque en el modelo principal y se añadirá el siguiente sobre este. Si un bloque o una variable no demuestra aportar información al modelo ajustado por los anteriores, se descartará automáticamente. Si por el contrario existe aporte de información pero coste de complejidad excesivo, se mantendra el bloque para ser utilizado en un futuro modelo alternativo.
 
+**Selección de interacciones**
 
+Una vez escogidas las covariables principales, se procederá a determinar la inclusión de algunas interacciones al modelo principal. No se considerarán interacciones de dos variables. Aunque algunas de ellas son de interés para nosotros con el fin de dar respuesta a nuestras hipótesis, la principal herramiento para su selección serán los gráficos de analisis descriptivo, donde se hará una primera criva. Las candidatas serán sometidas a una segunda criva en esta sección del análisis de interacciones. Primeramente se graficarán los gráficos de interacción de los modelos con cada una de ellas. Seguidamente, aquellas que resulten significativas se verificarán mediante la inspección de sus combinaciones de niveles para descartar relaciones engañosas devido a celdas vacías (ya que se han observado incidios de desbalances muchas de ellas). Finalmente las seleccionadas se someterán a pruebas formales mediante modelos anidados.
 
-**Comparaciones**
+**Trnasformación de variables**
 
-- igual mirar tmabien SE de los coefs para ver si son my grandes (significaria coefs inestables) ??? ****
+Según se visualice en el análisis descriptivo, se decidirá si algunas de las variables continuas deben ser transformadas o no para entrar en el modelo.
 
-- efectos principales: LRT(95%) AIC/BIC
+Además, para estas variables se considerarán siempre tanto una especificación lineal como una flexible mediante spline con 3 nudos, ya que no se espera una relación que exista una relación del todo lineal entre "fecha_est" y "area" con la respuesta, pero ambas son variables que queremos que entren en el modelo. Abas especificaciones se compararan con modelos anidados.
 
-- interacciones: LRT (99%) AIC/BIC(>10)
+**Comparación de modelos**
 
-- indicar tipor de LRT (test = Chiq)
+Para las comparaciones de modelos anidados se empleará el test de razón de verosimilitudes (LRT) basado en diferencia de devianza con distribución $\chi^2$. Con una confianza del 95% en el análisis de efectos principales y con una confianza del 99% en el análisis de interacciones.
 
-**Ajustes** (sensibilidades 2, tipo modelo)
+También de emplearán los criteriors de información Akaike y Bayesiano (AIC/BIC) para evaluar el coste de complejidad, consideran un aumento de 2 puntos como significativo.
 
+Para cada modelo anidado se proporcionará también el resumen estadístico de este (summary) para visualizar rápidamente si vemos indicios problemáticos, concretamente para verificar que los errore estándares de los coeficientes no se disparán y que el modelo se ha ajustado correctamente.
 
-
+**Validación de modelos**

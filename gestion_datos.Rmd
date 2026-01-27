@@ -15,6 +15,8 @@ df <- read.csv("prado.csv", fileEncoding = "UTF-8")
 
 # GESTIÓN DE DATOS
 
+En esta sección se trabajará la información obtenida del web scrapping con el objetivo de crear la base de datos final que analizaremos, la cual ha sido descrita en la sección anterior.
+
 ## Manejo de valores faltantes
 
 Tal y como se ha generado la base de datos, los valores faltantes estan indicados como "0". Veamos el porcentaje de estos para cada variables:
