@@ -22,7 +22,6 @@ Además una línea importante de literatura advierte que muchas afirmaciones pop
 
 
 
-
 ```{r, echo = F}
 library(readr)
 setwd("~/Desktop/consultoria_proyecto")
@@ -43,6 +42,7 @@ df$serie <- as.factor(df$serie)
 df$fecha_est <- as.integer(df$fecha_est)
 df$tema <- as.factor(df$tema)
 ```
+
 Empezamos el análisis descriptivo construyendo para cada variable, una tabla de frecuencias y el gráfico de barras correspondiente, la forma más directa de entender cómo se reparte la información dentro del conjunto de datos. Antes de comparar con la variable respuesta (exito) o plantear cualquier modelo, necesitamos saber qué categorías aparecen, con qué peso y si existe algún patrón evidente en la composición de la muestra.
 
 Como control de calidad permite detectar problemas típicos en datos obtenidos por web scraping, como etiquetas duplicadas, niveles inesperados o valores codificados de manera especial.
