@@ -14,20 +14,24 @@ knitr::opts_chunk$set(echo = TRUE)
 
 La razón áurea (también llamada proporción áurea, sección áurea o phi) es una proporción numérica aproximada de 1,618. Se define cuando dividimos un segmento en dos partes de forma que la relación entre la parte mayor y la menor sea la misma que la relación entre el total y la parte mayor. Esa proporción aparece en geometría y se relaciona con la sucesión de Fibonacci, porque el cociente entre términos consecutivos de Fibonacci se aproxima a 1,618 a medida que los números crecen.
 
-En arte y diseño, la razón áurea se ha popularizado como una regla de composición asociada a armonía visual. En el discurso histórico se vincula con tradiciones artísticas (especialmente desde el Renacimiento) y con la idea de que ciertas proporciones resultan equilibradas o agradables a la vista. Sin embargo, que algo se use como herramienta o que aparezca en ejemplos puntuales no implica que automáticamente que sea una regla universal ni que explique por sí sola la “belleza” o la preferencia estética. Precisamente por eso es interesante tratarlo como un problema empírico: medir, comparar y contrastar hipótesis con datos. 
+En arte y diseño, la razón áurea se ha popularizado como una regla de composición asociada a armonía visual. En el discurso histórico se vincula con tradiciones artísticas (especialmente desde el Renacimiento) y con la idea de que ciertas proporciones resultan equilibradas o agradables a la vista. Sin embargo, que algo se use como herramienta o que aparezca en ejemplos puntuales no implica que automáticamente sea una regla universal ni que explique por sí sola la “belleza” o la preferencia estética. Precisamente por eso es interesante tratarlo como un problema empírico: medir, comparar y contrastar hipótesis con datos. 
 
 La investigación psicológica y experimental sobre si preferimos la razón áurea ha dado resultados mixtos. Hay estudios experimentales donde se comparan versiones de una misma imagen/pintura ajustadas a distintas proporciones y se observa preferencia por la sección áurea en ciertos contextos y muestras, pero también hay trabajos que cuestionan que exista una preferencia automática o universal por esta proporción, especialmente cuando se usan pruebas implícitas y estímulos más variados.
 
 Además una línea importante de literatura advierte que muchas afirmaciones populares sobre la razón áurea en arte se apoyan en selecciones de ejemplos o en mediciones discutibles y que cuando se analiza de manera sistemática (por ejemplo, proporciones de formato en pinturas), la proporción áurea no siempre aparece como la proporción dominante.
 
-## Objectius de l’estudi
 
-L’objectiu general d’aquest treball és construir un model explicatiu que ens ajudi a entendre quins factors estan associats al fet que una obra compleixi o no la proporció àuria. No busquem fer predicció “per encertar”, sinó explicar amb quines característiques de les obres (com l’època, la mida, l’orientació, la tècnica o el suport) és més probable trobar la proporció àuria i com aquestes característiques es relacionen entre elles.
 
-Com a objectiu específic volem descriure si el compliment de la proporció àuria és un fenomen freqüent dins del conjunt d’obres analitzades i si aquest compliment es concentra en determinats contextos (per exemple, en certs períodes històrics o en certs formats). També volem avaluar si variables com el suport i la tècnica poden actuar com a condicionants materials de la composició i, per tant, modificar la relació entre la mida i l’èxit.
+## Objetivos del estudio
 
-Finalment, com a objectiu interpretatiu, volem discutir fins a quin punt el fet que una obra estigui present en museus o catàlegs pot estar relacionat amb decisions estètiques i de composició com la proporció àuria. Tot i que el nostre conjunt de dades no mesura directament “bellesa” ni “qualitat artística”, sí que ens permet plantejar la pregunta de manera crítica: si la proporció àuria fos una regla compositiva molt general en l’art, hauríem d’observar patrons clars i consistents en les obres analitzades i si apareix de forma irregular o depèn fortament del context, això reforça la idea que la seva presència no és universal i que cal interpretar-la com una eina possible però no de manera determinant.
+El objetivo general de este trabajo es construir un modelo explicativo que nos ayude a entender qué factores se asocian con que una obra cumpla o no la proporción áurea. No buscamos hacer predicción “para acertar”, sino explicar con qué características de las obras (como la época, el tamaño, la orientación, la técnica o el soporte) es más probable encontrar la proporción áurea y cómo estas características se relacionan entre sí.
 
+Como objetivo específico, queremos describir si el cumplimiento de la proporción áurea es un fenómeno frecuente dentro del conjunto de obras analizadas en el museo del prado y si dicho cumplimiento se concentra en determinados contextos (por ejemplo, en ciertos periodos históricos o en ciertos formatos). 
+
+Aunque nuestro conjunto de datos no mide directamente la “belleza” ni la “calidad artística”, sí nos permite plantear la pregunta de manera crítica: si la proporción áurea fuera una regla compositiva muy general en el arte, deberíamos observar patrones claros y consistentes en las obras analizadas; y si aparece de forma irregular o depende fuertemente del contexto, ello refuerza la idea de que su presencia no es universal y que conviene interpretarla como una herramienta posible, pero no como un criterio determinante.
+
+
+## Análisis descriptivo
 
 ```{r, echo = F}
 library(readr)
@@ -61,7 +65,7 @@ Las clases minoritarias aun que ess habitual que algunas categorías tengan poca
 En resumen, trabajar variable por variable es una etapa imprescindible porque permite verificar la coherencia de las variables, comprender la estructura real de los datos y anticipar problemas derivados de categorías raras. Esto asegura que las comparaciones posteriores con exito sean interpretables, estables y defendibles.
 
 
-##EXITO
+## EXITO
 ```{r, echo = F}
 table(df$exito)
 v <- "exito"
@@ -73,7 +77,7 @@ barplot(tab, las = 1, main = "¿Cumple la proporción áurea?", ylab = "frequenc
 ```
 
 
-##AREA
+## AREA
 ```{r, echo = F}
 hist(df$area, breaks=40, main="Histograma de área", xlab="area")
 hist(log(df$area ), breaks=40, main="Histograma de log(area)", xlab="log(area)")
@@ -132,7 +136,7 @@ tab <- sort(table(df[[v]]), decreasing = TRUE)
 barplot(tab, las = 1, main = "Tamaño", ylab = "frequencia")
 ```
 
-##TAM_CAT CON ÉXITO 
+## TAM_CAT CON ÉXITO 
 
 
 ```{r, echo = F}
@@ -164,7 +168,7 @@ text(x = rep(bp, each = nrow(t(prop))),
 
 
 
-##ORIENTACIÓN
+## ORIENTACIÓN
 ```{r, echo = F}
 table(df$orientacion)
 v <- "orientacion"
@@ -173,7 +177,7 @@ tab <- sort(table(df[[v]]), decreasing = TRUE)
 barplot(tab, las = 1, main = "Orientación", ylab = "frequencia")
 ```
 
-##EXITO SEGÚN ORIENTACIÓN 
+## EXITO SEGÚN ORIENTACIÓN 
 ```{r, echo = F}
 # Tabla orientación x éxito
 tab <- table(df$orientacion, df$exito_f)
@@ -258,7 +262,7 @@ par(op)
 ```
 
 
-#SOPORTE_GRP
+## SOPORTE_GRP
 ```{r, echo = F}
 table(df$soporte_grp)
 v <- "soporte_grp"
@@ -267,7 +271,7 @@ tab <- sort(table(df[[v]]), decreasing = TRUE)
 barplot(tab, las = 1, main = "Soporte", ylab = "frequencia")
 ```
 
-##SOPORTE_GRP CON EXITO 
+## SOPORTE_GRP CON EXITO 
 
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
@@ -349,7 +353,7 @@ par(op)
 
 
 
-##SOP_MONTAJE
+## SOP_MONTAJE
 ```{r, echo = F}
 table(df$sop_montaje)
 v <- "sop_montaje"
@@ -446,7 +450,7 @@ par(op)
 
 
 
-##TECNICA
+## TECNICA
 ```{r, echo = F}
 
 table(df$tecnica)
@@ -543,7 +547,7 @@ par(op)
 ```
 
 
-##TIPO_AUTOR
+## TIPO_AUTOR
 ```{r, echo = F}
 table(df$tipo_autor)
 
@@ -644,7 +648,7 @@ par(op)
 ```
 
 
-##SERIE 
+## SERIE 
 ```{r, echo = F}
 table(df$serie)
 v <- "serie"
@@ -748,7 +752,7 @@ par(op)
 
 ```
 
-##FECHA_ESTIMADA
+## FECHA_ESTIMADA
 ```{r, echo = F}
 x <- as.integer(df$fecha_est)
 x <- x[is.finite(x)]
@@ -808,7 +812,7 @@ legend("topright", legend=rownames(prop), fill=cols, bty="n")
 par(op)
 
 ```
-
+ 
 
 ```{r, echo = F}
 boxplot((df$fecha_est) ~ df$exito,
@@ -818,12 +822,12 @@ boxplot((df$fecha_est) ~ df$exito,
         las = 1)
 ```
 
-##FECHA_ANCHO
+## FECHA_ANCHO
 ```{r, echo = F}
 hist(df$fecha_ancho, breaks=40, main="Histograma de fecha_ancho", xlab="area")
 ```
 
-##TEMA 
+## TEMA 
 ```{r, echo = F}
 table(df$tema)
 
@@ -832,7 +836,7 @@ tab <- sort(table(df[[v]]), decreasing = TRUE)
 barplot(tab, las = 2, main = "Tema de la Obra", ylab = "frequencia")
 ```
 
-##TEMA CON EXITO 
+## TEMA CON EXITO 
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels = c(0,1),
                      labels = c("No cumple","Sí cumple"))
@@ -2570,20 +2574,26 @@ par(op)
 
 Hemos revisado todos los gráficos para entender qué variables podrían estar relacionadas con exito, que es nuestra variable respuesta (sí cumple o no cumple la proporción áurea). 
 
-La variable que más destaca en los gráficos es fecha_estimada. Al separar las obras por exito, observamos que las que sí cumplen tienden a concentrarse más en un rango de fechas mientras que las que no cumplen aparecen más dispersas y con más valores extremos. Además, esta dispersión no es igual para todos: por tipo_autor vemos mucha más variación en hombre y en parte en anónimo, mientras que mujer y varios están más concentrados, pero aquí insistimos en que mujer y varios tienen pocos datos y eso puede generar ruido. Con area ocurre algo parecido: el área es muy asimétrica y por eso trabajamos con log(area). En los boxplots log(area) parece cambiar algo entre grupos y en algunos casos hay cierta separación entre sí/no aunque menos marcada que con fecha_estimada. Esto sugiere que el tamaño podría tener relación con el éxito pero probablemente de forma más débil o más dependiente del contexto.
+En primer lugar, los gráficos y tablas descriptivas muestran que el conjunto de datos está muy desequilibrado por tipo de autor. La gran mayoría de obras aparecen atribuidas a hombre, mientras que los grupos anónimo, varios y especialmente mujer tienen muchos menos casos. Cuando un grupo tiene muy pocas observaciones, cualquier diferencia que parezca grande en un gráfico puede deberse simplemente al tamaño muestral pequeño y no a un efecto real.
 
-En cuanto a las variables categóricas (soporte_grp, tecnica, orientacion, tema, tam_cat y serie) los gráficos indican sobre todo que describen cómo se distribuyen las obras y que muchas de ellas están relacionadas entre sí. Por ejemplo tema cambia bastante según tipo_autor, y soporte y tecnica están muy conectadas con la fecha (aparecen más en unas épocas que en otras). Esto es importante en un estudio explicativo porque significa que algunas asociaciones aparentes con exito pueden estar “mezcladas” con otra variable (especialmente con la fecha). Por eso, más que buscar reglas simples del tipo “este soporte siempre cumple más”, interpretamos que el éxito puede estar influido por un conjunto de factores relacionados y que el modelo nos servirá para separar efectos y controlar posibles confusiones entre variables.
+Respecto a la variable respuesta, predominan claramente las obras que no cumplen la proporción áurea: hay muchas más observaciones en “no cumple” que en “sí cumple”. 
 
-Finalmente, nosotros consideramos interacciones solo cuando los gráficos sugieren que una relación depende del grupo. Una interacción significa que el efecto de una variable no es igual para todos los niveles de otra. En nuestros gráficos la fecha se distribuye de manera muy distinta según soporte, técnica y tipo de autor, y al separar por exito parece que la diferencia entre sí/no no es idéntica en todos los grupos. 
+En cambio donde se ve un patrón más marcado es en la dimensión temporal. La distribución de fecha_estimada varía mucho según el tipo de autor: en “hombre” hay mucha más dispersión y aparecen más valores extremos (obras muy antiguas), mientras que en “mujer” y “varios” las fechas están más concentradas en un intervalo más estrecho.
+
+Los gráficos indican patrones muy dominantes: casi todas las obras son óleo, el soporte más frecuente es lienzo, y la orientación vertical es la más común. Finalmente pertenecer a una serie es algo minoritario en general, pero en el grupo “varios” aparece con más frecuencia que en el resto. 
+
+La variable que más destaca en los gráficos es fecha_estimada. Al separar las obras por exito, observamos que las que sí cumplen tienden a concentrarse más en un rango de fechas mientras que las que no cumplen aparecen más dispersas y con más valores extremos. Además, esta dispersión no es igual para todos: por tipo_autor vemos mucha más variación en hombre y en parte en anónimo, mientras que mujer y varios están más concentrados pero aquí tenemos que insistimos en que mujer y varios tienen pocos datos y eso puede generar ruido. Con area ocurre algo parecido: el área es muy asimétrica y por eso trabajamos con log(area). 
+
+En cuanto a las variables categóricas (soporte_grp, tecnica, orientacion, tema, tam_cat y serie) los gráficos describen cómo se distribuyen las obras y que muchas de ellas están relacionadas entre sí. Por ejemplo tema cambia bastante según tipo_autor, y soporte y tecnica están muy conectadas con la fecha (aparecen más en unas épocas que en otras). Esto es importante en un estudio explicativo porque significa que algunas asociaciones aparentes con exito pueden estar “mezcladas” con otra variable (especialmente con la fecha). Por eso más que buscar reglas simples del tipo “este soporte siempre cumple más”, interpretamos que el éxito puede estar influido por un conjunto de factores relacionados y que el modelo nos servirá para separar efectos y controlar confusiones entre variables.
+
+Nosotros consideramos interacciones solo cuando los gráficos sugieren que una relación depende de un grupo.
 
 
-### HIPÓTESIS Y PLANTEAMIENTO DEL MODELO 
+Podemos intuir que hay indicios de que Fecha_estimada afecta a exito, ya que al separar por sí/no se observa un patrón consistente de mayor concentración temporal en los casos que sí cumplen y mayor dispersión en los que no cumplen. 
 
-Formulamos hipótesis para explicar exito y ordenamos el modelo según lo que sugieren los gráficos. La primera hipótesis es que fecha_estimada afecta a exito, ya que al separar por sí/no se observa un patrón consistente de mayor concentración temporal en los casos que sí cumplen y mayor dispersión en los que no cumplen. 
+Por otro lado también intuimos que el tamaño afecta a exito, por lo que incluimos log(area) (en lugar de area) para trabajar en una escala más estable y menos dominada por valores extremos.
 
-La segunda hipótesis es que el tamaño afecta a exito, por lo que incluimos log(area) (en lugar de area) para trabajar en una escala más estable y menos dominada por valores extremos.
+Respecto a tema creemos que no afecta de manera clara al éxito según el descriptivo, pero lo incluimos como análisis alternativo porque forma parte del planteamiento y comprobamos si añade explicación o si su aparente relación se debe a que tema está asociado a otras variables. También mantenemos técnica y soporte en el modelo porque son variables relevantes del contexto de la obra y porque en los gráficos se relacionan con fecha y tamaño, de modo que pueden actuar como factores explicativos o de ajuste incluso aunque su relación directa con exito no sea uniforme.
 
-Respecto a tema, nuestra hipótesis es que no afecta de manera clara al éxito según el descriptivo, pero lo incluimos como análisis alternativo porque forma parte del planteamiento y justifica el trabajo de construirlo a partir del título; comprobamos si añade explicación o si su aparente relación se debe a que tema está asociado a otras variables. También mantenemos técnica y soporte en el modelo porque son variables relevantes del contexto material de la obra y porque en los gráficos se relacionan con fecha y tamaño, de modo que pueden actuar como factores explicativos o de ajuste incluso aunque su relación directa con exito no sea uniforme.
-
-En cuanto a interacciones, para un enfoque explicativo proponemos como interacción principal soporte_grp × log(area); la medida no significa lo mismo en todos los soportes (por ejemplo, un mural y un lienzo tienen rangos y usos distintos), por lo que es razonable que la relación entre tamaño y exito dependa del soporte. Somos conscientes de que esta interacción puede generar problemas si hay combinaciones con pocos casos, por lo que la controlamos agrupando categorías poco frecuentes y revisando que no existan celdas casi vacías. En cambio no priorizamos soporte_grp × sop_montaje porque en el análisis descriptivo no aparece un patrón claro y estable asociado al éxito aun así puede mencionarse como posibilidad secundaria y contrastarse si la teoría o el guion de la asignatura lo requiere.
+Para un enfoque explicativo proponemos como interacción principal soporte_grp × log(area); la medida no significa lo mismo en todos los soportes (por ejemplo, un mural y un lienzo tienen rangos y usos distintos), por lo que es razonable que la relación entre tamaño y exito dependa del soporte. Somos conscientes de que esta interacción puede generar problemas si hay combinaciones con pocos casos, por lo que la controlamos agrupando categorías poco frecuentes y revisando que no existan celdas casi vacías. 
 
