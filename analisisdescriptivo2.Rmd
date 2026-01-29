@@ -20,6 +20,14 @@ La investigación psicológica y experimental sobre si preferimos la razón áur
 
 Además una línea importante de literatura advierte que muchas afirmaciones populares sobre la razón áurea en arte se apoyan en selecciones de ejemplos o en mediciones discutibles y que cuando se analiza de manera sistemática (por ejemplo, proporciones de formato en pinturas), la proporción áurea no siempre aparece como la proporción dominante.
 
+## Objectius de l’estudi
+
+L’objectiu general d’aquest treball és construir un model explicatiu que ens ajudi a entendre quins factors estan associats al fet que una obra compleixi o no la proporció àuria. No busquem fer predicció “per encertar”, sinó explicar amb quines característiques de les obres (com l’època, la mida, l’orientació, la tècnica o el suport) és més probable trobar la proporció àuria i com aquestes característiques es relacionen entre elles.
+
+Com a objectiu específic volem descriure si el compliment de la proporció àuria és un fenomen freqüent dins del conjunt d’obres analitzades i si aquest compliment es concentra en determinats contextos (per exemple, en certs períodes històrics o en certs formats). També volem avaluar si variables com el suport i la tècnica poden actuar com a condicionants materials de la composició i, per tant, modificar la relació entre la mida i l’èxit.
+
+Finalment, com a objectiu interpretatiu, volem discutir fins a quin punt el fet que una obra estigui present en museus o catàlegs pot estar relacionat amb decisions estètiques i de composició com la proporció àuria. Tot i que el nostre conjunt de dades no mesura directament “bellesa” ni “qualitat artística”, sí que ens permet plantejar la pregunta de manera crítica: si la proporció àuria fos una regla compositiva molt general en l’art, hauríem d’observar patrons clars i consistents en les obres analitzades i si apareix de forma irregular o depèn fortament del context, això reforça la idea que la seva presència no és universal i que cal interpretar-la com una eina possible però no de manera determinant.
+
 
 
 ```{r, echo = F}
