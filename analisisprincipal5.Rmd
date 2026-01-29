@@ -1005,7 +1005,7 @@ cat("\nPseudo R² de McFadden:\n")
 1 - summary(m_principal)$deviance / summary(m_principal)$null.deviance
 
 ```
-Observamos que la deviance es menor que la del modelo nulo, lo que nos esta indicando que al introducir las variables explicativas tenemos una mejora del modelo. Las covariables introducidas aportan informacion para estimar la probabilidad. Por lo qeu el modelo está bien ajustado.
+Observamos que la deviance es menor que la del modelo nulo, lo que nos esta indicando que al introducir las variables explicativas tenemos una mejora del modelo. Las covariables introducidas aportan informacion para estimar la probabilidad. El psudo-$R^2$ bajo nos indica una 
 
 **Capacidad discriminativa**
 
@@ -1318,6 +1318,10 @@ prob_mA3 <- predict(mA3, type = "response")
 ```
 
 ```{r}
+cat("\nDeviance del modelo nulo:\n")
+c(mA1   = summary(mA1)$null.deviance,
+  mA2  = summary(mA2)$null.deviance,
+  mA3  = summary(mA3)$null.deviance)
 cat("\nDeviance de los modelos:\n")
 c(mA1   = summary(mA1)$deviance,
   mA2  = summary(mA2)$deviance,
@@ -1332,8 +1336,8 @@ c(
   mA3 = pseudoR2(mA3)
 )
 ```
-Los tres modelos alternativos tienen un valor finito de desviación lo que indica que el modelo converge correctamente y que no tenemos problemas evidentes de ajuste. 
-Los valores reducidos del psudo-$R^2$ nos indican que los modelos mejoran al modelo nulo, lo que sugiere que los modelos tienen capacidad explicativa real.
+Los tres modelos alternativos tienen valores finitos de deviance lo que indica que el modelo converge correctamente y que no tenemos problemas evidentes de ajuste. 
+Los valores reducidos del psudo-$R^2$ nos indican que los modelos mejoran al modelo nulo, lo que sugiere que los modelos tienen una capacidad explicativa moderada
 
 **Capacidad discriminativa**
 
