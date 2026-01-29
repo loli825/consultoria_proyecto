@@ -1005,7 +1005,8 @@ cat("\nPseudo R² de McFadden:\n")
 1 - summary(m_principal)$deviance / summary(m_principal)$null.deviance
 
 ```
-Observamos que la deviance es menor que la del modelo nulo, lo que nos esta indicando que al introducir las variables explicativas tenemos una mejora del modelo. Las covariables introducidas aportan informacion para estimar la probabilidad. El psudo-$R^2$ baja nos indica una explicación modesta de la variabilidad de los datos.
+
+Observamos que la deviance es menor que la del modelo nulo, lo que nos esta indicando que al introducir las variables explicativas tenemos una mejora del modelo. Las covariables introducidas aportan información para estimar la probabilidad. El pseudo-$R^2$ bajo nos indica una explicación modesta de la variabilidad de los datos frente al modelo nulo. En un caso como el nuestro donde la variable respuesta esta desbalanceada (aproximadamente un 12% de éxito) esta métrica de ajsute global no es suficiente para decidir la correcta clasificación del modelo. Dada la baja prevalencia del evento, en términos de versosimilitudes ya se interpreta que un modelo nulo ajusta "correctamente" el evento de interés por la baja probabilidad que le asigna, por lo que un pequeño aumento obtervado en $pseudo-R^2$ puede no reflejar el potencial real de clasificación del modelo. Para ello emplearemos el area bajo la curva AUC que sí es un buen indicador de capacidad predictiva.
 
 **Capacidad discriminativa**
 
@@ -1026,6 +1027,7 @@ plot(roc_principal,
      lwd = 2)
 abline(a = 0, b = 1, lty = 2, col = "gray")
 ```
+
 El valor AUC indica que el modelo tiene una capacidad discriminativa moderada.
 La gràfico de la curva ROC del modelo principal se situa por encima de la diagonal de referencia, lo que nos sugiere que el modelo es adecuado.
 
@@ -1054,6 +1056,34 @@ plot(cook, type = "h",
      ylab = "Cook's distance")
 abline(h = 4 / length(cook), lty = 2, col = "red")
 ```
+
+Podemos ver cómo la distancia de cook nos informa de uno o varios puntos realmente influyentes, por lo que vamos a proceder a detectarlos y eliminarlos para ver cómo cambia el mdoelo
+
+```{r}
+cook <- cooks.distance(m_principal)
+i_max <- which.max(cook)
+
+df2 <- df[-i_max, , drop=FALSE]
+m_principal2 <- update(m_principal, data = df2)
+
+b1 <- coef(m_principal)
+b2 <- coef(m_principal2)  # el modelo sin el influyente
+cmp <- cbind(b_con = b1, b_sin = b2, diff = b2 - b1, rel = (b2 - b1)/abs(b1))
+cmp[order(abs(cmp[,"diff"]), decreasing = TRUE), ]
+
+m_principal <- m_principal2
+
+# Tabla de la interacción respecto a exito
+with(df2, table(soporte_grp, tam_cat, exito))
+
+cook <- cooks.distance(m_principal2)
+plot(cook, type = "h",
+     main = "Distancia de Cook – Modelo principal",
+     ylab = "Cook's distance")
+abline(h = 4 / length(cook), lty = 2, col = "red")
+```
+
+
 ```{r}
 cat("\nNúmero de observaciones para cada componente de la interacción:\n")
 df %>%
@@ -1277,7 +1307,7 @@ mA2 <- mT_full_tam
 mA3 <- mT_noB3_tam
 ```
 
-Para evaluar la el posibles ajuste ediante Firth, estudiaremos la separación de los 3 modelos:
+Para evaluar el posible ajuste ediante Firth, estudiaremos la separación de los 3 modelos:
 
 ```{r}
 cat("Separación para mA1 (sin interacciones):\n")
@@ -1339,7 +1369,7 @@ c(
 Los tres modelos alternativos tienen valores finitos de deviance lo que indica que el modelo converge correctamente y que no tenemos problemas evidentes de ajuste. 
 Los valores reducidos del psudo-$R^2$ nos indican que los modelos mejoran al modelo nulo, lo que sugiere que los modelos tienen una capacidad explicativa modesta.
 
-Los valores psudo-$R^2$ son muy bajos, esto puede deberse a que los datos estan balanceados y pueden ser ruidosos. Posteriormente, mediante la capacidad discriminativa acabamos de detectar si hay suficiente capacidad explicativa para determinar que hay diferencia respeto el modelo nulo.
+Los valores psudo-$R^2$ son muy bajos, esto puede deberse, de nuevo, a que los datos estan desbalanceados y pueden ser ruidosos. Posteriormente, mediante la capacidad discriminativa acabamos de detectar si hay suficiente capacidad explicativa para determinar que hay diferencia respeto el modelo nulo.
 
 **Capacidad discriminativa**
 
@@ -1362,6 +1392,7 @@ legend("bottomright",
        col = c( "blue", "red", "black"),
        lwd = 1)
 ```
+
 El AUC de los tres modelos alternativos muestran discriminación moderada de los datos.
 
 Las curvas ROC muestran que, para todos los modelos alternativos, la sensibilidad aumenta a medida que disminuye la especificidad, situándose consistentemente por encima de la diagonal de referencia. Esto indica una capacidad de discriminación superior al azar y respalda la validez predictiva de los modelos.
@@ -1399,7 +1430,7 @@ plot(prob_mA3, res_pearson,
 abline(h = 0, lty = 2)
 ```
 
-Los residuos no muestran patrones ni grandes desviaciones respecto al 0, el análisi de los residuos nos sugiere que los modelos estan bien ajustados.
+Los residuos no muestran patrones ni grandes desviaciones respecto al 0, el análisi de los residuos nos sugiere que los modelos están bien ajustados.
 
 **Multicolinealidad**
 
