@@ -1071,7 +1071,7 @@ b2 <- coef(m_principal2)  # el modelo sin el influyente
 cmp <- cbind(b_con = b1, b_sin = b2, diff = b2 - b1, rel = (b2 - b1)/abs(b1))
 cmp[order(abs(cmp[,"diff"]), decreasing = TRUE), ]
 
-m_principal <- m_principal2
+# m_principal <- m_principal2
 
 # Tabla de la interacción respecto a exito
 with(df2, table(soporte_grp, tam_cat, exito))
