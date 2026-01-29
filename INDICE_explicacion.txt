@@ -36,9 +36,9 @@
 
 5.3 Refinamiento del modelo
 
-5.4 Validación del modelo (angel/marc)
+5.4 Validación del modelo 
 
-5.5 Modelos alternativos y validación (validación ángel/marc)
+5.5 Modelos alternativos y validación 
 
 6. Resultados (angel/marc cambiad puntos o lo que querias pero estas cosas deberian estar)
 
@@ -66,9 +66,7 @@
 
 (a modo de resumen rapido de que ha salido relevante, que leyendo esto alguien pueda tener las 4 ideas principales. tanto del mdoelo principal como de lso secundarios)
 
-6. Análisis secundarios (angel/marc)
-
-(son modelos estudiando otras cosas que no sea el exito, rollo aprovechar la base de datos creada para estudiar más cosas. no es totalmente necesario pero si estaria guay ahcer al menos un análisis secundario con otro variable como resultado)
+6. Análisis secundarios
 
 7. Conlusiones
 
