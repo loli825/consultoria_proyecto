@@ -274,3 +274,7 @@ También de emplearán los criteriors de información Akaike y Bayesiano (AIC/BI
 Para cada modelo anidado se proporcionará también el resumen estadístico de este (summary) para visualizar rápidamente si vemos indicios problemáticos, concretamente para verificar que los errore estándares de los coeficientes no se disparán y que el modelo se ha ajustado correctamente.
 
 **Validación de modelos**
+
+Para la validación de los modelos se ha analizado la desviación i pseudoR2. La capacidad discriminativa mediante el área bajor la curva y las gráficas ROC. Analizado los residuos de los modelos y revisado los problemas de multicolinealidad mediante el VIF y el GVIF ajustado.
+
+Para el modelo principal también se ha analizado la distància de cook al detectar mediante el summary que havia interacciones influyentes. Posteriormente, se ha creado la tabla para detectar las causas.
