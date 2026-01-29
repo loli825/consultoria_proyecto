@@ -1,0 +1,1807 @@
+---
+title: "Análisis Principal"
+author: "Manuela Lopez Cambron, 1673688"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+```{r}
+library(pROC)
+library(dplyr)
+library(car)
+library(marginaleffects)
+library(broom)
+library(margins)
+library(ggplot2)
+library(forcats)
+library(modelsummary)
+```
+
+```{r}
+df <- read.csv("prado_variables.csv", stringsAsFactors = TRUE)
+
+df$sop_montaje <- as.factor(df$sop_montaje)
+df$serie <- as.factor(df$serie)
+
+str(df)
+```
+
+# ANÁLISIS PRINCIPAL
+
+Primeramente generamos la submuestra de la población aplicando la regla estructural de 'cuadrado'.
+```{r}
+# 0) Regla estructural: excluir "cuadrado"
+df <- subset(df, orientacion != "cuadrado")
+df$orientacion <- droplevels(df$orientacion)
+dim(df)
+```
+
+Continuamos con un total de 7002 pinturas
+
+Fijamos también los niveles de referencia para las variables factor. El nivel más frecuente como referencia para todos los factores a excepción de "tam_cat" donde por interpretabilidad se define la referencia en 'pequeno' y las variables binarias "sop_montaje" y "serie" donde se fija el valor "no"
+```{r}
+# 1) Niveles de los factores binarios 
+df$sop_montaje <- factor(df$sop_montaje, levels = c(0, 1), labels = c("no", "si"))
+df$serie       <- factor(df$serie,       levels = c(0, 1), labels = c("no", "si"))
+
+# 2) tam_cat nominal con referencia "pequeno"
+df$tam_cat <- factor(df$tam_cat, levels = c("pequeno", "mediano", "grande"))
+df$tam_cat <- relevel(df$tam_cat, ref = "pequeno")
+
+# 3) Binarios con referencia "no"
+df$sop_montaje <- relevel(df$sop_montaje, ref = "no")
+df$serie       <- relevel(df$serie, ref = "no")
+
+# 4) Referencias = nivel más frecuente (para el resto de factores)
+ref_orientacion <- names(sort(table(df$orientacion), decreasing = TRUE))[1]
+df$orientacion  <- relevel(df$orientacion, ref = ref_orientacion)
+
+ref_soporte <- names(sort(table(df$soporte_grp), decreasing = TRUE))[1]
+df$soporte_grp <- relevel(df$soporte_grp, ref = ref_soporte)
+
+ref_tecnica <- names(sort(table(df$tecnica), decreasing = TRUE))[1]
+df$tecnica  <- relevel(df$tecnica, ref = ref_tecnica)
+
+ref_autor <- names(sort(table(df$tipo_autor), decreasing = TRUE))[1]
+df$tipo_autor <- relevel(df$tipo_autor, ref = ref_autor)
+
+ref_tema <- names(sort(table(df$tema), decreasing = TRUE))[1]
+df$tema <- relevel(df$tema, ref = ref_tema)
+
+str(df)
+```
+
+## Efectos principales
+
+Para determinar los efectos principales del modelo se seguirá la estructura por bloques definida en al sección de metodología
+
+**Modelo nulo**
+
+Como punto de partida se ajustó un modelo nulo (solos intercepto), sin covariables. Este modelo proporcionará la referencia sobre el cual iremos cuantificando el aporte de los bloques que se añadirán sucesivamente. En una regresión logística como la nuestra, el intercepto del modelo nulo estima la probabilidad media de éxito en la muestra (convertido en la escala correcta). Recordemos que estaremos trabajando en todo momento con la sub-muestra no-cuadrado.
+
+```{r}
+# Modelo nulo (solo intercepto)
+m0 <- glm(exito ~ 1, data = df, family = binomial(link = "logit"))
+
+# Resumen del modelo
+cat("\nResumen del modelo:\n")
+summary(m0)
+
+# Probabilidad media estimada de éxito (a partir del intercepto)
+cat("\nProbabilidad estimada de éxito:\n")
+p0 <- plogis(coef(m0)[1])
+p0
+```
+
+Como ya sabiamos, la probabilidad de observar el evento de interés es baja, concretamente de un 12%.
+
+**Bloque 1: Datación y control de incertidumbre**
+
+Se incorpora la variable "fecha_est" y su covariable de incertidumbre "fecha_ancho", comparando especificación lineal vs flexible (spline) en ambas variables. Comenzaremos utilizando la especificación flexible para "fecha_est" y provando ambas especificaciones para "fecha_ancho". Además "fecha_ancho" se incorpora mediante "log1p".
+
+Comenzamos decidiendo la especificación del control "fecha_ancho".
+
+```{r}
+library(splines)
+
+# Transformación log1p(fecha_ancho)
+df$log_ancho <- log1p(df$fecha_ancho)
+
+# Modelo A: control lineal en log_ancho
+m1_lin <- glm(exito ~ ns(fecha_est, 3) + log_ancho,
+              data = df, family = binomial(link = "logit"))
+
+# Modelo B: control flexible (spline) en log_ancho
+m1_spl <- glm(exito ~ ns(fecha_est, 3) + ns(log_ancho, 3),
+              data = df, family = binomial(link = "logit"))
+
+# Resúmenes (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m1_lin (control lineal):\n")
+summary(m1_lin)
+cat("\nResumen del modelo m1_spl (control flexible spline):\n")
+summary(m1_spl)
+```
+
+Comprobamos la aportación del bloque comparando ambas especificaciones con el modelo nulo:
+
+```{r}
+# Comparación --> aporte del Bloque 1
+
+# Información
+cat("\nAporte de información del Bloque 1 (control lineal):\n")
+anova(m0, m1_lin, test="Chisq")
+cat("\nAporte de información del Bloque 1 (control flexible spline):\n")
+anova(m0, m1_spl, test="Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m0, m1_lin, m1_spl)
+BIC(m0, m1_lin, m1_spl)
+```
+
+Comparamos también las dos formas funcionales del control entre si, mediante modelos anidados:
+
+```{r}
+# Comparación --> formas funcionales
+cat("\nAporte de información entre opciones (m1_lin vs m1_spl)\n")
+anova(m1_lin, m1_spl, test="Chisq")
+```
+
+El aporte del bloque 1 es claramente significativo en las dos opciones, ya que ambas especificaciones mejoraron significativamente el modelo nulo (LRT $p=9.933e-11$, $p=3.085e-10$). Sin embargo, la especificación flexible para el control "fecha_ancho" no proporcionó mejora adicional frente a la lineal (LRT $p = 0.2026$) y presentó peor ajuste penalizado por complejidad (AIC y BIC mayores). Por esta razón, se adoptó para los modelos posteriores la especificación lineal $log(1+fecha\_ancho)$ como ajuste definitivo del control de incertidumbre en la datación. 
+
+Para finaizar este bloque, comprobaremos las formas funcionales de "fecha_est" para ver si la especificación flexible de esta variable es necesaria para nuestro modelo o preferimos su versión simplificada (lineal).
+
+```{r}
+m1_lin_fecha <- glm(exito ~ fecha_est + log_ancho,
+              data = df, family = binomial(link = "logit"))
+```
+
+```{r}
+# Comparación
+# Información
+cat("\nAporte de la opción fecha_est flexible:\n")
+anova(m1_lin_fecha, m1_lin, test="Chisq")
+
+# Complejidad
+cat("\nComplejidad de la opción fecha_est flexible:\n")
+AIC(m1_lin,m1_lin_fecha)
+BIC(m1_lin,m1_lin_fecha)
+```
+
+Vemos que la especificación felxible es preferible frente a la lineal en terminos de información (LRT $p=0.049)$ como AIC ($\triangle AIC \approx -2$). Sin embargo la mejora de AIC es débil frente a una fuerte penalización en BIC ($\triangle AIC \approx -2$ vs $\triangle BIC \approx 12$). Teniendo en cuenta nuestro objetivo descriptivo, y no predictivo, decidimos seleccionar la versión lineal por facilidad interpretativa. Por otro lado, también seleccionamos esta opción por ser más conservadora, ya que añadimos menos parámetros al modelo (2 parámetros menos), y és preferible dado que la mayoría de las futuras covariables són facotres y nuestra variables respuesta está fuertemente desbalanceada. Sin embargo, dejamos constancia del hecho que la especificación flexible con spline par fecha_est podría ser considerada para análisis más exaustivos. 
+
+Modelo resultante después de añadir Bloque 1:
+```{r}
+m1 <- m1_lin_fecha
+```
+
+**Bloque 2: Morfología**
+
+Se incorporan las variables morfológicas de tamaño i formato, "area" y "orientación" respectivamente. Se evaluará si aportan infomración adicional, una vez controlado el efecto de datación (bloque 1). La variable "area" se introducirá mediante una transformación logarítmica $log(area)$, pudiendo llegar a ser tratada de manera flexible si fuera necesario. También se proporcinará un modelo secundario sustituyendo "area" por "tam_cat" (categorización de área), y se compararán. Se decidirá el mejor modelo siguiendo las idicaciones de la sección de metodología, que resumidamente dictan lo siguiente: 
+
+- si "area" presenta problemas o no mejora sustancialmente más que "tam_cat", permitimos ajuste flexible (spline) y si no funciona elejimos "tam_cat"
+
+- si "area" mejora sustanciamente más que "tam_cat", elejimos "area"
+
+- si "area" y "tam_cat" proporcionan resultados cualitativamente iguales, elejimos "area" pero manteniendo el modelo secundario "tam_cat" para interpretaciones claras.
+
+```{r}
+# Trnasformación log(area)
+df$log_area <- log(df$area)
+
+# BLOQUE 2 (principal candidato): log(area) + orientacion
+m2_area <- update(m1, . ~ . + log_area + orientacion)
+
+# BLOQUE 2 (secundario): tam_cat + orientacion
+m2_tamcat <- update(m1, . ~ . + tam_cat + orientacion)
+
+# Resúmenes (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m2_area (+ log_area + orientacion):\n")
+summary(m2_area)
+
+cat("\nResumen del modelo m2_tamcat (+ tam_cat + orientacion):\n")
+summary(m2_tamcat)
+
+# Comparación --> aporte del Bloque 2
+
+# Información
+cat("\nAporte de información del Bloque 2 (tamaño continuo):\n")
+anova(m1, m2_area, test="Chisq")
+
+cat("\nAporte de información del Bloque 2 (tamaño categórico):\n")
+anova(m1, m2_tamcat, test="Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m1, m2_area, m2_tamcat)
+BIC(m1, m2_area, m2_tamcat)
+```
+
+
+Ambas opciones del tamaño (log(area) continua vs. tam_cat categórica) aportan información adicional tras controlar la datación (LRT $p< 2.2e-16$ en ambos casos) y mejorar los criterios de información. Sin embargo, la especificación categórica presenta mejor ajuste–complejidad con AIC y BIC sustancialmente menores (AIC: 5058 vs 5000; BIC: 5092 vs 5042). 
+
+Antes de seleccionar "tam_cat" debemos tener en cuenta que podría haber una relación no lineal que actualmente $log(area)$ no esta pudiendo capturar. Por esta razón y dado que "area" ha demostrado mejorar el ajuste, frente al modelo anterior (m1), flexibilizaremos su especificacion (spline) y entonces volveremos a comparar con "tam_cat", para asegurar una decisión justa y cerrada.
+
+```{r}
+# Version flexible de log(area)
+m2_area_spl <- update(m1, . ~ . + splines::ns(log_area, 3) + orientacion)
+
+# Resúmenes (por si aparecen warnings / coeficientes raros / SE enormes)
+summary(m2_area_spl)
+
+# Comparaciones
+cat("\nAporte de la opción log(area) flexible")
+anova(m1, m2_area_spl, test="Chisq")
+
+cat("\nComplejidad de la opción log(area) flexible")
+AIC(m2_area, m2_area_spl, m2_tamcat)
+BIC(m2_area, m2_area_spl, m2_tamcat)
+```
+
+El modelo con $log(area)$ lineal mejoró el ajuste, y al permitir no linealidad, el ajuste mejoró frente al lineal (AIC: 5021 vs 5058). Sin embargo, la especificación categórica "tam_cat" presentó el mejor compromiso ajuste–complejidad, con AIC y BIC claramente inferiores (AIC: 5000 vs 5021); BIC: 5041 vs 5069), superando también a la versión flexible del tamaño continuo. Por ello, se seleccionó "tam_cat" como representación principal del tamaño para los modelos posteriores.  
+
+También se considera manejar en un modelo alternativo la opción de especificación continua del tamaño en versión lineal ($log(area)$ sin spline). El único obejtivo de mantener esta opción como alternativa, en vez de la flexible, es el de aportar un modelo más parsimonioso. Aunque su versión flexible mostró un mejor ajuste, vemos que añade incluso 1 parámetro que "tam_cat" y preferimos no añadir más complejidad para los analisis alernativos, teniendo la opción lineal que ya cumple con el requisito de aporte de información.
+
+Modelo resultante después de añadir Bloque 2:
+```{r}
+m2 <- m2_tamcat
+```
+
+Opción alternativa: especificación continua del tamaño en versión lineal ($log(area)$)
+
+**Bloque 3: Material y técnica**
+
+Se incorporan las variables "soporte" y "tecnica" para evaluar si aportan infomración adicional en conjunto, una vez controlados los efectos de datación (Bloque 1) y morfología (Bloque 2).  Se evaluará adicionalmente la inclusión de "sop_montaje" como extensión del bloque 3, comparando el modelo con y sin dicha covariable. 
+
+```{r}
+# BLOQUE 3 (versión base): soporte + técnica
+m3_base <- update(m2, . ~ . + soporte_grp + tecnica)
+
+# Resúmenes (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m3_base (soporte_grp + tecnica):\n")
+summary(m3_base)
+
+# Comparación--> aporte del Bloque 3
+
+# Información
+cat("\nAporte de información del Bloque 3 (base):\n")
+anova(m2, m3_base, test = "Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m2, m3_base)
+BIC(m2, m3_base)
+```
+
+La inclusión conjunta de "soporte_grp" y "tecnica" produjo una mejora significativa respecto al modelo con datación y morfología (LRT $p = 0.0003$) también mejoró el ajuste penalizado por AIC ($\triangle AIC \approx -13$), aunque el BIC aumentó ($\triangle BIC \approx +28$) (mayor penalización por el gran número de parámetros añadidos, 6 añadidos). Debido al objetivo descriptivo de nuestro estudio, se necide mantener el bloque por su relevancia teòrica y por la evidencia global de aporte de información.
+
+Extenderemos este bloque añadiendo ahora la variable "sop_montaje", de menos interés conceptual pero con posibles implicaciones en el modelo a nivel de control.
+
+```{r}
+# BLOQUE 3 (extendido): + sop_montaje
+m3_montaje <- update(m3_base, . ~ . + sop_montaje)
+
+# Resúmenes (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m3_montaje (+ sop_montaje):\n")
+summary(m3_montaje)
+
+# Comparación--> aporte de sop_montaje
+
+# Información
+cat("\nAporte de informacion de sop_montaje (m3_montaje vs m3_base):\n")
+anova(m3_base, m3_montaje, test = "Chisq")
+
+cat("\nComplejidad de sop_montaje:\n")
+AIC(m2, m3_base, m3_montaje)
+BIC(m2, m3_base, m3_montaje)
+```
+
+Se observó una mejora significativa del ajuste respecto al modelo sin esta covariable (LRT $p = 0.005$). El AIC disminuyó ($\triangle AIC \approx -5$), indicando también una mejora del ajuste teniendo en cuenta el aporte de complejidad, aunque el BIC aumentó ligeramente ($\triangle BIC \approx +1$), el incremento fue pequeño. Por tanto, se retuvo "sop_montaje" en el modelo para los bloques posteriores.
+
+Sin embargo, debemos recordar que aunque el incremento en BIC para la incluión de "sop_montaje" fue pequeño, la inclusión de Bloque 3 ya produjo aumento fuerte en BIC por lo que la complejidad añadida de todo el bloque más el extra sí representa un valor sustancial ($\triangle _{total} BIC \approx +29$). Por ello se contempla la opción de un modelo alternativo sin este bloque, con el objetivo de proporcionar modelos más convervadores en algunos aspecos que permitan analizar otros, aún siendo conscientes de podrían absorberse los efectos de este bloque.
+
+Modelo resultante después de añadir Bloque 3:
+```{r}
+m3 <- m3_montaje
+```
+
+Opción alternativa: modelo sin Bloque 3 (y sin "sop_montaje")
+
+**Bloque 4: Iconografía**
+
+Se incorpora la variable "tema" para evaluar si la iconografía de la pintura aporta información adicional sobre la probabilidad de exito, una vez controlados los efectos de datacion (Bloque 1), morfología (Bloque 2) y material/tecnica (Bloque 3). 
+
+```{r}
+# BLOQUE 4: + tema
+m4 <- update(m3, . ~ . + tema)
+
+# Resumen (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m4 (+ tema):\n")
+summary(m4)
+
+# Comparación--> aporte del Bloque 4
+# Información
+cat("\nAporte de información del Bloque 4:\n")
+anova(m3, m4, test = "Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m3, m4)
+BIC(m3, m4)
+```
+
+El bloque iconográfico (tema) mejoró significativamente el ajuste (LRT $p = 0.001$) y redujo el AIC ($\triangle AIC \approx -9$), pero incrementó fuertemente el BIC ($\triangle BIC \approx +53$), reflejando un aumento importante de complejidad por el número de niveles de tema (se añaden 9 parámetros). Dado que el objetivo principal del estudio es caracterizar el éxito con un modelo parsimonioso y fácilmente interpretable, se decidió mantener como modelo principal el que excluye tema. 
+
+Sin embargo, dado el interés interpretativo de la iconografía, se mantiene el modelo con tema como análisis complementario específico para interpretar relaciones temáticas. 
+
+Por lo tanto, el modelo resultante después del Bloque 4 es el 'm3' y la opción alternativa contempla la inclusión de "tema"
+
+**Bloque 5: autoría y serie**
+
+Se incorporan las variables "tipo_autor" y "serie" para evaluar si la información de autoría y pertenencia a serie aporta información adicional sobre la probabilidad de éxito, una vez controlados los efectos de datación (Bloque 1), morfología (Bloque 2) y material/técnica (Bloque 3)
+
+```{r}
+# BLOQUE 5: + tipo_autor + serie
+m5 <- update(m3, . ~ . + tipo_autor + serie)
+
+# Resumen (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m5 (+ tipo_autor + serie):\n")
+summary(m5)
+
+# Comparación--> aporte del Bloque 5
+# Información
+cat("\nAporte de información del Bloque 5:\n")
+anova(m3, m5, test = "Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m3, m5)
+BIC(m3, m5)
+
+```
+
+El Bloque 5 (autoría y serie) mejoró significativamente el modelo previo (LRT $p=0.01$) y redujo el AIC ($\triangle AIC \approx -4$), aunque incrementó fuertemente el BIC ($\triangle BIC \approx +23$), reflejando un aumento de complejidad. En este caso podemos observar algo  interesante, los coeficientes pertenecientes a "tipo_autor" no serultaron significativos, mientras que el de "serie=1" sí. Esto refleja que el efecto significativo dentro del bloque parece concentrarse en serie. Para confirmar este hecho, se evaluará la contribución independiente de cada variable, mediante modelos anidados parciales, antes de tomar una decisión formal sobre el modelo principal.
+
+```{r}
+# modelos parciales del Bloque 5
+m5_serie <- update(m3, . ~ . + serie)
+m5_autor <- update(m3, . ~ . + tipo_autor)
+
+# Comparaciones --> aportes de los mdoelos parciales del Bloque 5
+# Información
+cat("\nAporte de información de 'serie':\n")
+anova(m3, m5_serie, test="Chisq")
+cat("\nAporte de información de 'tipo_autor':\n")
+anova(m3, m5_autor, test="Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m3, m5_serie, m5_autor, m5)
+BIC(m3, m5_serie, m5_autor, m5)
+```
+
+Efectivamente la variable "serie" sí demostró aportar información adicional (LRT $p=0.003$) mejorando también el AIC ($\triangle AIC \approx -6$) y manteniendo aproximadamente estable BIC, respecto al anterior modelo aceptado 'm3' y también reduciendo ambos criterios frente al modelo completo 'm5' ($\triangle AIC \approx -2$, $\triangle BIC \approx -23$). Por otro lado, "tipo_autor" no demostró aportar información adicional (LRT $p=0.26$) además de ser el que aporta los valores más de AIC, superando incluso el valor del modelo completo 'm5'. Se decide prescindir de la variable "tipo_autor" y conservar el modelo únicamente con la inclusión de "serie".
+
+Modelo resultante después de añadir Bloque 5:
+
+```{r}
+m5 <- m5_serie
+```
+
+**Resumen**
+
+Después de evaluar los efectos principales, el modelo principal es el siguiente:
+```{r}
+m_final <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie,
+  data = df, family = binomial(link = "logit")
+)
+summary(m_final)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Interacciones
+
+Para decidir qué variables son candidatas de entrar al modelo primero traeremos las conclusiones sobre estas, obtenidas en el análisis descriptivo. En dicha sección de determinó que las más plausibles eran "soporte_grp x fecha_est", "tecnica x fecha_est", "soporte_grp x tam_cat", "tecnica x tam_cat" y "soporte_grp x orientacion". Graficaremos los correspondientes gráficos de interacción para estas opciones y seleccionaremos las mejores, que seguidamente serán comprobadas con pruebas formales.
+
+**Gráficos de interacción**
+
+Graficamos $P(exito=1)$ predicha por el modelo, fijando el resto de covariables en valores de referencia/mediana.
+
+```{r}
+# niveles de referencia factores ([1] porque ya se especificó al inicio del análisis)
+ref_tam_cat      <- levels(df$tam_cat)[1]
+ref_orientacion  <- levels(df$orientacion)[1]
+ref_soporte_grp  <- levels(df$soporte_grp)[1]
+ref_tecnica      <- levels(df$tecnica)[1]
+ref_sop_montaje  <- levels(df$sop_montaje)[1]
+ref_serie        <- levels(df$serie)[1]
+
+# niveles de referencia numéricas (mediana)
+fecha0     <- median(df$fecha_est)
+log_ancho0 <- median(df$log_ancho)
+```
+
+1) soporte_grp x fecha_est
+
+```{r}
+# =========================================================
+# 1) soporte_grp × fecha_est
+# =========================================================
+m_int_SopFecha <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    soporte_grp:fecha_est,
+  data = df, family = binomial(link = "logit")
+)
+
+x <- seq(min(df$fecha_est, na.rm = TRUE), max(df$fecha_est, na.rm = TRUE), length.out = 200)
+lev <- levels(df$soporte_grp)
+cols <- grDevices::hcl.colors(length(lev), palette = "Dark 3")
+
+nd <- expand.grid(
+  fecha_est = x,
+  soporte_grp = lev,
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+nd$log_ancho   <- log_ancho0
+nd$tam_cat     <- ref_tam_cat
+nd$orientacion <- ref_orientacion
+nd$tecnica     <- ref_tecnica
+nd$sop_montaje <- ref_sop_montaje
+nd$serie       <- ref_serie
+
+eta <- predict(m_int_SopFecha, newdata = nd, type = "link")
+
+plot(range(x), range(eta), type = "n",
+     xlab = "fecha_est", ylab = "logit{P(exito=1)}",
+     main = "Interacción: soporte_grp × fecha_est (escala logit)")
+
+for (i in seq_along(lev)) {
+  idx <- nd$soporte_grp == lev[i]
+  lines(nd$fecha_est[idx], eta[idx], col = cols[i], lty = 1, lwd = 2)
+}
+legend("bottomright", legend = lev, col = cols, lty = 1, lwd = 2, bty = "n")
+```
+
+Esta interacción plantea algunas preguntas, ya que aunque podemos observar algunos indicios vemos que existe una categoría, Otros, que presenta una fuerte diferencia. Esto nos hace pensar en que puede tratarse de una escasez de datos en el extremo. 
+
+Comprobamos frecuencias y recuento de éxitos por combinación:
+
+```{r}
+# Rangos observados por soporte
+tapply(df$fecha_est, df$soporte_grp, range)
+
+# Cortes de fecha_cat
+grp_fecha <- cut(df$fecha_est,
+breaks = c(1100, 1400, 1700, 2000),
+include.lowest = TRUE)
+
+cat("\nFrecuencias por combinación:\n")
+xtabs(~ soporte_grp + grp_fecha, data = df)
+
+cat("\nRecuento de éxitos por combinación:\n")
+xtabs(exito ~ soporte_grp + grp_fecha, data = df)
+```
+
+Estos resultados explican la fomra rara del gráfico "soporte_grp x fecha_est". Vemos como en el tramo [1100, 1400] todo son frecuencias bajas y celdas vacías. Concretamente vemos que la linea diferenciada de Otros estaba provocada por la inexistencia de esta categoría durante el primer periodo de años. Decidimos descartar esta interacción por inconsistencia de resultados a consecuencia de regiones sin datos.
+
+2) tenica x fecha_est
+
+```{r}
+# =========================================================
+# 2) tecnica × fecha_est
+# =========================================================
+m_int_TecFecha <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    tecnica:fecha_est,
+  data = df, family = binomial(link = "logit")
+)
+
+x <- seq(min(df$fecha_est, na.rm = TRUE), max(df$fecha_est, na.rm = TRUE), length.out = 200)
+lev <- levels(df$tecnica)
+cols <- grDevices::hcl.colors(length(lev), palette = "Dark 3")
+
+nd <- expand.grid(
+  fecha_est = x,
+  tecnica = lev,
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+nd$log_ancho   <- log_ancho0
+nd$tam_cat     <- ref_tam_cat
+nd$orientacion <- ref_orientacion
+nd$soporte_grp <- ref_soporte_grp
+nd$sop_montaje <- ref_sop_montaje
+nd$serie       <- ref_serie
+
+eta <- predict(m_int_TecFecha, newdata = nd, type = "link")
+
+plot(range(x), range(eta), type = "n",
+     xlab = "fecha_est", ylab = "logit{P(exito=1)}",
+     main = "Interacción: tecnica × fecha_est (escala logit)")
+
+for (i in seq_along(lev)) {
+  idx <- nd$tecnica == lev[i]
+  lines(nd$fecha_est[idx], eta[idx], col = cols[i], lty = 1, lwd = 2)
+}
+legend("bottomright", legend = lev, col = cols, lty = 1, lwd = 2, bty = "n")
+```
+
+Vemos indicios claros de interacción y un claro cruce: ólea pasa de estar por debajo a por encima. Sin embargo, estas observaciones podrían estar de nuevo sesgadas por falta de datos en algunos periodos. comporbamos recuentos:
+
+```{r}
+cat("\nFrecuencias por combinación:\n")
+xtabs(~ tecnica + grp_fecha, data=df)
+
+cat("\nRecuento de éxitos por combinación:\n")
+xtabs(exito ~ tecnica + grp_fecha, data=df)
+```
+
+Efectivamente podemos ver como la variable "tecnica" está fuertemente sesgada debido principalmente al nivel 'oleo', que experimentó un increible aumento después del primer tramo. Esto explica su trayectoria ascendente, que no sería a causa de una interacción real sinó a por el desbalance de frecuencias. Los otros dos niveles no experimentaron ningún cruce en el gráfico, por lo que no generan interés teniendo en cuenta estos resultados. Aunque esta variable forma parte de nuestras hipótesis principales, su inclusión ya se aceptó de manera separada asumiendo un aumento de complejidad elevado (incremento significativo en BIC en Bloque 2 de efectos principales), por lo que su interés conceptual e interpretativo ya fue considerado. Por esta razón preferimos descartar su interacción con el objetivo de no viciar nuestro modelo.
+
+3) tecnica x tam_cat
+
+```{r}
+# =========================================================
+# 3) tecnica × tam_cat
+# =========================================================
+m_int_TecTam <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    tecnica:tam_cat,
+  data = df, family = binomial(link = "logit")
+)
+
+nd <- expand.grid(
+  tam_cat = levels(df$tam_cat),
+  tecnica = levels(df$tecnica),
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+nd$fecha_est    <- fecha0
+nd$log_ancho    <- log_ancho0
+nd$orientacion  <- ref_orientacion
+nd$soporte_grp  <- ref_soporte_grp
+nd$sop_montaje  <- ref_sop_montaje
+nd$serie        <- ref_serie
+
+nd$eta <- predict(m_int_TecTam, newdata = nd, type = "link")
+
+interaction.plot(x.factor = nd$tam_cat, trace.factor = nd$tecnica,
+                 response = nd$eta, type = "b", pch = 19,
+                 xlab = "tam_cat", ylab = "logit{P(exito=1)} ajustada",
+                 main = "Interacción: tecnica × tam_cat (escala logit)")
+```
+
+De nuevo vemos puntos extremos de manera que comprobaremos recuentos:
+
+```{r}
+cat("\nFrecuencias por combinación:\n")
+xtabs(~ tecnica + tam_cat, data=df)
+
+cat("\nRecuento de éxitos por combinación:\n")
+xtabs(exito ~ tecnica + tam_cat, data=df)
+```
+
+Obtenemos los mismo resultados en esta interacción con "tecnica": nivel 'oloe' fuertemente predominante. Se descarta esta interacción.
+
+4) soporte_grp x tam_cat
+
+```{r}
+# =========================================================
+# 4) soporte_grp × tam_cat
+# =========================================================
+m_int_SopTam <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    soporte_grp:tam_cat,
+  data = df, family = binomial(link = "logit")
+)
+
+nd <- expand.grid(
+  tam_cat     = levels(df$tam_cat),
+  soporte_grp = levels(df$soporte_grp),
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+nd$fecha_est    <- fecha0
+nd$log_ancho    <- log_ancho0
+nd$orientacion  <- ref_orientacion
+nd$tecnica      <- ref_tecnica
+nd$sop_montaje  <- ref_sop_montaje
+nd$serie        <- ref_serie
+
+nd$eta <- predict(m_int_SopTam, newdata = nd, type = "link")
+
+interaction.plot(x.factor = nd$tam_cat, trace.factor = nd$soporte_grp,
+                 response = nd$eta, type = "b", pch = 19,
+                 xlab = "tam_cat", ylab = "logit{P(exito=1)} ajustada",
+                 main = "Interacción: soporte_grp × tam_cat (escala logit)")
+```
+
+A primera vista podemos ver algunos incidios pero no determinantes de modificación del efecto. Podrían explicarse por la baja frecuencia de algunas combinaciones: 
+
+```{r}
+cat("\nFrecuencias por combinación:\n")
+xtabs(~ soporte_grp + tam_cat, data=df)
+
+cat("\nRecuento de éxitos por combinación:\n")
+xtabs(exito ~ soporte_grp + tam_cat, data=df)
+```
+
+Efectivamente vemos que categorías como Metal-grande o Mural-pequeño presentan frecuencias realmente bajas, además los exitos se concentran alrededor de las categoría 'Lienzo' y 'Table/Panel' lo cual es lógico ya que són las categorías mayoritarias. Sin embargo se decide aceptar esta interacción como candidata para las posteriores pruebas formales, ya que es una hipótesis central del estudio.
+
+5) soporte_grp x orientacion
+
+```{r}
+# =========================================================
+# 5) soporte_grp × orientacion
+# =========================================================
+m_int_SopOri <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    soporte_grp:orientacion,
+  data = df, family = binomial(link = "logit")
+)
+
+nd <- expand.grid(
+  orientacion = levels(df$orientacion),
+  soporte_grp = levels(df$soporte_grp),
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+nd$fecha_est    <- fecha0
+nd$log_ancho    <- log_ancho0
+nd$tam_cat      <- ref_tam_cat
+nd$tecnica      <- ref_tecnica
+nd$sop_montaje  <- ref_sop_montaje
+nd$serie        <- ref_serie
+
+nd$eta <- predict(m_int_SopOri, newdata = nd, type = "link")
+
+interaction.plot(x.factor = nd$orientacion, trace.factor = nd$soporte_grp,
+                 response = nd$eta, type = "b", pch = 19,
+                 xlab = "orientacion", ylab = "logit{P(exito=1)} ajustada",
+                 main = "Interacción: soporte_grp × orientacion (escala logit)")
+
+```
+
+Esta interacción ha resultado la menos relevante, pero aun con incidios de posible interacción. Comprobaremos también los recuentos:
+
+```{r}
+cat("\nFrecuencias por combinación:\n")
+xtabs(~ soporte_grp + orientacion, data=df)
+
+cat("\nRecuento de éxitos por combinación:\n")
+xtabs(exito ~ soporte_grp + orientacion, data=df)
+```
+
+Vemos el mismo patrón para la variable respuesta: los éxitos se concentran al rededor de 'Lienzo', sin embargo no vemos fuertes desbalances para los grupos de orientación. La mantenemos como posble candidata a pruebas
+
+**Pruebas formales**
+
+Decidimos testear las siguientes interacciones: "soporte_grp x tam_cat" y "soporte_grp x orientacion". Ambas opciones parecen plausibles tanto por su representación gráfica como por interpretación conceptual, además concretamente "soporte x tam_cat" se incluía en nuestras hipótesis, de manera que consideramos muy apropiada esta selección.
+
+Comprobaremos en primer caso la inclusión de cada interacción de manera separada para estudiar si cada una por separado aporta información al modelo y su compromiso ajuste-complejidad.
+
+```{r}
+# soporte_grp x tam_cat
+cat("\n==============================\n soporte_grp x tam_cat \n==============================\n")
+m_soporte_tamcat <- update(m_final, . ~ . + soporte_grp:tam_cat)
+anova(m_final, m_soporte_tamcat, test = "Chisq")
+AIC(m_final, m_soporte_tamcat)
+BIC(m_final, m_soporte_tamcat)
+
+# soporte_grp x orientacion
+cat("\n==============================\n soporte_grp x orientacion \n==============================\n")
+m_soporte_orientacion <- update(m_final, . ~ . + soporte_grp:orientacion)
+anova(m_final, m_soporte_orientacion, test = "Chisq")
+AIC(m_final, m_soporte_orientacion)
+BIC(m_final, m_soporte_orientacion)
+```
+
+Vemos que ambas interacciones demuestran mejorar significativamente el modelo aportando informacion (LRT($99%$) $p<0.01$) i reduciendo el AIC ($\triangle AIC \approx -7; -10$). Aunque el BIC aumento en los dos casos ($\triangle BIC \approx +47; +17$). Por interés interpretativo decidimos mantener el modelo con la interacción "soporte_grp x tam_cat" como base y procedemos a examinar el modelo completo anidado con la otra interacción. 
+
+```{r}
+m_completo <- update(m_soporte_tamcat, . ~ . + soporte_grp:orientacion)
+
+anova(m_final, m_soporte_tamcat, test = "Chisq")
+AIC(m_final, m_soporte_tamcat)
+BIC(m_final, m_soporte_tamcat)
+```
+
+Vemos que la inclusión de la interacción "soporte_grp x orientación" sigue siendo significativa una vez controlado el efecto de "soporte_grp x tam_cat", sin embargo provoca un brave problema de complejidad ($\triangle BIC \approx +74$) que no consideramos aceptable ni necesario en este punto análisis. En consecuencia descartamos la interaccion con orientación una vez controlado por tamaño. Además ya detectamos anteriormente existencia de celdas problemáticas en soporte, que pueden provocar separación, por lo que algunos coeficientes pueden volverse fuertemente inestables. Por esta razón, debemos mencionar que la interacción con tamaño se mantendrá pero con interpretación principalmente en 'Lienzo' y 'Tabla/Panel', además de tratará de minimizar esta problematica en la siguiente sección.
+
+Finalmente se decide definir el modelo principal con únicamente la interacción "soporte_grp x tam_cat" con el obejtivo de dar respuesta a nuestra hipótesis. Sin embargo, se considera conservar el modelo sin interacciones como alternativo con el fin de explorar más rigurosamente los efectos principales, si se considera oportuno.
+
+**Resumen**
+
+Después de evaluar las interacciones, el modelo principal es el siguiente:
+
+```{r}
+m_completo <- glm(
+  exito ~
+    fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    soporte_grp:tam_cat,
+  data = df,
+  family = binomial(link = "logit")
+)
+```
+
+
+
+
+Y el modelo reducido conservado como alternativo, sin interacciones, es el siguiente:
+```{r}
+m_reducido <- glm(
+  exito ~
+    fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie,
+  data = df,
+  family = binomial(link = "logit")
+)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Diagnóstico de ajuste y correcciones
+
+En esta sección se presentan diagnósticos preliminares del modelo, centrados en la calidad del ajuste y en la estabilidad de los parámetros, especialmente considerando la baja prevalencia del evento y el uso de múltiples factores e interacciones. No se llevaran a cabo aún procedimientos de validación formales, ya que se abordarán en secciones posteriores.
+
+```{r}
+summary(m_completo)
+```
+
+Para comenzar vemos valores grandes para los errores de todos los coeficientes y incluso algunos enormes del orden de $10^3 $, lo cual se traduce en una inestabilidad preocupante que resta credibilidad a nuestras conclusiones futuras. 
+
+Examinaremos a continuación la capacidad del modelo para estimar los 22 coeficientes presentes en él.
+
+```{r}
+y <- model.response(model.frame(m_completo))
+E <- sum(y == 1)
+N <- length(y)
+p <- length(coef(m_completo))
+
+cat("N =", N, "  Eventos (1) =", E, "  Prevalencia =", round(E/N, 4), "\n")
+cat("Num coeficientes (incluye dummies) =", p, "\n")
+cat("EPV aprox (eventos por coef) =", round(E/p, 3), "\n")
+
+```
+
+Con 7002 observaciones y 849 eventos, el modelo dispone de información suficiente para estimar los 22 parámetros que contiene. El coeficiente de ($EPV \approx 38.6$) sugiere que el desnivel en la respuesta no plantea una limitación para el modelo seleccionado.
+
+```{r}
+Y <- xtabs(exito ~ soporte_grp + tam_cat, data = df)
+N <- xtabs(~ soporte_grp + tam_cat, data = df)
+P <- Y / N
+
+cat("\nFrecuencias de soporte\n")
+table(df$soporte_grp)
+cat("\nFrecuencias de tamaño\n")
+table(df$tam_cat)
+
+cat("\nÉxitos Y:\n"); print(Y)
+cat("\nTotales N:\n"); print(N)
+cat("\nProporción P=Y/N:\n"); print(round(P, 3))
+
+cat("\nCeldas con 0 éxitos (Y==0):\n")
+print((Y == 0) & (N > 0))
+
+cat("\nCeldas con todos éxitos (Y==N):\n")
+print((Y == N) & (N > 0))
+```
+
+Las tablas de contingencia de exitos y totales por combinación de la interacción muestran celdas con respuestas deterministas lo que puede provocar separación, que explica la inestabilidad de estimación observada. En concreto observamos todo éxitos en Mural-pequeño, lo cual tiene sentido conceptualmete ya que los murales estan asociados a grandes obras de arte; y observamso ausencia total de éxitos en Metal-mediano,grande y Otros-mediano,grande. Estos resultados eran esperables debido a la baja frecuencia de las categorías involucradas Metal/Mural/Otros. Recordamos entonces la importancia de centrar la interpretacion al rededor de las categoría estables Tabl/Panel y Lienzo, aun sabiendo que no estan ajenas a la problemática. 
+
+```{r}
+library(car)
+vif(m_completo)
+```
+
+Los indicadores de colinealidad muestran valores muy altos para soporte_grp ($GVIF \approx 8.50$) y elevados para tam_cat:soporte_grp ($GVIF \approx 2.88$), en contraste con el resto de covariables, cuyos valores permanecen cercanos a 1. Esta evidencia afirma una dependencia fuerte entre los bloques de parámetros de los efectos principales y los de la interacción, especialmente en presencia de un diseño como el nuestro, desbalanceado entre niveles y con celdas con baja frecuencia.
+
+```{r}
+n <- nobs(m_completo)
+p <- length(coef(m_completo))
+
+cat("Devianza ajustada:",deviance(m_completo) / (n - p))
+```
+
+La evaluación de la dispersión mediante el parámetro de escala no aporta indicios de sobredispersión ($\varphi \approx 0,706$), ya que es a 1 (la dispersión teórica de la distribución Binomial). Por lo que estos resultados sugieren que no existe un exceso de variabilidad no aceptada por la distribución que justifique adoptar estrategias orientadas a corregir sobredispersión.
+
+Después de este primer análisis vemos que existen dos problematicas que debemos manejar, la separación por celdas vacías y la colinealidad excesiva en soporte. 
+
+Primeramente abordaremos la problemática provocada por las celdas deterministas de la interacción y más adelante, si la colinealidad siguiera presente, se adoptarán nuevas medidas. 
+
+**Separación**
+
+Contrastaremos formalmente la existencia de separación en nuestro modelo:
+
+```{r}
+df2 <- df
+df2$exito <- if (is.factor(df2$exito)) as.integer(df2$exito == levels(df2$exito)[2]) else as.integer(df2$exito)
+
+m_df2 <- update(m_completo, data = df2)
+
+X <- model.matrix(m_df2)
+y <- model.response(model.frame(m_df2))
+ds <- detectseparation::detect_separation(X, y)
+print(ds)
+```
+
+Efectivamente nos enfrentamos a un problema de separación real, lo cual puede traducerse en inexistencia de coeficientes finitos. En consecuencia, decidimos reestimar el mismo modelo mediante regresión logística con reducción de sesgo con un enfoque Firth. 
+
+```{r}
+library(brglm2)
+
+m_firth <- glm(
+  formula(m_completo),
+  data   = df,
+  family = binomial("logit"),
+  method = "brglmFit",
+)
+
+summary(m_firth)
+```
+
+En un primer intento nuestro modelo no alcanzó convergencia, lo que se traduce en estimaciones inestables, de manera que se procede a ajustar parámetros de control de las iteraciones:
+
+```{r}
+library(brglm2)
+
+ctrl <- brglm2::brglmControl(
+  maxit = 2000,          # + iteraciones (default 100)
+  slowit = 0.5,          # pasos más pequeños
+  response_adjustment = 0.5  # arranque con ajuste tipo 0.5 en binomial
+)
+
+m_firth2 <- glm(
+  formula(m_completo),
+  data   = df,
+  family = binomial("logit"),
+  method = "brglmFit",
+  type   = "AS_mean",
+  control = ctrl
+)
+
+cat("Convergencia:", m_firth2$converged)
+cat("\nNúmero de iteraciones:", m_firth2$iter)
+summary(m_firth2)
+
+```
+
+Gracias a las especificaciones de control, el modelo ahora sí ha alcanzado convergencia. Todavía observamos algunos SE grandes, lo que indica estimaciones débiles para esos niveles, pero una mejora considerable frente al modelo anterior sin este ajuste Firth.
+
+Veamos una compración de SE, y otro test de separación, para el modelo sin ajuste 'm_completo' y el modelo ajustado 'm_firth2':
+
+```{r}
+se_ml <- summary(m_completo)$coefficients[,2]
+se_fi <- summary(m_firth2)$coefficients[,2]
+
+cat("\nTop 10 SE (MLE):\n")
+print(head(sort(se_ml, decreasing=TRUE), 10))
+
+cat("\nTop 10 SE (Firth/AS):\n")
+print(head(sort(se_fi, decreasing=TRUE), 10))
+
+cat("Separación:\n")
+m_firth2_df2 <- update(m_firth2, data = df2)
+
+X <- model.matrix(m_firth2_df2)
+y <- model.response(model.frame(m_firth2_df2))
+ds <- detectseparation::detect_separation(X, y)
+print(ds)
+```
+
+Podemos ver como la presencia de separación no se ha eliminado, cual era esperable ya que la reducción de sesgo Firth no cambia la estructura de separación de los dato, pero sí asegura que nuestro modelo es robusto frente a ella. Podemos comprobarlo viendo la significativa reducción de los SE. Sin embargo debemos tener presente que la mayoría de las combinaciones e la interacción no obtienen estimaciones MLE finitas, por lo que de nuevo solo nos centraremos en aquellas finitas y con mucha cautela ya que somos conscientes de que el modelo está afectado.
+
+**Colinealidad**
+
+Una vez controlada la separación volvamos a realizar las pruebas de colinealidad:
+
+```{r}
+library(car)
+vif(m_firth2)
+```
+
+Una vez manejada la separación, se elimina la existencia de colinealidad grave y los términos afectados presentan ahora colinealidad moderada que no refleja una preocupación real. Dado uestro objetivo descriptivo, se mantiene el modelo con todos sus términos. 
+
+**Resumen**
+
+Finalmente se concluye con el modelo final de tipo regresión logística incluyendo reducción de sesgo Firth.
+
+```{r}
+ctrl <- brglm2::brglmControl(
+  maxit = 2000,          
+  slowit = 0.5,          
+  response_adjustment = 0.5  
+)
+
+m_principal <- glm(
+  formula(exito ~
+    fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    soporte_grp:tam_cat),
+  data   = df,
+  family = binomial("logit"),
+  method = "brglmFit",
+  type   = "AS_mean",
+  control = ctrl
+)
+
+summary(m_principal)
+```
+
+## Validación
+
+
+```{r}
+cat("\nDeviance del modelo nulo:\n")
+summary(m_principal)$null.deviance
+cat("\nDeviance del modelo principal:\n")
+summary(m_principal)$deviance
+cat("\nNúmero total de observaciones:\n")
+nobs(m_principal)
+cat("\nPseudo R² de McFadden:\n")
+1 - summary(m_principal)$deviance / summary(m_principal)$null.deviance
+
+```
+Observamos que la deviance es menor que la del modelo nulo, lo que nos esta indicando que al introducir las variables explicativas tenemos una mejora del modelo. Las covariables introducidas aportan informacion para estimar la probabilidad. Por lo qeu el modelo está bien ajustado.
+
+**Capacidad discriminativa**
+
+```{r}
+# Probabilidades predichas
+prob_principal <- predict(m_principal, type = "response")
+
+# Curva ROC
+roc_principal <- roc(df$exito, prob_principal)
+
+cat("\nValor AUC, area bajo la curva:\n")
+auc(roc_principal)
+
+# Gráfico ROC
+plot(roc_principal,
+     main = "Curva ROC – Modelo principal",
+     col = "black",
+     lwd = 2)
+abline(a = 0, b = 1, lty = 2, col = "gray")
+```
+El valor AUC indica que el modelo tiene una capacidad discriminativa moderada.
+La gràfico de la curva ROC del modelo principal se situa por encima de la diagonal de referencia, lo que nos sugiere que el modelo es adecuado.
+
+**Residuos del modelo**
+
+```{r}
+res_pearson <- residuals(m_principal, type = "pearson")
+cat("\nResiduos de pearson:\n")
+summary(res_pearson)
+
+plot(prob_principal, res_pearson,
+     xlab = "Probabilidad predicha",
+     ylab = "Residuos de Pearson",
+     main = "Residuos de Pearson vs probabilidad predicha")
+abline(h = 0, lty = 2)
+
+```
+
+Los residuos de Pearson se encuentran entorno a 0, lo que indica la ausencia de sesgo sistemático en las predicciones. 
+La dispersión vista en el gráfico indica que no hay patrones que nos sugieran problemas de ajuste.
+
+```{r}
+cook <- cooks.distance(m_principal)
+plot(cook, type = "h",
+     main = "Distancia de Cook – Modelo principal",
+     ylab = "Cook's distance")
+abline(h = 4 / length(cook), lty = 2, col = "red")
+```
+```{r}
+cat("\nNúmero de observaciones para cada componente de la interacción:\n")
+df %>%
+  count(tam_cat, soporte_grp, exito) %>%
+  tidyr::pivot_wider(names_from = exito, values_from = n, values_fill = 0)
+```
+
+En el summary del modelo se detecta que algunas variables de la intersección presentan errores estándars muy elevados, estadísticos cercanos a cero y p-valores muy altos, lo que nos indica un problema de estimación en dichos términos.
+La distancia de cook presenta un único valor potencialmente influyente en el modelo, los demás valores no son influyentes.
+
+Finalmente, se observa que algunas interacciones presentan tamaños muestrales muy bajos (n=1,2 o 3), lo que da lugar a situaciones en las que la variable del éxito o fracaso es 0, lo que crea errores en la predicción.
+
+
+**Multicoleinealidad**
+
+Como hemos comentado anteriormente, los valores de GVIF altos en las variables soporte_grp y en la interacción, estos pueden ser debido a sus grados de libertad ya que en el GVIF corregido no presentan valores elevados. Por tanto el modelo no presenta problemas de multicolinealidad.
+
+El modelo `m_principal` se considera adecuado y fiable para predecir la probabilidad de éxito.
+
+## Modelos alternativos
+
+En esta sección se proponen estructuras de modelos que fueron descartadas como opciones a modelo principal pero que por interés interpretativo se ajustan igualmente. Primero presentaremos las propuestas y después serán reestimadas utilizando reducción de sesgo Firth cuando sea necesario.
+
+**Modelo simplificado**
+
+Dada la complejidad y posible separación debida a la interacción "soporte_grp x tam_cat", aunque ya se controló adecuadamente, se ha decidido estudiar también la posibilidad del modelo simplificado sin interacciones:
+
+```{r}
+m_reducido <- glm(
+  exito ~
+    fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie,
+  data = df,
+  family = binomial(link = "logit")
+)
+```
+
+**Variable tema**
+
+Dado el interés interpretativo de tema, y visto que sí aporta información adicional pero incrementa fuertemente la complejidad (muchos niveles), su inclusión se analiza en esta sección de modelos alternativos siguiendo las siguientes estrategias:
+
+1) Un modelo con tema ajustado por el conjunto completo de covariables del modelo principal
+
+2) Un modelo con tema sin el bloque de material/técnica/montaje para estimar una asociación más global
+
+3) Adicionalmente, una versión parsimoniosa usando log(area) lineal para cada caso anterior
+
+De esta manera se explorará el efecto de tema tanto controlando las covariables de técnica/soporte/montaje como sin ellas para, de esta manera, poder obtener también una estimación global de su asociación con la respuesta. Esta decisión viene dada por consecuencia de nuestros objetivos e hipótesis principales. En un inicio se planteó la posibilidad de que la iconografía de la pintura podía estar relacionada con el cumplimiento de la razón áurea, por esta razón queremos explorar el efecto global de esta variable "tema", aun sabiendo que el efecto de técnica y soporte pudiera estar incluido en la relación, ya que este modelo no pretende estimar un efecto causal directo sino capturar asociación total que puede incluir diferencias mediadas por técnica/soporte. Por otra parte. Con el objetivo de no sesgar totalmente la interpretación, también se estudiará el efecto en conjunto con estas variables: "soporte_grp" y "tecncia", las cuales también eran de interés. Finalmente se contempla la posibilidad de cambiar la especificación del tamaño por su versión continua lineal (log(area)) con el objetivo de simplemente controlar el efecto del tamaño, pero sin interés interpretativo en esta sección.
+
+
+**Ajsute de modelos**
+
+Procedemos a ajustar todos los modelos candidatos
+
+```{r}
+# =========================================================
+# MODELOS ALTERNATIVOS CON TEMA (resumen compacto)
+
+# =========================================================
+# 1) ESPECIFICACIÓN DE MODELOS (sin summary)
+# =========================================================
+cat("\n==============================\n1) ESPECIFICACION DE MODELOS\n==============================\n")
+
+# Modelo final principal (sin tema, con Bloque 3, tamaño categórico)
+m_final <- glm(
+  exito ~ ns(fecha_est, 3) + log_ancho + tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje + serie,
+  data = df, family = binomial(link = "logit")
+)
+cat("\n[m_final] creado: ajuste completo + tam_cat (SIN tema)\n")
+
+# Ajuste completo + tema (tam_cat)
+mT_full_tam <- update(m_final, . ~ . + tema)
+cat("[mT_full_tam] creado: ajuste completo + tam_cat (CON tema)\n")
+
+# Modelo final equivalente con log_area (sin tema)
+m_final_area <- glm(
+  exito ~ ns(fecha_est, 3) + log_ancho + log_area + orientacion +
+    soporte_grp + tecnica + sop_montaje + serie,
+  data = df, family = binomial(link = "logit")
+)
+cat("[m_final_area] creado: ajuste completo + log_area (SIN tema)\n")
+
+# Ajuste completo + tema (log_area)
+mT_full_area <- update(m_final_area, . ~ . + tema)
+cat("[mT_full_area] creado: ajuste completo + log_area (CON tema)\n")
+
+# Sin Bloque 3 + tam_cat (sin tema)
+m_noB3_tam <- glm(
+  exito ~ ns(fecha_est, 3) + log_ancho + tam_cat + orientacion + serie,
+  data = df, family = binomial(link = "logit")
+)
+cat("[m_noB3_tam] creado: SIN Bloque 3 + tam_cat (SIN tema)\n")
+
+# Sin Bloque 3 + tema (tam_cat)
+mT_noB3_tam <- update(m_noB3_tam, . ~ . + tema)
+cat("[mT_noB3_tam] creado: SIN Bloque 3 + tam_cat (CON tema)\n")
+
+# Sin Bloque 3 + log_area (sin tema)
+m_noB3_area <- glm(
+  exito ~ ns(fecha_est, 3) + log_ancho + log_area + orientacion + serie,
+  data = df, family = binomial(link = "logit")
+)
+cat("[m_noB3_area] creado: SIN Bloque 3 + log_area (SIN tema)\n")
+
+# Sin Bloque 3 + tema (log_area)
+mT_noB3_area <- update(m_noB3_area, . ~ . + tema)
+cat("[mT_noB3_area] creado: SIN Bloque 3 + log_area (CON tema)\n")
+
+# =========================================================
+# 2) COMPARACIONES ANOVA (mínimas, aporte de informacion)
+# =========================================================
+cat("\n==============================\n2) COMPARACIONES (LRT - ANOVA)\n==============================\n")
+
+cat("\n[2.1] Aporte de tema (ajuste completo, tam_cat): m_final vs mT_full_tam\n")
+print(anova(m_final, mT_full_tam, test = "Chisq"))
+
+cat("\n[2.2] Aporte de tema (ajuste completo, log_area): m_final_area vs mT_full_area\n")
+print(anova(m_final_area, mT_full_area, test = "Chisq"))
+
+cat("\n[2.3] Aporte de tema (SIN Bloque 3, tam_cat): m_noB3_tam vs mT_noB3_tam\n")
+print(anova(m_noB3_tam, mT_noB3_tam, test = "Chisq"))
+
+cat("\n[2.4] Aporte de tema (SIN Bloque 3, log_area): m_noB3_area vs mT_noB3_area\n")
+print(anova(m_noB3_area, mT_noB3_area, test = "Chisq"))
+```
+
+Para comezar podemos ver que tema siempre resulta significativo en cunato aprte de información, es decir, independientemente de como controlemos el tamaño y de si incluimos o no el BLoque 3 (tecnica/soporte/montaje), tema añade información. Este resultado avala nuestra intención de realizar esta rección para interpretar la asociación de la iconografía con el cumplimeinto de la razón aurea.
+
+**Comparación de modelos**
+
+Para decidir que modelo o modelos interpretar utilizaremos los criterios AIC/BIC. Se muestras sus valores para cada modelo, y una tabla de incrementos, de manera que sea legible.
+```{r}
+# =========================================================
+# 3) TABLA AIC/BIC (todos los modelos)
+# =========================================================
+cat("\n==============================\n3) TABLA AIC / BIC\n==============================\n")
+
+mods <- list(
+  m_final      = m_final,
+  mT_full_tam  = mT_full_tam,
+  m_final_area = m_final_area,
+  mT_full_area = mT_full_area,
+  m_noB3_tam   = m_noB3_tam,
+  mT_noB3_tam  = mT_noB3_tam,
+  m_noB3_area  = m_noB3_area,
+  mT_noB3_area = mT_noB3_area
+)
+
+ic_tab <- data.frame(
+  modelo = names(mods),
+  df     = sapply(mods, function(m) attr(logLik(m), "df")),
+  AIC    = sapply(mods, AIC),
+  BIC    = sapply(mods, BIC),
+  row.names = NULL
+)
+
+print(ic_tab[order(ic_tab$AIC), ])
+```
+
+
+Dado que pretendemos explorar la asociacion de tema tanto controlando por las covariables del BLoque 3 como sin ellas, seleccionaremos de cada una la que proporcione mejores valores de AIC/BIC. 
+
+```{r}
+# =========================================================
+# Dataframe de deltas (con tema - sin tema) para AIC y BIC
+# =========================================================
+
+delta_ic <- data.frame(
+  situacion = c(
+    "Ajuste completo + tam_cat",
+    "Ajuste completo + log_area",
+    "Sin Bloque 3 + tam_cat",
+    "Sin Bloque 3 + log_area"
+  ),
+  modelo_sin_tema = c("m_final", "m_final_area", "m_noB3_tam", "m_noB3_area"),
+  modelo_con_tema = c("mT_full_tam", "mT_full_area", "mT_noB3_tam", "mT_noB3_area"),
+  AIC_sin = c(AIC(m_final),      AIC(m_final_area),  AIC(m_noB3_tam),  AIC(m_noB3_area)),
+  AIC_con = c(AIC(mT_full_tam),  AIC(mT_full_area),  AIC(mT_noB3_tam), AIC(mT_noB3_area)),
+  BIC_sin = c(BIC(m_final),      BIC(m_final_area),  BIC(m_noB3_tam),  BIC(m_noB3_area)),
+  BIC_con = c(BIC(mT_full_tam),  BIC(mT_full_area),  BIC(mT_noB3_tam), BIC(mT_noB3_area)),
+  stringsAsFactors = FALSE
+)
+
+# Deltas: (con tema - sin tema)
+delta_ic$delta_AIC <- delta_ic$AIC_con - delta_ic$AIC_sin
+delta_ic$delta_BIC <- delta_ic$BIC_con - delta_ic$BIC_sin
+
+# (Opcional) Redondeo para informe
+delta_ic$AIC_sin   <- round(delta_ic$AIC_sin, 3)
+delta_ic$AIC_con   <- round(delta_ic$AIC_con, 3)
+delta_ic$BIC_sin   <- round(delta_ic$BIC_sin, 3)
+delta_ic$BIC_con   <- round(delta_ic$BIC_con, 3)
+delta_ic$delta_AIC <- round(delta_ic$delta_AIC, 3)
+delta_ic$delta_BIC <- round(delta_ic$delta_BIC, 3)
+
+# Mostrar tabla ordenada (por mejora AIC: más negativo = mejor)
+delta_ic <- delta_ic[order(delta_ic$delta_AIC), ]
+
+delta_ic
+delta_ic[c("situacion", "delta_AIC", "delta_BIC")]
+```
+
+Podemos ver que en ambos casos, con la inclusión del Bloque 3 (tecnica/soporte/montaje) o sin ella, los modelos preferibles son aquellos con una especificación categórica del tamaño, es decir, utilizando "tam_cat" en vez de "area". Por esta razón queda eliminada la opción alternativa que se había planteado en relación al tamaño.
+
+Los modelos finales que se utilizaran para interpretar la asociación de "tema" son 'mT_full_tam' y 'mT_noB3_tam'.
+
+**Modelos alternativos finales**
+
+Modelos alternativos finales:
+```{r}
+# modelo reducido (sin interacciones)
+mA1 <- m_reducido
+
+# tema ajustado
+mA2 <- mT_full_tam
+
+# tema global
+mA3 <- mT_noB3_tam
+```
+
+Para evaluar la el posibles ajuste ediante Firth, estudiaremos la separación de los 3 modelos:
+
+```{r}
+cat("Separación para mA1 (sin interacciones):\n")
+mA1_df2 <- update(mA1, data = df2)
+
+X <- model.matrix(mA1_df2)
+y <- model.response(model.frame(mA1_df2))
+ds <- detectseparation::detect_separation(X, y)
+print(ds)
+
+cat("Separación para mA2 (tema ajustado):\n")
+mA2_df2 <- update(mA2, data = df2)
+
+X <- model.matrix(mA2_df2)
+y <- model.response(model.frame(mA2_df2))
+ds <- detectseparation::detect_separation(X, y)
+print(ds)
+
+cat("Separación para mA3 (tema global):\n")
+mA3_df2 <- update(mA3, data = df2)
+
+X <- model.matrix(mA3_df2)
+y <- model.response(model.frame(mA3_df2))
+ds <- detectseparation::detect_separation(X, y)
+print(ds)
+```
+
+Vemos que no exite presencia de separación en ninguna de los modelos por lo que continuamos, para ellos, mediante el enlace logit sin necesidad de ajuste adicional
+
+**Validación**
+
+Validacion modelos alternativos.
+
+```{r}
+prob_mA1 <- predict(mA1, type = "response")
+prob_mA2 <- predict(mA2, type = "response")
+prob_mA3 <- predict(mA3, type = "response")
+```
+
+```{r}
+cat("\nDeviance de los modelos:\n")
+c(mA1   = summary(mA1)$deviance,
+  mA2  = summary(mA2)$deviance,
+  mA3  = summary(mA3)$deviance)
+pseudoR2 <- function(m) {
+  1 - summary(m)$deviance / summary(m)$null.deviance
+}
+cat("\nPseudo R² de McFadden:\n")
+c(
+  mA1 = pseudoR2(mA1),
+  mA2 = pseudoR2(mA2),
+  mA3 = pseudoR2(mA3)
+)
+```
+Los tres modelos alternativos tienen un valor finito de desviación lo que indica que el modelo converge correctamente y que no tenemos problemas evidentes de ajuste. 
+Los valores reducidos del psudo-$R^2$ nos indican que los modelos mejoran al modelo nulo, lo que sugiere que los modelos tienen capacidad explicativa real.
+
+**Capacidad discriminativa**
+
+```{r}
+roc_mA1   <- roc(df$exito, prob_mA1)
+roc_mA2   <- roc(df$exito, prob_mA2)
+roc_mA3   <- roc(df$exito, prob_mA3)
+auc(roc_mA1)
+auc(roc_mA2)
+auc(roc_mA3)
+```
+
+```{r}
+plot(roc_mA1, col = "blue", lwd = 2, main = "Curvas ROC – Modelos Alternativos")
+plot(roc_mA2, col = "red",  lwd = 2, add = TRUE)
+plot(roc_mA3, col = "black",  lwd = 2, add = TRUE)
+
+legend("bottomright",
+       legend = c("mA1", "mA2", "mA3"),
+       col = c( "blue", "red", "black"),
+       lwd = 1)
+```
+Las curvas ROC muestran que, para todos los modelos alternativos, la sensibilidad aumenta a medida que disminuye la especificidad, situándose consistentemente por encima de la diagonal de referencia. Esto indica una capacidad de discriminación superior al azar y respalda la validez predictiva de los modelos.
+
+**Residuos del modelo**
+```{r}
+res_pearson <- residuals(mA1, type = "pearson")
+cat("\nResiduos de pearson mA1:\n")
+summary(res_pearson)
+
+plot(prob_mA1, res_pearson,
+     xlab = "Probabilidad predicha",
+     ylab = "Residuos de Pearson",
+     main = "Residuos de Pearson vs probabilidad predicha")
+abline(h = 0, lty = 2)
+
+res_pearson <- residuals(mA2, type = "pearson")
+cat("\nResiduos de pearson mA2:\n")
+summary(res_pearson)
+
+plot(prob_mA2, res_pearson,
+     xlab = "Probabilidad predicha",
+     ylab = "Residuos de Pearson",
+     main = "Residuos de Pearson vs probabilidad predicha")
+abline(h = 0, lty = 2)
+
+res_pearson <- residuals(mA3, type = "pearson")
+cat("\nResiduos de pearson mA3:\n")
+summary(res_pearson)
+
+plot(prob_mA3, res_pearson,
+     xlab = "Probabilidad predicha",
+     ylab = "Residuos de Pearson",
+     main = "Residuos de Pearson vs probabilidad predicha")
+abline(h = 0, lty = 2)
+```
+
+Los residuos no muestran patrones ni grandes desviaciones respecto al 0, el análisi de los residuos nos sugiere que los modelos estan bien ajustados.
+
+**Multicolinealidad**
+
+```{r}
+modelos <- list(mA1 = mA1,mA2 = mA2,mA3 = mA3)
+cat("\nVIF de los modelos:\n")
+lapply(modelos, vif)
+```
+Analizamos la multicolinealidad mediante el VIF i GVIF, los cuales no muestran valores elevados en ninguno de los predictores de ningún modelo. Nos indica que los modelos alternativos no presentan problemas de multicolinealidad.
+
+# RESULTADOS (FALTA HACER DE MANERA QUE QUEDE BIEN)
+En esta sección presentamos los resultados correspondientes al modelo escogido (m_principal), y de los modelos alterntivos mA1, mA2 y mA3. Generalmente haremos una interpretación de estos modelos a partir de los efectos marginales, de esta manera podremos analizar el efecto de cada variable cuando mantenemos las demás constantes. También haremos comparaciones a pares para ver la diferencia entre los niveles especificos de cada variable y ver si estas diferencias son estadísticamente significativas o si no podemos confirmar que lo sean.
+
+##MODELO PRINCIPAL
+
+```{r}
+summary(m_principal)
+```
+Viendo los efectos del modelo de manera global cuesta identificar que variables y que resultados en concreto hacen que la probabilidad de éxito aumente o disminuya de manera significativa, por eso analizaremos los efectos de las variables a través de los effectos marginales. Lo haremos con el paquete emmeans
+```{r}
+library(emmeans)
+emm_tam <- emmeans(
+  m_principal,
+  specs = "tam_cat",
+  type = "response"   # convierte de log-odds a probabilidad
+)
+
+emm_tam;pairs(emm_tam)
+```
+
+Manteniendo las demás variables constantes, las comparaciones entre categorías de tamaño expresadas en odds ratio no muestran diferencias estadísticamente significativas. Aunque se observa una tendencia a mayores odds de exito en obras de tamaño grande frente a las demás, y siendo las obras de tamaño mediano las que menos odds de exito tienen.
+
+Tal y como hemos visto anteriormente el efecto del tamaño sobre la probabilidad de éxito depende del tipo de soporte, por lo que veremos también los efectos marginales con está interacción. 
+```{r}
+pairs(emmeans(m_principal, ~ tam_cat | soporte_grp))
+```
+Para cuadros sobre lienzo, las obras grandes presentan odds de éxito aproximadamente 2.5–2.7 ($OR=e^{Estimate}$) veces mayores que medianas o pequeñas (p < 0.001). En cambio, para los demás soportes no se observan diferencias significativas entre tamaños debido a la baja frecuencia de observaciones y a la alta incertidumbre en las estimaciones.
+
+```{r}
+emm_ori <- emmeans(
+  m_principal,
+  specs = "orientacion",
+  type = "response"
+)
+
+emm_ori;pairs(emm_ori)
+```
+
+Vemos que manteniendo las demás variables constantes la probabilidad de exito de un cuadro horizontal(0.148) es significativamente superior a los cuadros verticales (0.115). I efectivamente comparando los pares vemos que la diferencia es estadísticamente significativa, concretamente los odds de éxito de un cuadro vertical son un 25% menores.
+
+```{r}
+emm_mont <- emmeans(
+  m_principal,
+  specs = "sop_montaje",
+  type = "response"
+)
+
+emm_mont
+pairs(emm_mont)
+```
+
+Manteniendo las demás variabes constantes, vemos que la presencia de soporte de montage incrementa sustancialmente la probabilidad media de éxito.
+```{r}
+emm_soporte <- emmeans(
+  m_principal,
+  specs = "soporte_grp",
+  type = "response"
+)
+
+emm_soporte
+pairs(emm_soporte)
+```
+
+Vemos que manteniendo constantes las demás variables Tabla/panel parece ser el soporte más favorable, mientras que Otros el que menos, las diferencias en algunos casos són moderadas aunque no son significativas, esto puede ser debido al tamaño de muestra desbalanceado entre categorías de soporte.
+
+```{r}
+emm_fecha <- emmeans(
+  m_principal,
+  specs = "fecha_est",
+  at = list(fecha_est = quantile(df$fecha_est, probs = c(0.1, 0.5, 0.9))),
+  type = "response"
+)
+
+emm_fecha;pairs(emm_fecha)
+```
+
+La probabilidad de éxito de las pinturas aumenta con la fecha de ejecución. Las obras de 1565 tienen una probabilidad media de éxito de 8.8%, las de 1690 de 12%, y las de 1890 de 19%. Las comparaciones por pares muestran que todas las diferencias son estadísticamente significativas, con odds ratios menores a 1 cuando se compara una fecha más antigua con una más reciente, indicando que las pinturas más modernas tienen mayores probabilidades de éxito. Esto confirma un efecto positivo del paso del tiempo sobre el éxito de las obras.
+
+
+
+## RESULTADOS MODELOS ALTERNATIVOS
+- Modelo alternativo mA1
+```{r}
+summary(mA1)
+```
+
+
+```{r}
+library(emmeans)
+library(dplyr)
+
+pairs_mA1 <- bind_rows(
+
+  pairs(emmeans(mA1, ~ tam_cat)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Tamaño"),
+
+  pairs(emmeans(mA1, ~ orientacion)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Orientación"),
+
+  pairs(emmeans(mA1, ~ soporte_grp)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Soporte"),
+
+  pairs(emmeans(mA1, ~ sop_montaje)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Soporte de montaje"),
+
+  pairs(emmeans(mA1, ~ serie)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Serie")
+)
+
+tabla_pairs_mA1 <- pairs_mA1 %>%
+  transmute(
+    Variable,
+    Comparación = contrast,
+    OR = round(exp(estimate), 2),
+    `IC 95%` = paste0(
+      "[",
+      round(exp(estimate - 1.96 * SE), 2),
+      ", ",
+      round(exp(estimate + 1.96 * SE), 2),
+      "]"
+    ),
+    `p-valor` = ifelse(p.value < 0.001, "<0.001", round(p.value, 3))
+  )
+
+library(gt)
+
+tabla_pairs_mA1 %>%
+  gt() %>%
+  tab_header(
+    title = "Efectos marginales comparados (odds ratios)",
+    subtitle = "Comparaciones por pares – modelo mA1"
+  ) %>%
+  cols_label(
+    Variable = "Variable",
+    Comparación = "Comparación",
+    OR = "OR",
+    `IC 95%` = "IC 95%",
+    `p-valor` = "p-valor"
+  ) %>%
+  fmt_markdown(columns = everything()) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(
+      columns = `p-valor`,
+      rows = `p-valor` %in% c("<0.001")
+    )
+  ) %>%
+  cols_align(
+    align = "center",
+    columns = c(OR, `IC 95%`, `p-valor`)
+  ) %>%
+  opt_all_caps() %>%
+  opt_table_outline() %>%
+  opt_row_striping()
+
+
+```
+
+Los efectos marginales del modelo mA1 refuerzan la mayoría de conclusiones obtenidas en el modelo principal. En particular, se confirma el efecto positivo del tamaño grande sobre el éxito, incluso sin considerar interacciones, así como la mayor probabilidad de éxito de las obras horizontales frente a las verticales. También se mantiene el efecto favorable del soporte de montaje y de la pertenencia a una serie.
+
+Como diferencia principal respecto al modelo principal, al eliminar la interacción tamaño–soporte el efecto del tamaño aparece como global y claramente significativo, lo que sugiere que la ventaja de las obras grandes no se limita únicamente al lienzo. En cuanto al soporte, Tabla/Panel sigue siendo el más favorable y la categoría Otros la menos exitosa, aunque varias comparaciones no alcanzan significación debido a la elevada incertidumbre en categorías poco frecuentes.
+
+En conjunto, el modelo alternativo confirma la dirección y relevancia de los efectos principales observados previamente, pero pierde la capacidad de matizar cómo estos varían según el tipo de soporte.
+
+- Modelo alternativo mA2
+```{r}
+summary(mA2)
+```
+```{r}
+library(emmeans)
+library(dplyr)
+library(gt)
+
+pairs_mA2 <- bind_rows(
+
+  pairs(emmeans(mA2, ~ tam_cat)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Tamaño"),
+
+  pairs(emmeans(mA2, ~ orientacion)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Orientación"),
+
+  pairs(emmeans(mA2, ~ soporte_grp)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Soporte"),
+
+  pairs(emmeans(mA2, ~ sop_montaje)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Soporte de montaje"),
+
+  pairs(emmeans(mA2, ~ serie)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Serie"),
+
+  pairs(emmeans(mA2, ~ tema)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Tema")
+)
+
+tabla_pairs_mA2 <- pairs_mA2 %>%
+  transmute(
+    Variable,
+    Comparación = contrast,
+    OR = round(exp(estimate), 2),
+    `IC 95%` = paste0(
+      "[",
+      round(exp(estimate - 1.96 * SE), 2),
+      ", ",
+      round(exp(estimate + 1.96 * SE), 2),
+      "]"
+    ),
+    `p-valor` = ifelse(p.value < 0.001, "<0.001", round(p.value, 3))
+  )
+
+tabla_pairs_mA2 %>%
+  gt() %>%
+  tab_header(
+    title = "Efectos marginales comparados (odds ratios)",
+    subtitle = "Comparaciones por pares – modelo mA2"
+  ) %>%
+  cols_label(
+    Variable = "Variable",
+    Comparación = "Comparación",
+    OR = "OR",
+    `IC 95%` = "IC 95%",
+    `p-valor` = "p-valor"
+  ) %>%
+  fmt_markdown(columns = everything()) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(
+      columns = `p-valor`,
+      rows = `p-valor` %in% c("<0.001")
+    )
+  ) %>%
+  cols_align(
+    align = "center",
+    columns = c(OR, `IC 95%`, `p-valor`)
+  ) %>%
+  opt_all_caps() %>%
+  opt_table_outline() %>%
+  opt_row_striping()
+
+```
+
+
+```{r}
+library(gt)
+
+tabla_pairs_mA1 %>%
+  gt() %>%
+  tab_header(
+    title = "Efectos marginales comparados (odds ratios)",
+    subtitle = "Comparaciones por pares – modelo mA1"
+  ) %>%
+  cols_label(
+    Variable = "Variable",
+    Comparación = "Comparación",
+    OR = "OR",
+    `IC 95%` = "IC 95%",
+    `p-valor` = "p-valor"
+  ) %>%
+  fmt_markdown(columns = everything()) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(
+      columns = `p-valor`,
+      rows = `p-valor` %in% c("<0.001")
+    )
+  ) %>%
+  cols_align(
+    align = "center",
+    columns = c(OR, `IC 95%`, `p-valor`)
+  ) %>%
+  opt_all_caps() %>%
+  opt_table_outline() %>%
+  opt_row_striping()
+
+```
+
+Los resultados del modelo mA2 confirman en gran medida los patrones observados en el modelo principal. El tamaño sigue mostrando un efecto claro: las obras grandes presentan odds de éxito significativamente mayores que las pequeñas y medianas, mientras que no se observan diferencias entre pequeño y mediano. La orientación mantiene un efecto significativo, con menores odds de éxito en obras verticales frente a horizontales, aunque con una magnitud algo menor que en el modelo principal. En cuanto al soporte, se refuerza el carácter favorable de Tabla/Panel frente al resto, especialmente frente a Lienzo y Otros, mientras que las comparaciones entre soportes minoritarios continúan siendo no significativas, probablemente por la elevada incertidumbre. El efecto positivo del soporte de montaje y el efecto negativo de pertenecer a una serie se mantienen. Finalmente, la inclusión de la variable temática no altera sustancialmente los resultados globales: aunque aparecen algunas diferencias puntuales (especialmente frente a paisajes), el tema no emerge como un determinante robusto del éxito, apoyando la estabilidad de las conclusiones principales.
+
+- Modelo alternativo mA3
+```{r}
+summary(mA3)
+```
+```{r}
+library(emmeans)
+library(dplyr)
+library(gt)
+
+# Calcular efectos marginales por pares para mA3
+pairs_mA3 <- bind_rows(
+  pairs(emmeans(mA3, ~ tam_cat)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Tamaño"),
+  
+  pairs(emmeans(mA3, ~ orientacion)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Orientación"),
+  
+  pairs(emmeans(mA3, ~ serie)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Serie"),
+  
+  pairs(emmeans(mA3, ~ tema)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Tema")
+)
+
+# Crear tabla final con OR, IC y p-valor
+tabla_pairs_mA3 <- pairs_mA3 %>%
+  transmute(
+    Variable,
+    Comparación = contrast,
+    OR = round(exp(estimate), 2),
+    `IC 95%` = paste0(
+      "[",
+      round(exp(estimate - 1.96 * SE), 2),
+      ", ",
+      round(exp(estimate + 1.96 * SE), 2),
+      "]"
+    ),
+    `p-valor` = ifelse(p.value < 0.001, "<0.001", round(p.value, 3))
+  )
+
+# Mostrar tabla visualmente atractiva con gt
+tabla_pairs_mA3 %>%
+  gt() %>%
+  tab_header(
+    title = "Efectos marginales comparados (odds ratios)",
+    subtitle = "Comparaciones por pares – modelo mA3"
+  ) %>%
+  cols_label(
+    Variable = "Variable",
+    Comparación = "Comparación",
+    OR = "OR",
+    `IC 95%` = "IC 95%",
+    `p-valor` = "p-valor"
+  ) %>%
+  fmt_markdown(columns = everything()) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(
+      columns = `p-valor`,
+      rows = `p-valor` %in% c("<0.001")
+    )
+  ) %>%
+  cols_align(
+    align = "center",
+    columns = c(OR, `IC 95%`, `p-valor`)
+  ) %>%
+  opt_all_caps() %>%
+  opt_table_outline() %>%
+  opt_row_striping()
+
+```
+En el modelo alternativo mA3, que incorpora la variable tema pero excluye las variables de soporte/técnica, los efectos del tamaño y la orientación se mantienen coherentes con el modelo principal: las obras grandes tienen significativamente mayores probabilidades de éxito que las medianas o pequeñas, y los cuadros horizontales presentan un 18% más de odds de éxito que los verticales. La pertenencia a una serie sigue siendo un factor positivo, con odds de éxito un 26% mayores para obras en serie.
+
+En cuanto a la variable tema, se observan diferencias significativas: los cuadros de tipo paisaje_lugares muestran mayores probabilidades de éxito frente al tema religioso (OR = 0.58, IC 95% [0.45, 0.74], p < 0.001), mientras que otros temas como mitología y otros presentan resultados más inciertos debido a intervalos amplios. Esto confirma la relevancia del contenido temático, un aspecto no evaluado en el modelo principal.
+
+En conjunto, mA3 respalda los hallazgos del modelo principal sobre tamaño, orientación y serie, y aporta información adicional sobre el efecto de la temática de la obra, mostrando que ciertas temáticas, como paisaje, se asocian con mayor éxito.
+
+# ANALISIS SECUNDARIOS
+
+Además del objetivo principal del estudio, la base de datos obtenida permite explorar de forma complementaria la capacidad explicativa de otras variables de interes. Una de las que más interès genera es la fecha estimada del cuadro, ya que hemos tenido también que obtener la variable fecha_ancho ya que algunas obras presentan incertidumbre. 
+
+Para ello ajustamos un modelo de regresión lineal incluyendo como variables explicativas el tema, el tipo de soporte, el tamaño en categorias, la orientacion, el tipo de autor, la tecnica, la serie  la interaccion de serie con tamaño.
+
+```{r}
+m_fecha <- lm(fecha_est ~ tema + soporte_grp + tam_cat + orientacion+tipo_autor+tecnica+serie*tam_cat, data = df)
+anova(m_fecha)
+summary(m_fecha)
+par(mfrow = c(2, 2))
+plot(m_fecha)
+```
+
+Los resultados nos indican que para predecir la fecha estimada del cuadro todas las variables seleccionadas son estadísticamente significativas, incluyendo la interacción. Esto sugiere que la evolución temporal de las obras depende de la mayoría de las características del cuadro que tenemos en la base de datos y de la combinacion de la serie con el tamaño.
+
+# CONCLUSIONES
+## Descubrimientos del estudio
+EXPONER Y RELACIONAR LOS OBJETIVOS CON LAS HIPOTESIS Y HACER UNA PEQUEÑA CONCLUSION
+
+## Continuidad del proyecto: Limitaciones y propuestas
+
+LIMITACIONES
+- Base de datos incluye solo pinturas disponibles o catalogadas de manera que podrian faltar pinturas menos conocidas 
+- Los efectos de variables continuas (como fecha_est o log_area) se modelan linealmente; tal vez haya relaciones no lineales más complejas.
+- El modelo logístico supone independencia entre observaciones; si varias pinturas pertenecen a la misma serie o autor, podría existir correlación no modelada.
+
+PROPUESTAS 
+- Analizar si los determinantes de éxito cambian según el siglo, la corriente artística, o el país de origen.
+- Comprobar la capacidad predictiva del modelo usando otra base de datos independiente o más reciente.
+- Poder analizar la probabilidad de exito en función de otros parámetros, como caracterísitcas del autor, para ver que características exclusivamente de los autores determinan el exito...
+
+
+
