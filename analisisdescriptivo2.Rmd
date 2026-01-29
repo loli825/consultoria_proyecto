@@ -10,28 +10,7 @@ date: "2026-01-13"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Marco teórico: qué es la razón áurea
-
-La razón áurea (también llamada proporción áurea, sección áurea o phi) es una proporción numérica aproximada de 1,618. Se define cuando dividimos un segmento en dos partes de forma que la relación entre la parte mayor y la menor sea la misma que la relación entre el total y la parte mayor. Esa proporción aparece en geometría y se relaciona con la sucesión de Fibonacci, porque el cociente entre términos consecutivos de Fibonacci se aproxima a 1,618 a medida que los números crecen.
-
-En arte y diseño, la razón áurea se ha popularizado como una regla de composición asociada a armonía visual. En el discurso histórico se vincula con tradiciones artísticas (especialmente desde el Renacimiento) y con la idea de que ciertas proporciones resultan equilibradas o agradables a la vista. Sin embargo, que algo se use como herramienta o que aparezca en ejemplos puntuales no implica que automáticamente sea una regla universal ni que explique por sí sola la “belleza” o la preferencia estética. Precisamente por eso es interesante tratarlo como un problema empírico: medir, comparar y contrastar hipótesis con datos. 
-
-La investigación psicológica y experimental sobre si preferimos la razón áurea ha dado resultados mixtos. Hay estudios experimentales donde se comparan versiones de una misma imagen/pintura ajustadas a distintas proporciones y se observa preferencia por la sección áurea en ciertos contextos y muestras, pero también hay trabajos que cuestionan que exista una preferencia automática o universal por esta proporción, especialmente cuando se usan pruebas implícitas y estímulos más variados.
-
-Además una línea importante de literatura advierte que muchas afirmaciones populares sobre la razón áurea en arte se apoyan en selecciones de ejemplos o en mediciones discutibles y que cuando se analiza de manera sistemática (por ejemplo, proporciones de formato en pinturas), la proporción áurea no siempre aparece como la proporción dominante.
-
-
-
-## Objetivos del estudio
-
-El objetivo general de este trabajo es construir un modelo explicativo que nos ayude a entender qué factores se asocian con que una obra cumpla o no la proporción áurea. No buscamos hacer predicción “para acertar”, sino explicar con qué características de las obras (como la época, el tamaño, la orientación, la técnica o el soporte) es más probable encontrar la proporción áurea y cómo estas características se relacionan entre sí.
-
-Como objetivo específico, queremos describir si el cumplimiento de la proporción áurea es un fenómeno frecuente dentro del conjunto de obras analizadas en el museo del prado y si dicho cumplimiento se concentra en determinados contextos (por ejemplo, en ciertos periodos históricos o en ciertos formatos). 
-
-Aunque nuestro conjunto de datos no mide directamente la “belleza” ni la “calidad artística”, sí nos permite plantear la pregunta de manera crítica: si la proporción áurea fuera una regla compositiva muy general en el arte, deberíamos observar patrones claros y consistentes en las obras analizadas; y si aparece de forma irregular o depende fuertemente del contexto, ello refuerza la idea de que su presencia no es universal y que conviene interpretarla como una herramienta posible, pero no como un criterio determinante.
-
-
-## Análisis descriptivo
+# 4. Análisis descriptivo
 
 ```{r, echo = F}
 library(readr)
@@ -64,8 +43,11 @@ Las clases minoritarias aun que ess habitual que algunas categorías tengan poca
 
 En resumen, trabajar variable por variable es una etapa imprescindible porque permite verificar la coherencia de las variables, comprender la estructura real de los datos y anticipar problemas derivados de categorías raras. Esto asegura que las comparaciones posteriores con exito sean interpretables, estables y defendibles.
 
+## 4.2. Variables individuales
 
-## EXITO
+
+**EXITO**
+
 ```{r, echo = F}
 table(df$exito)
 v <- "exito"
@@ -77,7 +59,8 @@ barplot(tab, las = 1, main = "¿Cumple la proporción áurea?", ylab = "frequenc
 ```
 
 
-## AREA
+**AREA**
+
 ```{r, echo = F}
 hist(df$area, breaks=40, main="Histograma de área", xlab="area")
 hist(log(df$area ), breaks=40, main="Histograma de log(area)", xlab="log(area)")
@@ -89,7 +72,8 @@ La variable area esta muy sesgada a la derecha: la mayoría de obras tienen áre
 
 Al hacer log(area) la distribución queda mucho más “normalita” (campana) y el boxplot se vuelve legible.
 
-## AREA CON ÉXITO
+**AREA CON ÉXITO**
+
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
 
@@ -127,7 +111,8 @@ df$area_bin <- cut(df$area, breaks = br, include.lowest = TRUE)
 ```
 
 
-##TAM_CAT
+**TAM_CAT**
+
 ```{r, echo = F}
 table(df$tam_cat)
 v <- "tam_cat"
@@ -136,8 +121,7 @@ tab <- sort(table(df[[v]]), decreasing = TRUE)
 barplot(tab, las = 1, main = "Tamaño", ylab = "frequencia")
 ```
 
-## TAM_CAT CON ÉXITO 
-
+**TAM_CAT CON ÉXITO**
 
 ```{r, echo = F}
 tab <- table(df$tam_cat, df$exito)
@@ -168,7 +152,8 @@ text(x = rep(bp, each = nrow(t(prop))),
 
 
 
-## ORIENTACIÓN
+**ORIENTACIÓN**
+
 ```{r, echo = F}
 table(df$orientacion)
 v <- "orientacion"
@@ -177,7 +162,8 @@ tab <- sort(table(df[[v]]), decreasing = TRUE)
 barplot(tab, las = 1, main = "Orientación", ylab = "frequencia")
 ```
 
-## EXITO SEGÚN ORIENTACIÓN 
+**EXITO SEGÚN ORIENTACIÓN**
+
 ```{r, echo = F}
 # Tabla orientación x éxito
 tab <- table(df$orientacion, df$exito_f)
@@ -208,7 +194,6 @@ n <- rowSums(tab)
 text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
 
 ```
-
 
 
 ```{r, echo = F}
@@ -262,7 +247,8 @@ par(op)
 ```
 
 
-## SOPORTE_GRP
+**SOPORTE_GRP**
+
 ```{r, echo = F}
 table(df$soporte_grp)
 v <- "soporte_grp"
@@ -271,7 +257,7 @@ tab <- sort(table(df[[v]]), decreasing = TRUE)
 barplot(tab, las = 1, main = "Soporte", ylab = "frequencia")
 ```
 
-## SOPORTE_GRP CON EXITO 
+**SOPORTE_GRP CON EXITO** 
 
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
@@ -353,7 +339,8 @@ par(op)
 
 
 
-## SOP_MONTAJE
+**SOP_MONTAJE**
+
 ```{r, echo = F}
 table(df$sop_montaje)
 v <- "sop_montaje"
@@ -365,7 +352,8 @@ names(tab)[names(tab) == "1"] <- "1 (Sí es un montaje)"
 barplot(tab, las = 1, main = "Soportes", ylab = "frequencia")
 ```
 
-## SOP_MONTAJE Y EXITO 
+**SOP_MONTAJE Y EXITO**
+
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
 df$sop_f <- factor(df$sop_montaje, levels=c(0,1), labels=c("No montaje","Sí montaje"))
@@ -450,7 +438,8 @@ par(op)
 
 
 
-## TECNICA
+**TECNICA**
+
 ```{r, echo = F}
 
 table(df$tecnica)
@@ -460,7 +449,7 @@ tab <- sort(table(df[[v]]), decreasing = TRUE)
 barplot(tab, las = 1, main = "Tecnica", ylab = "frequencia")
 ```
 
-## TECNICA CON EXITO 
+**TECNICA CON EXITO**
 
 ```{r, echo = F}
 
@@ -547,7 +536,8 @@ par(op)
 ```
 
 
-## TIPO_AUTOR
+**TIPO_AUTOR**
+
 ```{r, echo = F}
 table(df$tipo_autor)
 
@@ -557,7 +547,7 @@ tab <- sort(table(df[[v]]), decreasing = TRUE)
 barplot(tab, las = 1, main = "Tipo de Autor", ylab = "frequencia")
 ```
 
-## TIPO AUTOR CON EXITO 
+**TIPO AUTOR CON EXITO**
 
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
@@ -648,7 +638,8 @@ par(op)
 ```
 
 
-## SERIE 
+**SERIE**
+
 ```{r, echo = F}
 table(df$serie)
 v <- "serie"
@@ -659,7 +650,7 @@ names(tab)[names(tab) == "1"] <- "1 (Sí)"
 barplot(tab, las = 1, main = "Forma parte de una serie", ylab = "frequencia")
 ```
 
-## SERIE CON EXITO 
+**SERIE CON EXITO **
 
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
@@ -752,7 +743,8 @@ par(op)
 
 ```
 
-## FECHA_ESTIMADA
+**FECHA_ESTIMADA**
+
 ```{r, echo = F}
 x <- as.integer(df$fecha_est)
 x <- x[is.finite(x)]
@@ -769,7 +761,8 @@ hist(x, breaks = br,
 
 ```
 
-## FECHA Y EXITO 
+**FECHA Y ÉXITO **
+
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
 
@@ -822,12 +815,14 @@ boxplot((df$fecha_est) ~ df$exito,
         las = 1)
 ```
 
-## FECHA_ANCHO
+**FECHA_ANCHO**
+
 ```{r, echo = F}
 hist(df$fecha_ancho, breaks=40, main="Histograma de fecha_ancho", xlab="area")
 ```
 
-## TEMA 
+**TEMA** 
+
 ```{r, echo = F}
 table(df$tema)
 
@@ -836,7 +831,8 @@ tab <- sort(table(df[[v]]), decreasing = TRUE)
 barplot(tab, las = 2, main = "Tema de la Obra", ylab = "frequencia")
 ```
 
-## TEMA CON EXITO 
+**TEMA CON EXITO**
+
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels = c(0,1),
                      labels = c("No cumple","Sí cumple"))
@@ -923,9 +919,10 @@ par(op)
 ```
 
 
-## VARIABLES 2 A 2 
+## 4.2 Combinaciones 2 a 2
 
-### orientación con tam_cat
+**Orientación VS Tam_cat**
+
 ```{r, echo = F}
 tab <- table(df$orientacion, df$tam_cat)
 prop_col <- prop.table(tab, 2)  # proporciones
@@ -950,7 +947,8 @@ En los tres tamaños (pequeño, mediano y grande) prácticamente no aparecen obr
 Sí hay diferencias entre categorías: en “mediano” aumenta la proporción de verticales (y bajan las horizontales) respecto a “grande” y “pequeño”, pero las diferencias no parecen enormes (el patrón general se mantiene).
 
 
-### orientación con tam_cat i con exito
+**Orientación VS Tam_cat con Éxito**
+
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("0 (No cumple)","1 (Sí cumple)"))
 df$tam_cat <- factor(df$tam_cat, levels=c("pequeno","mediano","grande"))
@@ -990,8 +988,7 @@ par(op)
 
 ```
 
-
-### serie y soporte_grp
+**Série VS Soporte_grp**
 
 ```{r, echo = F}
 df$serie_f <- factor(df$serie, levels = c(0,1),
@@ -1034,7 +1031,8 @@ par(op)
 
 ```
 
-### soporte grp serie y exito
+**Soporte_grp VS Serie y Éxito**
+
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
 df$serie_f <- factor(df$serie, levels=c(0,1),
@@ -1092,8 +1090,7 @@ legend("center",
        cex=1)
 ```
 
-
-### serie i fecha estimada
+**Serie VS Fecha_est**
 
 ```{r, echo = F}
 df$serie_f <- factor(df$serie, levels = c(0,1),
@@ -1123,7 +1120,7 @@ stripchart(df$fecha_est[idx] ~ df$serie_f[idx],
 grid(nx = NA, ny = NULL)
 ```
 
-### fecha estimada serie y exito
+**Fecha_est VS Série con Éxito**
 
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels = c(0,1),
@@ -1163,7 +1160,7 @@ legend("topleft", inset = 0.02,
 ```
 
 
-### tema vs tecnica
+**Tema VS Técnica**
 
 ```{r, echo = F}
 tema <- factor(df$tema)
@@ -1218,7 +1215,7 @@ round(prop, 3)
 ```
 
 
-### tema vs tecnica y exito
+**Tema VS Técnica y Éxito**
 
 ```{r, echo = F}
 dev.new(width = 13, height = 5)
@@ -1295,7 +1292,7 @@ par(op)
 ```
 
 
-### area vs fecha
+**Área VS Fecha**
 
 ```{r, echo = F}
 
@@ -1316,7 +1313,7 @@ abline(lm(df$log_area ~ df$fecha_est), col = "red", lwd = 2)
 
 La línea LOWESS es la tendencia: como está casi plana (ligeramente hacia abajo), no parece que el área cambie mucho con la fecha, las  verticales salen porque muchos años se repiten.
 
-### area vs fecha con éxito 
+**Área VS Fecha_est con Éxito**
 
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
@@ -1344,8 +1341,7 @@ lines(lowess(df$fecha_est[df$exito_f=="No cumple"], y[df$exito_f=="No cumple"]),
 lines(lowess(df$fecha_est[df$exito_f=="Sí cumple"], y[df$exito_f=="Sí cumple"]), lwd=2, col="green3")
 ```
 
-
-### area por orientación 
+**Área VS Orientación **
 
 ```{r, echo = F}
 boxplot(log(df$area) ~ df$orientacion, las=2,
@@ -1353,8 +1349,7 @@ boxplot(log(df$area) ~ df$orientacion, las=2,
 
 ```
 
-
-### area por orientación con exito 
+**Área VS Orientación con Éxito **
 
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
@@ -1379,16 +1374,12 @@ boxplot(log(df2$area + 1) ~ grp,
 legend("topright", legend=c("No cumple","Sí cumple"), fill=c("red","green"), bty="n")
 ```
 
-
-### area por soporte
-
+**Área VS Soporte**
 
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
 with(df, table(orientacion, exito_f))
 ```
-
-
 
 ```{r, echo = F}
 boxplot(log(df$area) ~ df$soporte_grp, las=2,
@@ -1396,7 +1387,7 @@ boxplot(log(df$area) ~ df$soporte_grp, las=2,
 ```
 
 
-### Area por técnica 
+**Area VS Técnica**
 
 ```{r, echo = F}
 boxplot(log(df$area) ~ df$tecnica_f,
@@ -1408,7 +1399,7 @@ boxplot(log(df$area) ~ df$tecnica_f,
 
 ```
 
-### Area por técnica y éxito 
+**Area VS Técnica y Éxito**
 
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0, 1), labels=c("No cumple", "Sí cumple"))
@@ -1442,7 +1433,7 @@ par(op)
 
 ```
 
-### Soporte por area y exito 
+**Soporte VS Área y Éxito**
 
 ```{r, echo = F}
 par(mar=c(9,5,4,2)+0.1)
@@ -1470,7 +1461,7 @@ par(op)
 ```
 
 
-### orientación con soporte_grp
+**Orientación VS soporte_grp**
 
 ```{r, echo = F}
 tab_orient_soporte <- table(df$orientacion, df$soporte_grp)
@@ -1495,7 +1486,7 @@ legend("topright",
 
 ```
 
-### orientación con soporte_grp con éxito
+**Orientación VS Soporte_grp con Éxito**
 
 ```{r, echo = F}
 ori <- factor(df$orientacion)
@@ -1543,7 +1534,7 @@ par(op)
 ```
 
 
-### orientación con técniva 
+**Orientación VS técnica**
 
 ```{r, echo = F}
 ori <- factor(df$orientacion)
@@ -1577,7 +1568,7 @@ par(op)
 
 ```
 
-### orientación con técniva con exito 
+**Orientación VS Técnica con Éxito**
 
 ```{r, echo = F}
 ori <- factor(df$orientacion)
@@ -1623,7 +1614,7 @@ par(op)
 ```
 
 
-### orientación fecha_est
+**Orientación VS Fecha_est**
 
 ```{r, echo = F}
 df$orientacion <- factor(df$orientacion)
@@ -1639,7 +1630,7 @@ boxplot(fecha_est_num ~ orientacion,
 
 ```
 
-### orientación fecha_est con exito 
+**Orientación VS Fecha_est con Éxito**
 
 ```{r, echo = F}
 ori <- factor(df$orientacion)
@@ -1675,7 +1666,7 @@ par(op)
 ```
 
 
-### soporte_grp x tecnica 
+**soporte_grp VS Técnica **
 
 
 ```{r, echo = F}
@@ -1719,7 +1710,7 @@ par(op)
 ```
 
 
-### soporte_grp x tecnica con exito 
+**soporte_grp VS Técnica con Éxito**
 
 ```{r, echo = F}
 sup <- factor(df$soporte_grp)
@@ -1768,7 +1759,7 @@ par(op)
 ```
 
 
-### soporte_grp x fecha_estimada 
+**Soporte_grp VS Fecha_estimada**
 
 ```{r, echo = F}
 sup <- factor(df$soporte_grp)
@@ -1799,7 +1790,7 @@ par(op)
 
 
 
-### soporte_grp x fecha_estimada con exito 
+**Soporte_grp VS Fecha_estimada con Éxito**
 
 ```{r, echo = F}
 sup <- factor(df$soporte_grp)
@@ -1832,7 +1823,7 @@ par(op)
 ```
 
 
-### técnica x fecha_estimada
+**Técnica VS Fecha_estimada**
 
 ```{r, echo = F}
 tec <- factor(df$tecnica)
@@ -1864,7 +1855,7 @@ par(op)
 
 
 
-### técnica x fecha_estimada con exito 
+**Técnica VS Fecha_estimada con Éxito**
 
 ```{r, echo = F}
 tec <- factor(df$tecnica)
@@ -1898,83 +1889,7 @@ par(op)
 ```
 
 
-
-## tipo autor 
-
-
-```{r, echo = F}
-df$exito_f <- factor(df$exito, levels = c(0,1), labels = c("No cumple","Sí cumple"))
-df$tipo_autor_f <- factor(df$tipo_autor)
-df$orientacion_f <- factor(df$orientacion)
-df$soporte_f <- factor(df$soporte_grp)
-df$tecnica_f <- factor(df$tecnica)
-df$tema_f <- factor(df$tema)
-
-if (is.numeric(df$serie) || is.integer(df$serie)) {
-  df$serie_f <- factor(df$serie, levels = c(0,1),
-                       labels = c("No pertenece a serie","Pertenece a serie"))
-} else {
-  df$serie_f <- factor(df$serie)
-}
-
-if (is.numeric(df$sop_montaje) || is.integer(df$sop_montaje)) {
-  df$sop_montaje_f <- factor(df$sop_montaje, levels = c(0,1),
-                             labels = c("No montaje","Sí montaje"))
-} else {
-  df$sop_montaje_f <- factor(df$sop_montaje)
-}
-
-
-df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
-df$tipo_autor_f <- factor(df$tipo_autor)
-
-# tam_cat: si está roto (todo NA), lo reconstruimos desde area
-if ("tam_cat" %in% names(df)) {
-  if (all(is.na(df$tam_cat))) {
-    qs <- quantile(df$area, probs=c(1/3, 2/3), na.rm=TRUE)
-    df$tam_cat <- cut(df$area,
-                      breaks=c(-Inf, qs[1], qs[2], Inf),
-                      labels=c("pequeno","mediano","grande"),
-                      include.lowest=TRUE, ordered_result=TRUE)
-  } else {
-    df$tam_cat <- factor(as.character(df$tam_cat), ordered=TRUE)
-    if (all(c("pequeno","mediano","grande") %in% levels(df$tam_cat))) {
-      df$tam_cat <- factor(df$tam_cat, levels=c("pequeno","mediano","grande"), ordered=TRUE)
-    }
-  }
-}
-
-# serie y sop_montaje por si vienen como 0/1 numérico
-if ("serie" %in% names(df) && (is.numeric(df$serie) || is.integer(df$serie))) {
-  df$serie <- factor(df$serie, levels=c(0,1), labels=c("No serie","Sí serie"))
-} else if ("serie" %in% names(df)) df$serie <- factor(df$serie)
-
-if ("sop_montaje" %in% names(df) && (is.numeric(df$sop_montaje) || is.integer(df$sop_montaje))) {
-  df$sop_montaje <- factor(df$sop_montaje, levels=c(0,1), labels=c("No montaje","Sí montaje"))
-} else if ("sop_montaje" %in% names(df)) df$sop_montaje <- factor(df$sop_montaje)
-
-# factores típicos
-if ("orientacion" %in% names(df)) df$orientacion <- factor(df$orientacion)
-if ("soporte_grp" %in% names(df)) df$soporte_grp <- factor(df$soporte_grp)
-if ("tecnica" %in% names(df)) df$tecnica <- factor(df$tecnica)
-if ("tema" %in% names(df)) df$tema <- factor(df$tema)
-if ("fecha_est" %in% names(df)) df$fecha_est <- as.integer(df$fecha_est)
-if ("area" %in% names(df)) df$area <- as.numeric(df$area)
-
-# colapsar categorías si hay muchísimas (para que se lea)
-collapse_top <- function(f, top=12){
-  f <- factor(f)
-  tab <- sort(table(f), decreasing=TRUE)
-  keep <- names(tab)[seq_len(min(top, length(tab)))]
-  out <- as.character(f)
-  out[!(out %in% keep)] <- "Otros"
-  factor(out, levels=c(keep, "Otros"))
-}
-
-```
-
-
-## tipo de autor vs tema
+**Tipo_autor VS Tema**
 ```{r, echo = F}
 tab <- table(df$tipo_autor, df$tema)
 prop <- prop.table(tab, 1)
@@ -2003,7 +1918,7 @@ Los temas no se reparten igual según el tipo de autor: cambian bastante entre a
 Pero “mujer” y “varios” tienen muy pocos casos, así que ahí las proporciones pueden engañar.
 Esto sugiere que tipo_autor y tema están relacionados, así que si metemos uno en el modelo el otro puede aportar poco (o habría que agrupar categorías).
 
-## tipo_auto vs tema con exito 
+**Tipo_autor VS Tema con Éxito**
 
 ```{r, echo = F}
 
@@ -2070,7 +1985,8 @@ La distribución de temas por tipo de autor es bastante parecida entre “No cum
 Los grupos “mujer” y “varios” tienen muy pocos casos (n muy pequeño), así que cualquier diferencia ahí puede ser casualidad.
 En el descriptivo, tipo_autor no parece una variable clave para el modelo; si metemos tema, tipo_autor probablemente aportará poco.
 
-## tipo_autor vs tecnica
+**Tipo_autor VS Técnica**
+
 ```{r, echo = F}
 tab <- table(df$tipo_autor, df$tecnica)
 prop <- prop.table(tab, 1)
@@ -2099,7 +2015,7 @@ Casi todo es óleo en anónimo/hombre/mujer, así que la técnica apenas cambia 
 Con tan poca diferencia, esta variable no parece que vaya a ayudar mucho a explicar el éxito (da poca “señal”).
 No debería ser prioritaria en el modelo; solo tendría sentido si en el gráfico técnica vs éxito se viera una diferencia clara.
 
-## tipo_autor vs tecnica con exito 
+**Tipo_autor VS Técnica con Éxito**
 
 ```{r, echo = F}
 
@@ -2162,7 +2078,7 @@ par(op)
 
 ```
 
-## tipo_autor vs soporte_grp
+**Tipo_autor VS Soporte_grp**
 ```{r, echo = F}
 tab <- table(df$tipo_autor, df$soporte_grp)
 prop <- prop.table(tab, 1)
@@ -2187,7 +2103,7 @@ round(prop, 3)
 
 ```
 
-## tipo_autor vs soporte_grp con exito
+**Tipo_autor VS Soporte_grp con Éxito**
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
 df$tipo_autor_f <- factor(df$tipo_autor)
@@ -2252,7 +2168,7 @@ par(op)
 ```
 
 
-## tam_cat vs tipo de autor
+**Tam_cat VS Tipo_autor**
 
 ```{r, echo = F}
 
@@ -2300,7 +2216,7 @@ round(prop, 3)
 
 ```
 
-## tam_cat vs tipo de autor con exito 
+**tam_cat VS tipo_autor con Éxito**
 
 ```{r, echo = F}
 tab <- table(df$tam_cat, df$tipo_autor, df$exito)
@@ -2330,7 +2246,7 @@ par(op)
 ```
 
 
-## tipo_autor vs orientacion
+**Tipo_autor VS Orientación**
 ```{r, echo = F}
 tab <- table(df$tipo_autor, df$orientacion)
 prop <- prop.table(tab, 1)
@@ -2357,7 +2273,7 @@ Este gráfico muestra la distribución de la orientación de las obras (horizont
 Las obras de autores anónimos y hombres son predominantemente horizontales, mientras que las obras de mujeres y varios presentan una mayor proporción de obras verticales.
 Esta variable (orientación) podría ser relevante para el modelo si se confirma que influye en el éxito, ya que hay diferencias visibles en la distribución por tipo de autor.
 
-## tipo_autor vs area (boxplot de log(area))
+**Tipo_autor VS Área**
 
 ```{r, echo = F}
 y <- log(df$area)
@@ -2370,7 +2286,7 @@ boxplot(y ~ df$tipo_autor, las=2,
 ```
 
 
-## area por tipo de autor y exito 
+**Área por Tipo_autor y Éxito**
 
 ```{r, echo = F}
  df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
@@ -2418,7 +2334,7 @@ par(op)
 
 ```
 
-## tipo_autor vs fecha_est 
+**Tipo_autor VS Fecha_est** 
 
 ```{r, echo = F}
 df$tipo_autor_f <- factor(df$tipo_autor)
@@ -2452,7 +2368,7 @@ par(op)  # Restaurar la configuración original
 
 ```
 
-## tipo_autor vs fecha_est con exito 
+**Tipo_autor VS Fecha_est con Éxito**
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
 df$tipo_autor_f <- factor(df$tipo_autor)
@@ -2505,7 +2421,7 @@ par(op)
 ```
 
 
-## tipo_autor vs serie
+**Tipo_autor VS serie**
 ```{r, echo = F}
 tab <- table(df$tipo_autor, df$serie)
 prop <- prop.table(tab, 1)
@@ -2529,7 +2445,7 @@ round(prop, 3)
 ```
 
 
-## tipo_autor vs serie con exito 
+**Tipo_autor VS Serie con Éxito**
 
 ```{r, echo = F}
 df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
@@ -2570,7 +2486,7 @@ par(op)
 
 
 
-### CONCLUSIONES
+**Resumen:**
 
 Hemos revisado todos los gráficos para entender qué variables podrían estar relacionadas con exito, que es nuestra variable respuesta (sí cumple o no cumple la proporción áurea). 
 
