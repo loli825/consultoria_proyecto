@@ -29,7 +29,6 @@ Com a objectiu específic volem descriure si el compliment de la proporció àur
 Finalment, com a objectiu interpretatiu, volem discutir fins a quin punt el fet que una obra estigui present en museus o catàlegs pot estar relacionat amb decisions estètiques i de composició com la proporció àuria. Tot i que el nostre conjunt de dades no mesura directament “bellesa” ni “qualitat artística”, sí que ens permet plantejar la pregunta de manera crítica: si la proporció àuria fos una regla compositiva molt general en l’art, hauríem d’observar patrons clars i consistents en les obres analitzades i si apareix de forma irregular o depèn fortament del context, això reforça la idea que la seva presència no és universal i que cal interpretar-la com una eina possible però no de manera determinant.
 
 
-
 ```{r, echo = F}
 library(readr)
 setwd("~/Desktop/consultoria_proyecto")
