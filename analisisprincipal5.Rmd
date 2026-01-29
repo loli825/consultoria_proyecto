@@ -1005,7 +1005,7 @@ cat("\nPseudo R² de McFadden:\n")
 1 - summary(m_principal)$deviance / summary(m_principal)$null.deviance
 
 ```
-Observamos que la deviance es menor que la del modelo nulo, lo que nos esta indicando que al introducir las variables explicativas tenemos una mejora del modelo. Las covariables introducidas aportan informacion para estimar la probabilidad. El psudo-$R^2$ bajo nos indica una 
+Observamos que la deviance es menor que la del modelo nulo, lo que nos esta indicando que al introducir las variables explicativas tenemos una mejora del modelo. Las covariables introducidas aportan informacion para estimar la probabilidad. El psudo-$R^2$ baja nos indica una explicación modesta de la variabilidad de los datos.
 
 **Capacidad discriminativa**
 
@@ -1337,7 +1337,9 @@ c(
 )
 ```
 Los tres modelos alternativos tienen valores finitos de deviance lo que indica que el modelo converge correctamente y que no tenemos problemas evidentes de ajuste. 
-Los valores reducidos del psudo-$R^2$ nos indican que los modelos mejoran al modelo nulo, lo que sugiere que los modelos tienen una capacidad explicativa moderada
+Los valores reducidos del psudo-$R^2$ nos indican que los modelos mejoran al modelo nulo, lo que sugiere que los modelos tienen una capacidad explicativa modesta.
+
+Los valores psudo-$R^2$ son muy bajos, esto puede deberse a que los datos estan balanceados y pueden ser ruidosos. Posteriormente, mediante la capacidad discriminativa acabamos de detectar si hay suficiente capacidad explicativa para determinar que hay diferencia respeto el modelo nulo.
 
 **Capacidad discriminativa**
 
@@ -1360,6 +1362,8 @@ legend("bottomright",
        col = c( "blue", "red", "black"),
        lwd = 1)
 ```
+El AUC de los tres modelos alternativos muestran discriminación moderada de los datos.
+
 Las curvas ROC muestran que, para todos los modelos alternativos, la sensibilidad aumenta a medida que disminuye la especificidad, situándose consistentemente por encima de la diagonal de referencia. Esto indica una capacidad de discriminación superior al azar y respalda la validez predictiva de los modelos.
 
 **Residuos del modelo**
@@ -1405,6 +1409,7 @@ cat("\nVIF de los modelos:\n")
 lapply(modelos, vif)
 ```
 Analizamos la multicolinealidad mediante el VIF i GVIF, los cuales no muestran valores elevados en ninguno de los predictores de ningún modelo. Nos indica que los modelos alternativos no presentan problemas de multicolinealidad.
+
 
 # RESULTADOS (FALTA HACER DE MANERA QUE QUEDE BIEN)
 En esta sección presentamos los resultados correspondientes al modelo escogido (m_principal), y de los modelos alterntivos mA1, mA2 y mA3. Generalmente haremos una interpretación de estos modelos a partir de los efectos marginales, de esta manera podremos analizar el efecto de cada variable cuando mantenemos las demás constantes. También haremos comparaciones a pares para ver la diferencia entre los niveles especificos de cada variable y ver si estas diferencias son estadísticamente significativas o si no podemos confirmar que lo sean.
