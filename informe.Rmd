@@ -1,0 +1,4769 @@
+---
+title: 'A la caza del phi: explicando qué obras "dan la talla" áurea'
+author: "Manuela Lopez Cambron, 1673688"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      eval = TRUE,
+                      results = 'hold',
+                      fig.show = 'hold',
+                      message = FALSE,
+                      warning = FALSE)
+```
+
+```{r}
+library(pROC)
+library(dplyr)
+library(car)
+library(marginaleffects)
+library(broom)
+library(margins)
+library(ggplot2)
+library(forcats)
+library(modelsummary)
+library(tm)
+library(readr)
+library(splines)
+library(brglm2)
+```
+
+
+# CONTENIDOS 
+
+1. Introducción 
+
+1.2 Motivación del estudio
+
+1.3 Objetivos e hipótesis
+
+1.4 Presentación de los datos
+
+2. Metodología
+
+3. Gestión de datos e ingeniería de características
+
+3.1 Manejo de valores faltantes
+
+3.2 Transformación de variables
+
+3.3 Creación de nuevas variables
+
+3.4 Manejo de desbalances
+
+4. Análisis descriptivo
+
+4.1 Variables individuales
+
+4.2 Combinaciones dos a dos
+
+4.3 Manejo de outliers
+
+5. Análisis principal
+
+5.1 Efectos principales
+
+5.2 Interacciones
+
+5.3 Diagnóstico de ajuste y correcciones
+
+5.4 Validación del modelo
+
+5.5 Modelos alternativos y validación 
+
+
+
+# 1. Introducción 
+
+## 1.2 Motivación del estudio 
+
+La razón áurea (también llamada proporción áurea, sección áurea o phi) es una proporción numérica aproximada de 1,618. Se define cuando dividimos un segmento en dos partes de forma que la relación entre la parte mayor y la menor sea la misma que la relación entre el total y la parte mayor. Esa proporción aparece en geometría y se relaciona con la sucesión de Fibonacci, porque el cociente entre términos consecutivos de Fibonacci se aproxima a 1,618 a medida que los números crecen.
+
+En arte y diseño, la razón áurea se ha popularizado como una regla de composición asociada a armonía visual. En el discurso histórico se vincula con tradiciones artísticas (especialmente desde el Renacimiento) y con la idea de que ciertas proporciones resultan equilibradas o agradables a la vista. Sin embargo, que algo se use como herramienta o que aparezca en ejemplos puntuales no implica que automáticamente sea una regla universal ni que explique por sí sola la “belleza” o la preferencia estética. Precisamente por eso es interesante tratarlo como un problema empírico: medir, comparar y contrastar hipótesis con datos. 
+
+La investigación psicológica y experimental sobre si preferimos la razón áurea ha dado resultados mixtos. Hay estudios experimentales donde se comparan versiones de una misma imagen/pintura ajustadas a distintas proporciones y se observa preferencia por la sección áurea en ciertos contextos y muestras, pero también hay trabajos que cuestionan que exista una preferencia automática o universal por esta proporción, especialmente cuando se usan pruebas implícitas y estímulos más variados.
+
+Además una línea importante de literatura advierte que muchas afirmaciones populares sobre la razón áurea en arte se apoyan en selecciones de ejemplos o en mediciones discutibles y que cuando se analiza de manera sistemática (por ejemplo, proporciones de formato en pinturas), la proporción áurea no siempre aparece como la proporción dominante.
+
+## 1.3 Objetivos e hipótesis
+
+**Objetivos**
+
+El objetivo general de este trabajo es construir un modelo explicativo que nos ayude a entender qué factores se asocian con que una obra cumpla o no la proporción áurea. No buscamos hacer predicción “para acertar”, sino explicar con qué características de las obras (como la época, el tamaño, la orientación, la técnica o el soporte) es más probable encontrar la proporción áurea y cómo estas características se relacionan entre sí.
+
+Como objetivo específico, queremos describir si el cumplimiento de la proporción áurea es un fenómeno frecuente dentro del conjunto de obras analizadas en el museo del prado y si dicho cumplimiento se concentra en determinados contextos (por ejemplo, en ciertos periodos históricos o en ciertos formatos). 
+
+Aunque nuestro conjunto de datos no mide directamente la “belleza” ni la “calidad artística”, sí nos permite plantear la pregunta de manera crítica: si la proporción áurea fuera una regla compositiva muy general en el arte, deberíamos observar patrones claros y consistentes en las obras analizadas; y si aparece de forma irregular o depende fuertemente del contexto, ello refuerza la idea de que su presencia no es universal y que conviene interpretarla como una herramienta posible, pero no como un criterio determinante.
+
+**Hipótesis**
+
+Consideramos las siguientes hipótesis acerca de variables que podrían relacionarse con la probabilidad de cumplimiento de la razón aurea en las pinturas:
+
+1) Posiblemente la fecha de creación de la obra de relacione con el evento de interés debido a corrientes artísticas ir al innegable cambio es los conceptos de belleza.
+
+2) Presuponemos que posiblemente el tamaño de la obra mantenga relación con la decisión de sus medidas y su relación (proporción aurea) debido a la perspectiva con que esta se mira. Es decir, cuando una obra es más pequeña podemos verla en su totalidad más rápidamente, mientras que si esta es de dimensiones más grandes nos vemos forzados a recorrerla con la mirada. Por esta razón queremos estudiar si la proporción aurea pudiera estar relacionada con estos aspectos y quizás marcar la semilla de una futura investigación.
+
+3) Muy relacionado con el punto anterior, se nos planteó la pregunta de si quizás las dimensiones de la obra por si solas no fueran el punto clave. Consideramos que el material de soporte utilizado es un factor influyente en sus dimensiones y quizás más limitante en unos tamaños que en otros, por lo tanto relacionado con la proporción aurea en función del tamaño de la obra
+
+4) Relacionado con el apartado anterior, también se considera estudiar si la iconografia de la pintura podría estar relacionada debido a aspectos de composición en su interior que acaben repercutiendo en las dimensiones totales.
+
+
+## 1.4 Presentación de los datos
+
+Para el propósito del estudio se ha decidido estudiar la coleción de obras de arte del Prado, concretamente aquellas clasificadas como pinturas. Mediante web scraping, se ha extraido la ficha técnica de las 7.117 pinturas, la cual contiene la siguiente información: 
+
+Siempre (en todas las obras):
+
+  - Número de catálogo (asignado por el Prado, único por obra)
+
+  - Título
+
+  - Fecha
+
+Casi siempre:
+
+  - Técnica (7.114/7.117)
+
+  - Dimensión (7.107/7.117)
+
+  - Procedencia (7.098/7.117)
+
+  - Soporte (7.096/7.117)
+
+- A veces:
+
+  - Serie (1.415/7.117)
+
+Muy raros:
+
+  - Materia, Lugar de producción, Edición / Estado
+
+Están son las variables originales de las que se disponía, y después de la correspondiente gestión de datos se ha obtenido la base de datos final con un total de 7.002 registros y 12 variables preparadas para el análisis. En el archivo original, los valores faltantes se condificaban como "0", después de su apropiada gestión, se proporciona un dataset sin valores faltantes.
+
+**Diccionario de variables**
+
+- exito: Indicador de cumplimiento de "razón aurea", con error del 5% (categórica binaria, 2 niveles: 0 no, 1 sí)
+
+- area: Área de la pintura a partir de las dimensiones, tamaño en formato numérico (numérica)
+
+- tam_cat:  Tamaño categorizado a partir del área usant cuantiles (categórica ordinal, utilizada como nominal, 3 niveles: pequena, mediano, grane)
+
+- orientación: Forma según comparación de dimensiones (categórica nominal, 3 niveles:vertical, horizontal, cuadrado)
+
+- soporte_grp: Agrupación de tipos de soporte en familias de material (categórica nominal, niveles: Lienzo, Tabla/Panel, Metal, Mural, Otros)
+
+- sop_montaje: Indicador de "montaje/transferencia" detectado en el campo soporte (cotegórica binaria, 2 niveles: 0 no, 1 sí)
+
+- tecnica: Agrupación de técnicas en grupos genéricos (categórica nominal, 3 niveles: mixta, oleo, otras)
+
+- tipo_autor: A partir de autor/autora/autores se creó un tipo de autoría (categórica nominal, 4 niveles: hombre, mujer, varios, anonimo)
+
+- serie: Indicador de pertenencia a serie (categórica binaria, 2 niveles: 0 no, 1 sí)
+
+- fecha_est: Año estimado a partir de la datación convertida en intervalo, año central de este (numérica)
+
+- fecha_ancho: Incertidumbre/ancho del intervalo temporal de datación (numérica)
+
+- tema: Tema asignado en función de términos clave encontrados en el texto original de título (categórica, 10 niveles: religioso, mitologia, retrato_corte, historia_aleagoria, paisajes_lugares, vida_cotidiana, bodegon_floral, caza_animales, proceso_obra, otros)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 2. Metodología
+
+Como enfoque general se decidieron adoptar procedimientos que permitieran contar una historia en relación a las variables que finalmente se involucren. No solo obtener resultados automatizados sinó estudiar en profundidad cómo unas variables, en presencia o no de otras, afectan a la probabilidad de observar el evento de interés. Por lo tanto, no se presentará un único modelo, pues consideramos que dado el gran alcance de nuestra base de datos, no existe un único modelo óptimo para estudiarla, sino diversas combinaciones de variables que respondan a preguntas de distinto enfoque.   
+
+Como aprendimos en la última práctica, gracias a la lectura del artículo "A hypotesis is a liability", la persecución de nuestras hipótesis no debe ser el único objetivo de un buen estudio. Debemos recordar la importancia de trabajar los datos tanto bajo la ciencia diurna como la nocturna, de manera que mantengamos la mente y los ojos abiertos a nuevas posibilidades aunque siempre en presencia y ayuda de procedimientos y técnicas adecuadas que nos permitan analizarlos rigurosamente.
+
+Por esta razón, se descartan los métodos de selección automática tipo stepwise con el fin de controlar cada paso interno que este tipo de procesos esconden. En su lugar, se hará uso de una filosofía de selección basada en bloques conceptuales que definen las variables. Estos bloques se introducirán uno por uno por uno de manera que se irá construyendo un modelo principal sobre el que trabajaremos pero también se irá guardando la información obtenida en cada paso no fructifero de manera que se utilizará para generar otros modelos alternativos que nos permitan estudiar la variable respuesta desde otro enfoque. Esta filosofía pretende ser adecuada para explorar al máximo nuestra base de datos y darnos información potencialmente interesante sobre todas y cada una de las variables.
+
+Por otro lado debemos poder actuar de forma estadísticamente correcta, por lo que en esta sección se detallan los procedimientos y técnicas utilizadas, además de los criterios preestablecimos en relación a las sucesivas decisiones que se tomarán para derivar tanto el modelo principal como los alternativos.
+
+**Regla estructural 'cuadrado'**
+
+Primera deberemos modificar nuestra abse de datos de manera que se eliminarán las observaciones de pinturas cuadradas. Como se informó anteriormente, la categoría 'cuadrado' de la variable "orientacion" genera ceros estructurales, ya que por definición los cuadros cuadrados nunca seguirán la proporción aurea. La presencia de una categoría con ausencia completa del evento induce separación perfecta en modelos binarios, lo que puede producir estimaciones inestables o no finitas y distorsionar la estimación de efectos del resto de covariables. Por estos motivos, se restringió el análisis inferencial a la subpoblación con orientacion $\neq$ "cuadrado". Gracias a esta modificación podemos introducir la variable "orientación" sin problemas, pero la inferencia de nuestro estudio solo será aplicable a esta subpoblación. 
+
+**Modelos y correcciones**
+
+La base para el análisis serán Modelos Lineales Generalizados (GLZ/GLM). No se contempla la utilización de modelos mixtos dado que no hay presencia aparente de estructura por bloques. Las observaciones se consideran independientes entre sí, puesto que disponemos de una única medición de cada variable para cada obra, ni ninguna variable que naturalmente las pueda estructurar. Nuestra variable respuesta es de tipo binaria, por lo que asumiremos una distribución Binomial con enlace logit (enlace canónico de la distribución). Es decir trabajaremos en todo momento con regresiones logísticas.
+
+Dado el desbalance y la posible separación a la que podremos enfrentarnos, se considerará añadir una reducción de sesgo con un enfoque Firth.
+
+**Selección de efectos principales** 
+
+Es en este punto donde se remarca la filosofía por bloques utilizada: para la selección de las covariables que formarán parte del modelo principal, y las que se mantendrán para los modelos alternativos. 
+
+Las variables han sido clasificadas en los siguientes bloques según su interpretación conceptual:
+
+1) Datación + incertidumbre (fecha_est, fecha_ancho)
+
+2) Morfología (log(area), orientacion) + (tam_cat)
+
+3) Material y tecnica (soporte_grp, tecnica) + (sop_montaje, como "control")
+
+4) Iconografia (tema)
+
+5) Autoría y serie (tipo_autor, serie)
+
+Comenzaremos con un modelo nulo sobre el cual se irán añadiendo estos bloques de variables sucesivamente y uno por uno. En cada paso se valorará si el bloque demuestra o no mejora respecto el modelo anterior. Se analizará si éste aporta información adicional mediante comparación de modelos anidados y el coste en complejidad que refleja. Si el veredicto es positivo, entonces se mantendrá el bloque en el modelo principal y se añadirá el siguiente sobre este. Si un bloque o una variable no demuestra aportar información al modelo ajustado por los anteriores, se descartará automáticamente. Si por el contrario existe aporte de información pero coste de complejidad excesivo, se mantendra el bloque para ser utilizado en un futuro modelo alternativo.
+
+**Selección de interacciones**
+
+Una vez escogidas las covariables principales, se procederá a determinar la inclusión de algunas interacciones al modelo principal. No se considerarán interacciones de dos variables. Aunque algunas de ellas son de interés para nosotros con el fin de dar respuesta a nuestras hipótesis, la principal herramiento para su selección serán los gráficos de analisis descriptivo, donde se hará una primera criva. Las candidatas serán sometidas a una segunda criva en esta sección del análisis de interacciones. Primeramente se graficarán los gráficos de interacción de los modelos con cada una de ellas. Seguidamente, aquellas que resulten significativas se verificarán mediante la inspección de sus combinaciones de niveles para descartar relaciones engañosas devido a celdas vacías (ya que se han observado incidios de desbalances muchas de ellas). Finalmente las seleccionadas se someterán a pruebas formales mediante modelos anidados.
+
+**Trnasformación de variables**
+
+Según se visualice en el análisis descriptivo, se decidirá si algunas de las variables continuas deben ser transformadas o no para entrar en el modelo.
+
+Además, para estas variables se considerarán siempre tanto una especificación lineal como una flexible mediante spline con 3 nudos, ya que no se espera una relación que exista una relación del todo lineal entre "fecha_est" y "area" con la respuesta, pero ambas son variables que queremos que entren en el modelo. Abas especificaciones se compararan con modelos anidados.
+
+**Comparación de modelos**
+
+Para las comparaciones de modelos anidados se empleará el test de razón de verosimilitudes (LRT) basado en diferencia de devianza con distribución $\chi^2$. Con una confianza del 95% en el análisis de efectos principales y con una confianza del 99% en el análisis de interacciones.
+
+También de emplearán los criteriors de información Akaike y Bayesiano (AIC/BIC) para evaluar el coste de complejidad, consideran un aumento de 2 puntos como significativo.
+
+Para cada modelo anidado se proporcionará también el resumen estadístico de este (summary) para visualizar rápidamente si vemos indicios problemáticos, concretamente para verificar que los errore estándares de los coeficientes no se disparán y que el modelo se ha ajustado correctamente.
+
+**Validación de modelos**
+
+Para la validación de los modelos se ha analizado la desviación i pseudoR2. La capacidad discriminativa mediante el área bajor la curva y las gráficas ROC. Analizado los residuos de los modelos y revisado los problemas de multicolinealidad mediante el VIF y el GVIF ajustado.
+
+Para el modelo principal también se ha analizado la distància de cook al detectar mediante el summary que havia interacciones influyentes. Posteriormente, se ha creado la tabla para detectar las causas.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 3. Gestión de datos e ingeniería de características
+
+```{r}
+#####################################################
+# GESTIÓN DE DATOS
+#####################################################
+
+#####################################################
+# IMPORTAR BASE DE DATOS
+#####################################################
+
+df <- read.csv("prado.csv", fileEncoding = "UTF-8")
+```
+
+En esta sección se trabajará la información obtenida del web scrapping con el objetivo de crear la base de datos final que analizaremos, la cual ha sido descrita en la sección anterior.
+
+## 3.1 Manejo de valores faltantes
+
+Tal y como se ha generado la base de datos, los valores faltantes estan indicados como "0". Veamos el porcentaje de estos para cada variables:
+```{r}
+#####################################################
+# MANEJO DE VALORES FALTANTES
+#####################################################
+# FRECUENCIA DE VARIABLES
+prop_cero <- sapply(df, function(x) mean(as.character(x) == "0"))
+
+prop_cero_lista <- data.frame(
+  variable  = names(df),
+  prop_cero = as.numeric(prop_cero),
+  row.names = NULL
+)
+prop_cero_lista <- prop_cero_lista[order(prop_cero_lista$prop_cero, decreasing = TRUE), ]
+
+prop_cero_lista
+```
+
+Eliminamos "estado", "lugar_produccion" y "materia", debido a su gran presencia de valores faltantes no podemos extraer información. Eliminamos también los casos donde haya ausencia de información para las variable "procedencia", "soporte" o "tecnica". Justificamos el análisis de casos completos considerando esta ausencia totalmente aleatoria provocada por fenomenos sociales o históricos a cerca de la conservaciónd de estas obras que no mantienen relación con nuestro objetivo, la proporción aurea.
+
+Los valores faltantes de las otras variables se manejaran automaticamente mediante las transformaciones pertinentes de estas en la siguiente sección.
+
+**Eliminar variables no deseadas**
+```{r}
+# ELIMINAR VARIABLES CON BAJA FREC.
+df <- df[ , !(names(df) %in% c("estado", "lugar_produccion", "materia")) ]
+names(df)
+```
+
+**Eliminamos casos incompletos**
+```{r}
+# ELIMINAR CASOS INCOMPLETOS
+n_antes <- nrow(df)
+df <- df[df$tecnica != "0",]; df <- df[df$soporte != "0",]
+
+n_despues <- nrow(df)
+cat("Se han eliminado", n_antes-n_despues, "casos")
+```
+
+## 3.2 Transformación de variables
+
+Aunque nuestra base de datos ya aporta la información necesaria, sus variables no presentan la estructura que necesitamos para trabajarla. Por esta razón, en esta sección se procederá a transformar y crear nuevas variables de manera que queden listas para ser utilizadas en el modelaje.
+
+**Recodificación de variables de autoría**
+
+Agruparemos las variables "autor", autora", "autores" creando una variable "tipo_autor" que indicará si se trata de 'hombre/mujer/varios/anonimo' y además se conservarán los nombres en una nueva variable llamada "nombre_autor". 
+```{r}
+#####################################################
+# TRANSFORMACIÓN DE VARIABLES
+#####################################################
+
+# RECOD. 'AUTOR', 'AUTORA', 'AUTORES'
+# 1) nombre_autor: coger el valor distinto de "0"
+df$nombre_autor <- ifelse(df$autor != "0", df$autor,
+                   ifelse(df$autora != "0", df$autora,
+                   ifelse(df$autores != "0", df$autores, "0")))
+
+# 2) tipo_autor: segun valor distinto de "0"
+df$tipo_autor <- ifelse(df$autor == "Anónimo", "anonimo",
+                 ifelse(df$autora  != "0", "mujer",
+                 ifelse(df$autores != "0", "varios",
+                 ifelse(df$autor   != "0", "hombre", "0"))))
+df$tipo_autor <- as.factor(df$tipo_autor)
+
+# 3) eliminamos variables antiguas
+df$autor <- NULL
+df$autora <- NULL
+df$autores <- NULL
+
+# comprobacion 
+table(df$tipo_autor)
+head(df[, c("tipo_autor","nombre_autor")], 10)
+tail(df[, c("tipo_autor","nombre_autor")], 10)
+```
+
+**Recodificación de variable "serie"**
+
+Consideramos apropiado mantener "serie" en calidad de conocer si la pintura pertenece (1) o no (0) a una serie, sin importar a cuál, por lo que la convertiremos en una variable binaria indicadora. 
+```{r}
+# RECOD. 'SERIE'
+df$serie <- ifelse(df$serie == "0", 0, 1)
+df$serie <- as.factor(df$serie)
+
+table(df$serie)
+```
+
+**Recodificación de variable "tecnica"**
+
+Estamos frente a una variable que podría ser interpretada como un factor pero presenta demasiados niveles.
+```{r}
+cat("Niveles de 'tecnica':\n")
+table(df$tecnica)
+```
+
+La solución óptima, dado que muchos casos presentan niveles multi-etiqueta, será recodificar en varias variables dummies como indicadores interpretables de la presencia de cada categoría. De esta manera podremos asociar la presencia de cada técnica concreta con el aumento o no en la probabilidad de observar nuestro evento de interés. Obviamos las técnicas poco frecuentes 'Pastillaje', 'Pastel', 'Aguada', 'Técnicas de fotografía'
+```{r}
+# RECOD. 'TECNICA'
+mk <- function(x, pattern) as.integer(grepl(pattern, x, ignore.case = TRUE))
+
+## normalizar
+df$tecnica <- trimws(as.character(df$tecnica))
+x <- df$tecnica
+
+## dummies 
+df$tec_oleo       <- mk(x, "Óleo")
+df$tec_temple     <- mk(x, "Temple")     
+df$tec_tempera    <- mk(x, "Témpera")
+df$tec_fresco     <- mk(x, "Pintura al fresco|falso fresco|al seco")
+df$tec_mixta      <- mk(x, "Técnica mixta")
+df$tec_enconchado <- mk(x, "Enconchado")
+df$tec_grisalla   <- mk(x, "Grisalla")
+df$tec_dorado     <- mk(x, "Dorado|pan de oro")
+df$tec_pastillaje = mk(x,"Pastillaje")
+df$tec_pastel = mk(x,"Pastel")
+df$tec_aguada = mk(x,"Aguada")
+df$tec_foto = mk(x,"Técnicas de fotografía")
+
+tec_cols <- c("tec_oleo","tec_temple","tec_tempera","tec_fresco","tec_mixta", "tec_enconchado","tec_grisalla","tec_dorado", "tec_pastillaje", "tec_pastel", "tec_aguada", "tec_foto")
+
+## frecuencias/comprobación
+cat("Frecuencia de cada técnica:\n")
+print(sort(colSums(df[, tec_cols, drop=FALSE]), decreasing = TRUE))
+```
+
+Vemos que hay una serie de técnicas con poca frecuencia, por el bien de nuestros futuros modelos, agruparemos estas variables dummies en una nueva llamada "tec_otras". La única con baja frecuencia que conservaremos será 'fresco' debido a su posible efecto sobre la respuesta, ja que envuelve un tipo de obra con características propias. También unificaremos 'temple', 'tempera' y 'aguada' en "tec_acuosas" por sus características similares.
+```{r}
+## agrupar niveles
+df$tec_acuosas <- as.integer(
+  df$tec_temple == 1 |
+  df$tec_tempera == 1 |
+  df$tec_aguada == 1
+)
+
+df$tec_otras <- as.integer(
+  df$tec_dorado == 1 |
+  df$tec_enconchado == 1 |
+  df$tec_grisalla == 1 |
+  df$tec_pastillaje == 1 |
+  df$tec_pastel == 1 |
+  df$tec_foto == 1
+)
+
+tec_cols <- c("tec_oleo", "tec_acuosas", "tec_mixta", "tec_fresco", "tec_otras")
+
+df <- df[, c(setdiff(names(df), grep("^tec_", names(df), value = TRUE)), tec_cols)]
+
+cat("Frecuencia de cada técnica:\n")
+print(sort(colSums(df[, tec_cols, drop=FALSE]), decreasing = TRUE))
+```
+
+A continuación proporcionamos un listado de los niveles originales y que dummies activa cada uno:
+```{r}
+# diccionario de dummies
+lab <- sub("^tec_", "", tec_cols)
+
+dic_tec <- aggregate(df[, tec_cols], list(tecnica = df$tecnica), max)
+
+dic_tec$activas <- apply(dic_tec[, tec_cols], 1, function(z) {
+  paste(lab[z == 1], collapse = ", ")
+})
+
+dic_tec <- dic_tec[, c("tecnica", "activas")]
+dic_tec
+```
+
+Para confirmar si el tipo de codificación muultietiqueta con dummies es útil o no vamos a detectar cuantas observacines hacen uso de tal carácter contando cuantas ativan más de 1 dummy:
+```{r}
+# recuento de multiple dummy activa
+n_tec <- rowSums(df[tec_cols] == 1)
+n_multietiqueta <- sum(n_tec > 1)
+
+n_multietiqueta
+```
+
+Vemos que el porcentaje de observaciones que activan más una técnica (después de nuetsra reagrupación de estas) es obviamente despreciable. Por esta razón y con el objetivo de simplificar nuestra base de datos, procedemos a reestablecer un único factor indicativo de la técnica utilizada, con los actuales valores de las dummies, y clasificaremos estas observaciones multietiqueta dentro de la categoria 'tec_mixta'.
+```{r}
+# contar cuantas tecnicas activas por fila
+n_tec <- rowSums(df[tec_cols] == 1)
+
+# nueva columna
+df$tecnica <- NA_character_
+
+# multietiqueta a 'mixta'
+df$tecnica[n_tec > 1] <- "mixta"
+
+# niveles según dummy
+idx_single <- which(n_tec == 1)
+
+if (length(idx_single) > 0) {
+  M <- df[idx_single, tec_cols, drop = FALSE] == 1
+  active_col <- tec_cols[max.col(M, ties.method = "first")]
+  df$tecnica[idx_single] <- sub("^tec_", "", active_col) # nombre arreglado
+}
+
+#comprobación
+sort(table(df$tecnica), decreasing = TRUE)
+```
+
+**Recodificación de variable "soporte"**
+
+Esta variable presenta el mismo problema de exceso de niveles.
+```{r}
+# RECOD. 'SOPORTE'
+cat("\nNiveles de 'soporte':\n") 
+table(df$soporte)
+```
+
+En el caso de "soporte" vemos que son escasas las observaciones en que aparecen etiquetas multi-nivel, además es lógico interpretar que existe un soporte principal (aunque haya variaciones como montajes o transferencias), por lo que el sentido natural es comparar tipos de soporte y no su presencia. En consecuencia, transformaremos esta variable en un solo factor llamado "soporte_grp" agrupando sus niveles en un conjunto más reducido y de categorías más generales y proporcionando un nivel llamado 'ambiguo' para manejar aquellos niveles de soporte multi-etiqueta donde no se puede determinar el soporte principal. También se agregará una variable binaria llamada 'sop_montaje' para indicar si se trata de un soporte puro (0) o de un montaje (1), de esta manera podremos conservar información sobre este aspecto material relevante sin multiplicar categorías.
+```{r}
+## normaliza
+df$soporte <- trimws(as.character(df$soporte))
+s <- df$soporte
+
+## dummy montaje
+df$sop_montaje <- as.integer(
+  grepl(";", s, fixed = TRUE) |
+  grepl("sobre|pegado|pasad[oa]|trasladad[oa]", s, ignore.case = TRUE)
+)
+
+g <- rep(NA_character_, length(s))
+
+# 1) Multi-etiqueta
+g[grepl(";", s, fixed = TRUE)] <- "Ambiguo"
+
+# 2) Mural
+g[is.na(g) & grepl("Revestimiento mural", s, ignore.case = TRUE)] <- "Mural"
+
+# 3) Clave para clasificar:
+#    - "pasado/a" o "trasladado/a": conservar soporte inicial
+#    - "sobre" o "pegado en/a": conservar superficie
+k <- s
+idx <- is.na(g)
+
+k[idx] <- sub("\\s+(pasad[oa]|trasladad[oa]).*$", "", k[idx], ignore.case = TRUE)
+k[idx] <- sub("\\s+sobre\\s+.*$", "", k[idx], ignore.case = TRUE)
+k[idx] <- sub("\\s+pegad[oa]\\s+(en|a)\\s+.*$", "", k[idx], ignore.case = TRUE)
+k[idx] <- trimws(k[idx])
+
+# 4) Clasificación (sobre k)
+g[is.na(g) & grepl("Piedra|Pizarra", k, ignore.case = TRUE)] <- "Piedra/Pizarra"
+g[is.na(g) & grepl("cobre|Hojalata", k, ignore.case = TRUE)] <- "Metal"
+g[is.na(g) & grepl("Papel|Vitela", k, ignore.case = TRUE)] <- "Papel/Vitela"
+g[is.na(g) & grepl("Cartón|Cartulina", k, ignore.case = TRUE)] <- "Cartón/Cartulina"
+g[is.na(g) & grepl("Tabla|Táblex|Contrachapado", k, ignore.case = TRUE)] <- "Tabla/Panel"
+g[is.na(g) & grepl("Lienzo", k, ignore.case = TRUE)] <- "Lienzo"
+g[is.na(g) & grepl("Sarga|Raso", k, ignore.case = TRUE)] <- "Lienzo"  # <-- CAMBIO AQUÍ
+g[is.na(g) & grepl("Corcho", k, ignore.case = TRUE)] <- "Corcho"
+
+df$soporte_grp <- factor(
+  g,
+  levels = c("Lienzo","Tabla/Panel","Metal","Papel/Vitela","Cartón/Cartulina",
+             "Mural","Piedra/Pizarra","Corcho","Ambiguo")
+)
+
+## frequencias/comprobaciOn
+head(df[, c("soporte", "soporte_grp", "sop_montaje")])
+
+cat("Frecuencia de cada soporte:\n")
+sort(table(df$soporte_grp), decreasing = TRUE)
+
+cat("Frecuencia de cada soporte puro/montaje:\n")
+with(df, table(soporte_grp, sop_montaje))
+```
+
+Debido a la baja frecuencia observada en algunas clases, deberiamos volver a reagrupar estas minoritarias en un mismo grupo. Decidimos conservar 'mural' y 'papel/vileta' como últimos de frecuencia aceptable y devido a su potencial efecto sobre la respesta. Reagrupamos el resto en un nivel llamadp 'otros'.
+```{r}
+# reagrupar
+tmp <- as.character(df$soporte_grp)
+
+tmp[tmp %in% c("Cartón/Cartulina", "Ambiguo", "Piedra/Pizarra", "Corcho")] <- "Otros"
+
+df$soporte_grp <- factor(
+  tmp,
+  levels = c("Lienzo", "Tabla/Panel", "Metal", "Mural", "Papel/Vitela", "Otros")
+)
+
+sort(table(df$soporte_grp), decreasing = TRUE)
+```
+
+A continuación proporcionamos un listado con los niveles originales y a que nuevo nivel han sido asignados:
+```{r}
+# diccionario dummies
+dic_sop <- aggregate(
+  df[, c("sop_montaje")],
+  by = list(soporte = df$soporte, soporte_grp = df$soporte_grp),
+  FUN = max
+)
+ names(dic_sop) <- c("soporte", "soporte_grp", "sop_montaje")
+dic_sop
+
+# convertimos a factor
+df$sop_montaje <- as.factor(df$sop_montaje)
+```
+
+
+**Recodificación de variable "fecha"**
+
+La datación de las pinturas es muy inexacta y provoca que tengamos fechas de muschos formatos distintos. La complejidad de esta avriable escapa a nuestras posibilidades pero pensamos que es realmente valiosa, por lo que hemos recurrido a insteligencias artificiales para generar el codigo a continuación que nos permita reexplicar la información de la siguiente manera:
+```{r}
+# --- Utilidades ---
+clean_fecha <- function(s) {
+  s <- trimws(s)
+  s <- gsub("<[^>]+>", " ", s, perl = TRUE)              # quita HTML
+  s <- gsub("\u2013|\u2014", "-", s, perl = TRUE)        # – —
+  s <- gsub("\\s+", " ", s, perl = TRUE)                # espacios múltiples
+  trimws(s)
+}
+
+roman_to_int <- function(r) {
+  r <- toupper(r)
+  vals <- c(I=1, V=5, X=10, L=50, C=100, D=500, M=1000)
+  chars <- strsplit(r, "")[[1]]
+  total <- 0
+  prev <- 0
+  for (ch in rev(chars)) {
+    v <- vals[ch]
+    if (is.na(v)) return(NA_integer_)
+    if (v < prev) total <- total - v else { total <- total + v; prev <- v }
+  }
+  as.integer(total)
+}
+
+century_bounds <- function(cent) {
+  # Siglo XVII => 1601..1700 (convención estándar)
+  c((cent - 1) * 100 + 1, cent * 100)
+}
+
+detect_part <- function(txt) {
+  # Normaliza acentos para detectar "último/ultimo", "después/despues", etc.
+  t <- tolower(iconv(txt, from = "UTF-8", to = "ASCII//TRANSLIT"))
+  
+  if (grepl("primer\\s+cuarto",  t, perl=TRUE)) return("1_cuarto")
+  if (grepl("segundo\\s+cuarto", t, perl=TRUE)) return("2_cuarto")
+  if (grepl("tercer\\s+cuarto",  t, perl=TRUE)) return("3_cuarto")
+  if (grepl("ultimo\\s+cuarto",  t, perl=TRUE)) return("4_cuarto")
+  
+  if (grepl("primer\\s+tercio",  t, perl=TRUE)) return("1_tercio")
+  if (grepl("segundo\\s+tercio", t, perl=TRUE)) return("2_tercio")
+  if (grepl("ultimo\\s+tercio",  t, perl=TRUE)) return("3_tercio")
+  
+  if (grepl("primera\\s+mitad",  t, perl=TRUE)) return("primera_mitad")
+  if (grepl("segunda\\s+mitad",  t, perl=TRUE)) return("segunda_mitad")
+  
+  if (grepl("principio", t, perl=TRUE)) return("principio")
+  if (grepl("mediados",  t, perl=TRUE)) return("mediados")
+  if (grepl("finales",   t, perl=TRUE)) return("finales")
+  
+  "whole"
+}
+
+interval_century_part <- function(cent, part) {
+  b <- century_bounds(cent)
+  start <- b[1]
+  # trabajamos con offsets 0..99 dentro del siglo
+  add <- function(a, z) c(start + a, start + z)
+  
+  if (part == "whole") return(c(b[1], b[2]))
+  
+  if (part == "principio")     return(add(0, 19))
+  if (part == "mediados")      return(add(40, 59))
+  if (part == "finales")       return(add(80, 99))
+  if (part == "primera_mitad") return(add(0, 49))
+  if (part == "segunda_mitad") return(add(50, 99))
+  
+  if (part %in% c("1_cuarto","2_cuarto","3_cuarto","4_cuarto")) {
+    q <- as.integer(sub("_cuarto","",part))
+    return(add((q-1)*25, q*25 - 1))
+  }
+  
+  if (part %in% c("1_tercio","2_tercio","3_tercio")) {
+    t <- as.integer(sub("_tercio","",part))
+    offs <- list(c(0,32), c(33,65), c(66,99))
+    return(add(offs[[t]][1], offs[[t]][2]))
+  }
+  
+  c(b[1], b[2])
+}
+
+extract_years <- function(txt, max_year = 2100L) {
+  m <- gregexpr("(?<!\\d)(\\d{3,4})(?!\\d)", txt, perl = TRUE)
+  y <- regmatches(txt, m)[[1]]
+  if (length(y) == 0) return(integer(0))
+  y <- as.integer(y)
+  y <- y[y >= 1000 & y <= max_year]
+  y
+}
+
+# --- Parser principal ---
+parse_fecha_one <- function(s) {
+  s <- clean_fecha(s)
+  s_ascii <- tolower(iconv(s, from="UTF-8", to="ASCII//TRANSLIT"))
+  
+  # Flag de incertidumbre (?", ca., hacia, paréntesis con alternativas, etc.)
+  incierta <- grepl("\\?", s, perl=TRUE) || grepl("\\bca\\b", s_ascii, perl=TRUE) || grepl("\\bhacia\\b", s_ascii, perl=TRUE)
+  
+  # Caso "compuesto" por ';' (pocas filas, pero existe)
+  if (grepl(";", s, fixed = TRUE)) {
+    parts <- trimws(strsplit(s, ";", fixed = TRUE)[[1]])
+    parsed <- lapply(parts, parse_fecha_one)
+    
+    starts <- sapply(parsed, function(x) x$start)
+    ends   <- sapply(parsed, function(x) x$end)
+    
+    start <- suppressWarnings(min(starts, na.rm = TRUE))
+    end   <- suppressWarnings(max(ends, na.rm = TRUE))
+    if (!is.finite(start)) start <- NA_integer_
+    if (!is.finite(end))   end   <- NA_integer_
+    
+    return(list(
+      start = as.integer(start), end = as.integer(end),
+      tipo = "multi",
+      incierta = TRUE,
+      abierta_inicio = is.na(start),
+      abierta_fin = is.na(end)
+    ))
+  }
+  
+  # Separa "main" y paréntesis (para evitar años bibliográficos en notas)
+  main <- trimws(sub("\\s*\\(.*$", "", s, perl=TRUE))
+  par  <- ""
+  if (grepl("\\(", s, perl=TRUE) && grepl("\\)", s, perl=TRUE)) {
+    par <- sub("^.*\\((.*)\\)\\s*$", "\\1", s, perl=TRUE)
+  }
+  
+  main_ascii <- tolower(iconv(main, from="UTF-8", to="ASCII//TRANSLIT"))
+  
+  # 1) Año exacto
+  if (grepl("^\\d{3,4}$", main_ascii, perl=TRUE)) {
+    y <- as.integer(main_ascii)
+    start <- y; end <- y; tipo <- "year_exact"
+  } else {
+    # 2) Rango de años
+    m <- regexec("^(\\d{3,4})\\s*-\\s*(\\d{3,4})$", main_ascii, perl=TRUE)
+    g <- regmatches(main_ascii, m)[[1]]
+    if (length(g) == 3) {
+      a <- as.integer(g[2]); b <- as.integer(g[3])
+      start <- min(a,b); end <- max(a,b); tipo <- "year_range"
+    } else {
+      # 3) Hacia (aprox)
+      m <- regexec("^hacia\\s+(\\d{3,4})$", main_ascii, perl=TRUE)
+      g <- regmatches(main_ascii, m)[[1]]
+      if (length(g) == 2) {
+        y <- as.integer(g[2])
+        start <- y; end <- y; tipo <- "circa"
+      } else {
+        # 4) Antes de / Después de
+        m <- regexec("^antes\\s+de\\s+(\\d{3,4})$", main_ascii, perl=TRUE)
+        g <- regmatches(main_ascii, m)[[1]]
+        if (length(g) == 2) {
+          y <- as.integer(g[2])
+          start <- NA_integer_; end <- y - 1L; tipo <- "before"
+        } else {
+          m <- regexec("^despues\\s+de\\s+(\\d{3,4})$", main_ascii, perl=TRUE)
+          g <- regmatches(main_ascii, m)[[1]]
+          if (length(g) == 2) {
+            y <- as.integer(g[2])
+            start <- y + 1L; end <- NA_integer_; tipo <- "after"
+          } else {
+            # 5) Siglo completo: "Siglo XVII"
+            m <- regexec("^siglo\\s+([ivxlcdm]+)$", main_ascii, perl=TRUE)
+            g <- regmatches(main_ascii, m)[[1]]
+            if (length(g) == 2) {
+              cent <- roman_to_int(g[2])
+              b <- century_bounds(cent)
+              start <- b[1]; end <- b[2]; tipo <- "century"
+            } else {
+              # 6) Rango de siglos: "Siglos XV - XVI"
+              m <- regexec("^siglos\\s+([ivxlcdm]+)\\s*-\\s*([ivxlcdm]+)$", main_ascii, perl=TRUE)
+              g <- regmatches(main_ascii, m)[[1]]
+              if (length(g) == 3) {
+                c1 <- roman_to_int(g[2]); c2 <- roman_to_int(g[3])
+                lo <- min(c1,c2); hi <- max(c1,c2)
+                b1 <- century_bounds(lo); b2 <- century_bounds(hi)
+                start <- b1[1]; end <- b2[2]; tipo <- "century_range"
+              } else {
+                # 7) Rango con partes de siglo: "Finales del siglo XVI - Principio del siglo XVII"
+                m <- regexec("^(.*)\\s+del\\s+siglo\\s+([ivxlcdm]+)\\s*-\\s*(.*)\\s+del\\s+siglo\\s+([ivxlcdm]+)$",
+                             main_ascii, perl=TRUE)
+                g <- regmatches(main_ascii, m)[[1]]
+                if (length(g) == 5) {
+                  p1 <- detect_part(g[2]); c1 <- roman_to_int(g[3])
+                  p2 <- detect_part(g[4]); c2 <- roman_to_int(g[5])
+                  i1 <- interval_century_part(c1, p1)
+                  i2 <- interval_century_part(c2, p2)
+                  start <- min(i1[1], i2[1]); end <- max(i1[2], i2[2])
+                  tipo <- "century_part_range"
+                } else {
+                  # 8) Parte de siglo: "Primer tercio del siglo XVII", "Finales del siglo XVI", etc.
+                  m <- regexec("^(.*)\\s+del\\s+siglo\\s+([ivxlcdm]+)$", main_ascii, perl=TRUE)
+                  g <- regmatches(main_ascii, m)[[1]]
+                  if (length(g) == 3) {
+                    part <- detect_part(g[2])
+                    cent <- roman_to_int(g[3])
+                    i <- interval_century_part(cent, part)
+                    start <- i[1]; end <- i[2]; tipo <- "century_part"
+                  } else {
+                    # 9) Fallback: extraer años sueltos del "main"
+                    yrs <- extract_years(main_ascii, max_year = 2100L)
+                    if (length(yrs) > 0) {
+                      start <- min(yrs); end <- max(yrs); tipo <- "fallback"
+                      incierta <- TRUE
+                    } else {
+                      start <- NA_integer_; end <- NA_integer_; tipo <- "unparsed"
+                      incierta <- TRUE
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  # Extensión opcional usando años en paréntesis SOLO si están cerca del intervalo principal
+  if (nzchar(par) && !is.na(start) && !is.na(end)) {
+    yrs_par <- extract_years(tolower(iconv(par, "UTF-8", "ASCII//TRANSLIT")), max_year = 2100L)
+    if (length(yrs_par) > 0) {
+      lo <- min(yrs_par); hi <- max(yrs_par)
+      if (lo >= (start - 50L) && hi <= (end + 50L)) {
+        start <- min(start, lo); end <- max(end, hi)
+        incierta <- TRUE
+      }
+    }
+  }
+  
+  list(
+    start = as.integer(start),
+    end = as.integer(end),
+    tipo = tipo,
+    incierta = as.logical(incierta),
+    abierta_inicio = is.na(start),
+    abierta_fin = is.na(end)
+  )
+}
+
+# --- Aplicar a todo el dataset ---
+n <- nrow(df)
+fecha_inicio <- integer(n); fecha_fin <- integer(n)
+fecha_tipo <- character(n)
+fecha_incierta <- logical(n)
+fecha_abierta_inicio <- logical(n)
+fecha_abierta_fin <- logical(n)
+
+for (i in seq_len(n)) {
+  p <- parse_fecha_one(df$fecha[i])
+  fecha_inicio[i] <- ifelse(is.na(p$start), NA_integer_, p$start)
+  fecha_fin[i]    <- ifelse(is.na(p$end),   NA_integer_, p$end)
+  fecha_tipo[i] <- p$tipo
+  fecha_incierta[i] <- p$incierta
+  fecha_abierta_inicio[i] <- p$abierta_inicio
+  fecha_abierta_fin[i] <- p$abierta_fin
+}
+
+# Relleno de intervalos abiertos con mínimo/máximo observados (para evitar NA en modelos)
+minY <- min(fecha_inicio[!is.na(fecha_inicio)], na.rm = TRUE)
+maxY <- max(fecha_fin[!is.na(fecha_fin)], na.rm = TRUE)
+
+fecha_inicio2 <- ifelse(is.na(fecha_inicio), minY, fecha_inicio)
+fecha_fin2    <- ifelse(is.na(fecha_fin),    maxY, fecha_fin)
+
+fecha_est <- as.integer(round((fecha_inicio2 + fecha_fin2) / 2))
+fecha_ancho    <- as.integer(fecha_fin2 - fecha_inicio2)
+
+# Añadir al data.frame
+df$fecha_inicio <- as.integer(fecha_inicio2)
+df$fecha_fin <- as.integer(fecha_fin2)
+df$fecha_tipo <- fecha_tipo
+df$fecha_incierta <- fecha_incierta
+df$fecha_abierta_inicio <- fecha_abierta_inicio
+df$fecha_abierta_fin <- fecha_abierta_fin
+df$fecha_est <- fecha_est
+df$fecha_ancho <- fecha_ancho
+
+# --- Comprobaciones rápidas ---
+print(head(df[, c("fecha", "fecha_tipo", "fecha_inicio", "fecha_fin", "fecha_est", "fecha_ancho")], 12))
+
+df[c(1,100,200,300,400,500,600,700,800,900), c("fecha", "fecha_tipo", "fecha_inicio", "fecha_fin", "fecha_est", "fecha_ancho")]
+```
+
+Ahora con estas nuevas variables podemos tomar una decisión teniendo en cuenta nuestras necesidades y el posterior modelaje. Nos decantamos por mantener las variables "fecha" original, como información de posible interés futuro, "anio_est" como una aproximación y "fecha_ancho" que nos permitirá almacenar ifnormación sobre la anterior aproximación, ya que en muchos casos contiene mucha variabilidad. Utilizando estas dos últimas variables en un modelo podremos hacer que este no interprete como iguales observaciones que comparten el año estimado si su rango es distinto.
+```{r}
+# eliminar variables iintermedias
+df$fecha_inicio <- NULL
+df$fecha_fin <- NULL
+df$fecha_tipo <- NULL
+df$fecha_incierta <- NULL
+df$fecha_abierta_inicio <- NULL
+df$fecha_abierta_fin <- NULL
+```
+
+Echamos un primer vistazo a la distribución de esta nueva variable "fecha_ancho" y nos damos cuenta de algo interesante:
+```{r}
+# frecuencias fecha_ancho
+table(df$fecha_ancho)
+```
+
+Vemos que la distribución de esta avriable está fuertemente influenciada por algunos picos, esto deberá tenerse ne cuenta en la modleización y se extenderá en el análisis descriptivo
+
+**Recodificación de variable "procedencia"**
+
+visualizarmeos algunos casos:
+```{r}
+# RECOD. 'PROCEDENCIA'
+head(df$procedencia)
+tail(df$procedencia)
+```
+
+Podemos observar que no existe ningun tipo de estructura que nos sea de utilidad en esta variable, además simplemente aporta información de la posesión de la obra, no de su lugar de producción, por lo que no la consideramos una característica propia de esta. Decidimos prescindir de esta variable, no se transformará para ver utilizada pero se conservará en la base de datos como mera información consultable.
+
+**Recodificación de variable "titulo"**
+
+Haremos uso de esta avriable para hacer una aproximación de la temática de cada obra utilizando sus palabras más frecuentes
+```{r}
+# RECOD. VARIABLE 'TITULO'
+tit <- df$titulo
+tit <- tolower(tit)
+
+# quitar acentos
+tit <- iconv(tit, from = "UTF-8", to = "ASCII//TRANSLIT")
+
+# quitar puntuación, números y espacios extra
+tit <- gsub("[[:punct:]]+", " ", tit)
+tit <- gsub("[[:digit:]]+", " ", tit)
+tit <- gsub("\\s+", " ", tit)
+
+# tokenizar
+palabras <- unlist(strsplit(tit, "\\s+"))
+
+# quitar tokens vacíos y muy cortos
+palabras <- palabras[nchar(palabras) >= 3]
+
+# quitar stopwords
+stop <- tm::stopwords("spanish")
+
+palabras <- palabras[!(palabras %in% stop)]
+
+# frecuencias
+freq <- sort(table(palabras), decreasing = TRUE)
+head(freq, 30)
+```
+
+La idea es crear un diccionario que almacene palabras clave de cada temática creada y asigne el tema correspondiente en la nueva variable "tema". Este proceso se ha repetido reiteradamente hasta lograr una clasificación satisfactoria, ya que en los primeros intentos un gran porcentaje de los casos caía en la categoría 'otros' por no ser clasificable. En cada iteración se obtubieron de nuevo las palabras más repetidas de este nivel 'otros' y se incluian en el diccionario para actualizarlo. Finalmente se ha aplicado el definitivo obteniendo las seguientes temáticas, con sus respectivas frecuencias:
+```{r}
+# normalizar
+normaliza_texto <- function(x) {
+  x <- tolower(x)
+  x <- iconv(x, from = "UTF-8", to = "ASCII//TRANSLIT")
+  x <- gsub("[[:punct:]]+", " ", x)
+  x <- gsub("[[:digit:]]+", " ", x)
+  x <- gsub("\\s+", " ", x)
+  trimws(x)
+}
+
+titulo_norm <- normaliza_texto(df$titulo)
+
+# temas
+temas <- list(
+
+  # 1) Religioso 
+  religioso = c(
+    "virgen","maria","senora","cristo","jesus",
+    "san","santo","santa","santos",
+    "crucifixion","calvario","descendimiento","piedad","dolorosa",
+    "flagelacion","entierro","resurreccion","pentecostes","trinidad",
+    "ecce","homo",                 
+    "noli","tangere",              
+    "adoracion","anunciacion","nacimiento","huida","aparicion",
+    "inmaculada","concepcion",
+    "bautista","magdalena","evangelista","pastores","magos",
+    "angel(es)?","angeles",
+    "cruz","martirio","penitente",
+    "oracion","templo","ermita","iglesia","catedral","monasterio","misa","profeta", 
+    "sagrada",
+    "comunion","visitacion","natividad","ascension",
+    "apostol(es)?","arcangel(es)?",
+    "dios","alma","salvador",
+    "virgen(es)?","pastor(es)?",
+    "prodigo","parabola",
+    "ultima cena",
+    "adan","abraham","isaac","moises","david","salomon","jacob",
+    "diluvio","paraiso","serpiente","caida","sacrificio",
+    "judit","holofernes","susana", "cain","abel","sanson","tobias","rebeca","agar","eliezer"
+  ),
+
+  # 2) Mitología clásica / temas mitológicos
+  mitologia = c(
+    "diana","venus","hercules","apolo","mercurio","orfeo","cupido","adonis",
+    "andromeda","ninfa(s)?","ninfas","vulcano","baco",
+    "diosa","rapto","bacanal","bacanal","fabula","amorcillo(s)?","amorcillos", 
+    "aquiles","eneas","atalanta","ceres","cefalo","ticio",
+    "lucrecia","cleopatra",
+    "armida"
+  ),
+
+  # 3) Retrato / corte / poder 
+  retrato_corte = c(
+    "autorretrato","retrato",
+    "rey(es)?","reina","principe","infanta","infante",
+    "duque","duquesa","conde","marques(a)?","cardenal",
+    "caballero","dama","don",
+    "emperador","ministro","papa","obispo",
+    "borbon","austria","asturias","orleans",
+    "felipe","carlos","isabel","fernando","alfonso","eugenia","catalina","mariana","juana","cristina","margarita", 
+    "busto","sentado","desnudo",
+    "artista","escritor","filosofo","escultor",
+    "condesa"
+  ),
+
+  # 4) Historia / guerra / militar
+  historia_alegoria = c(
+    "batalla","combate","choque","soldado(s)?","soldados",
+    "caballeria","conquista","victoria","triunfo",
+    "naval","ultramar","expedicion",
+    "alegoria","episodio","coronacion", 
+    "guerra","general","convoy","patria","colon",
+    "muerte","muerto(s)?","cadaver(es)?",
+    "castidad","abundancia",
+    "prision"
+  ),
+
+  # 5) Paisaje / lugares / naturaleza 
+  paisaje_lugares = c(
+    "paisaje","vista","marina","rio","puerto",
+    "playa","costa","bosque","campo","agua(s)?","aguas","orilla(s)?","orillas",
+    "laguna(s)?","lagunas","pico(s)?","picos",
+    "invierno","primavera","otono",
+    "jardin","interior","camino","ruinas","cercanias",
+    "plaza","patio","palacio","castillo",
+    "holanda","venecia","bruselas","granada","castilla","madrid","roma","toledo",
+    "aragon","espana","francia","egipto","napoles","portugal","mexico","brasil",
+    "alsasua","lequeitio","guethary","villerville","manzanares","retiro", 
+    "mallorca","paris","sevilla","elche",
+    "guadarrama","sierra","valle","alrededores",
+    "torre"
+  ),
+
+  # 6) Vida cotidiana / costumbrismo
+  vida_cotidiana = c(
+    "escena","baile","fiesta","mercado",
+    "fumador(es)?","fumadores",
+    "merienda","musica","jugando","juego",
+    "muchacho(s)?","muchachos","aldeano(s)?","aldeanos",
+    "pueblo","real",       
+    "bano","banquete","boda(s)?","bodas","boda", 
+    "familia","madre","padre","hijo(s)?","hija(s)?","hermanos",
+    "mujer(es)?","hombre(s)?","joven(es)?","nina(s)?","nino(s)?",
+    "anciana(s)?","anciano(s)?","vieja(s)?","viejo(s)?",
+    "maja(s)?","majo(s)?","manola","gitana","moro(s)?","veneciano(s)?","aldeana(s)?",
+    "paseo","concierto","lectura","leyendo","leccion","jugador(es)?",
+    "descanso","trabajo","vendedor(es)?","venta","carnaval","bebedor(es)?",
+    "charlatan","bufon","ciego","despedida","pescador(es)?"
+  ),
+
+  # 7) Bodegón / floral 
+  bodegon_floral = c(
+    "bodegon","florero","flores","frutas","uvas","guirnalda","mesa","cocina","despensa",
+    "flor(es)?","clavel(es)?","ciruela(s)?",
+    "frutero","cantaro",
+    "trampantojo","vanitas"
+  ),
+
+  # 8) Animales / caza 
+  caza_animales = c(
+    "caza","caceria","cazador",
+    "caballo","perro(s)?","perros","perro",
+    "oveja(s)?","ovejas","animal(es)?","animales","toros","aves",
+    "rebano","gallinero","cazadores"
+  ),
+
+  # 9) Proceso / estudio / técnica
+  proceso_obra = c(
+    "copia","estudio","boceto","pintor",
+    "figura(s)?","figuras","cabeza",
+    "mural","triptico","perspectiva","decoracion"
+  )
+)
+
+# clasificar (según primera coincidencia)
+asigna_tema <- function(txt) {
+  if (is.na(txt) || !nzchar(txt)) return("otros")
+  for (tema in names(temas)) {
+    for (kw in temas[[tema]]) {
+      patron <- paste0("\\b", kw, "\\b")
+      if (grepl(patron, txt, perl = TRUE)) return(tema)
+    }
+  }
+  "otros"
+}
+
+df$tema <- vapply(titulo_norm, asigna_tema, character(1))
+
+df$tema <- as.factor(df$tema)
+
+# frecuencias
+sort(table(df$tema), decreasing = TRUE)
+```
+
+**Variables no analizables**
+
+Finalmente listamos las variables que se han conservado en la abse de datos a modo de posibles consultas futuras, pero que no participaran de ningun modo en el analisis: "numero_catalalogo", "titulo", "url", "nombre_autor", "procedencia", "fecha".
+
+## 3.3 Creación de nuevas variables
+
+En la sección anterior hemos transformado y también creado algunas variable con el fin único de reestructurar la información ya presente. Sin embargo, en esta sección podrecederemos a de alguna manera "generar" nueva información, que consideramos de posible utilidad, a partir de la que ya disponemos. 
+
+**Variable respuesta**
+
+Para comenzar generaremos nuestra variabe objetivo dele studio que es aquella relacionada con la proporción aurea. Haremos uso de las variables de dimension "alto" y "ancho" para crear la que será nuestra avriable respuesta llamada "exito". Esta será un indicador binaria que determinará si la pintura sigue o no la proporción aurea. El error aceptado es del 5% y en todo momento se utiliza el largo largo como numerador.
+```{r}
+#####################################################
+# CREACIÓN DE VARIABLES
+#####################################################
+# CREACIÓN VARIABLE RESPUESTA 'EXITO'
+# convertir dimensiones a numerico
+df$alto  <- as.numeric(gsub(",", ".", df$alto,  fixed = TRUE))
+df$ancho <- as.numeric(gsub(",", ".", df$ancho, fixed = TRUE))
+
+# razón de aspecto: lado más largo / lado más corto
+lado_largo <- pmax(df$alto, df$ancho)
+lado_corto <- pmin(df$alto, df$ancho)
+
+df$razon <- lado_largo / lado_corto   
+
+# indicador razón aurea (éxitos)
+phi <- (1 + sqrt(5)) / 2
+tol <- 0.05 * phi
+
+df$exito <- as.integer(abs(df$razon - phi) <= tol)
+df$exito <- as.factor(df$exito)
+df$razon <- NULL
+
+str(df$exito)
+```
+
+**Variable "orientacion"**
+
+A partir de las variables de dimensión "alto" y "ancho" creamos una nueva variable que nos indique si la forma de la pintura es vertical, horizontal o cuadrada.
+```{r}
+# CREACIÓN VARIABLE 'OERIENTACIÓN'
+# orientación: vertical si alto > ancho, horizontal si ancho > alto
+df$orientacion <- ifelse(df$alto > df$ancho, "vertical",
+                         ifelse(df$ancho > df$alto, "horizontal", "cuadrado"))
+df$orientacion <- as.factor(df$orientacion)
+
+table(df$orientacion)
+```
+
+**Variables "area" y "tam_cat"**
+
+También trabajamos con las dimensiones para crear 2 variables relacionadas con el tamaño: "area", para conocer su superficie, y "tam_cat" para clasificarlas en categorías de tamaño "pequeño/mediano/grande".
+```{r}
+# CREACIÓN VARIABLE 'AREA' Y 'TAM_CAT'
+df$area <- df$alto * df$ancho
+
+# categorías de tamaño por cuantiles (opcional)
+qs <- quantile(df$area, probs = c(0.33, 0.66), na.rm=TRUE)
+df$tam_cat <- cut(df$area, breaks = c(-Inf, qs[1], qs[2], Inf),
+                  labels = c("pequeno","mediano","grande"), right = TRUE)
+
+df$tam_cat <- factor(
+  df$tam_cat,
+  levels = c("pequeno","mediano","grande"),
+  ordered = FALSE
+)
+
+df$tam_cat <- as.factor(df$tam_cat)
+```
+
+Aunque los niveles de tamaño son ordenados por definición, decidimos no establecer orden en el factor, por simplicidad de interpretación.
+
+## 3.4 Manejo de desbalances
+
+Presentaremos las frecuencias de cada variable factor:
+```{r}
+#####################################################
+# MANEJO DE DESBALANCES
+#####################################################
+cat <- c(
+  "tam_cat",
+  "orientacion",
+  "soporte_grp",
+  "sop_montaje",
+  "tecnica",
+  "tipo_autor",
+  "serie",
+  "tema"
+)
+
+for (v in cat) {
+  cat("\n====================\n")
+  cat("Variable:", v, "\n")
+  print(table(df[[v]]))
+}
+```
+
+Para detectar roblemas reales debemos fijarnos no en el conteo marginal, sino cruzado con la variable objetivo. Fijaremos como indicio de problema cuando el recuento de "exito"='1' sea inferior a 5 en una categoría.
+```{r}
+y <- df$exito  
+
+for (v in cat) {
+  tab2 <- table(y, df[[v]])
+  m <- min(tab2)
+  if (m < 5) {  
+    cat("\n*** POSIBLE PROBLEMA (min celda <", 5, ") en:", v, "***\n")
+    print(tab2)
+  }
+}
+```
+
+Vemos que las únicas variables realmente problematicas son "orientacion" con el nivel 'cuadrado', "soporte_grp" con el nivel 'otros' y "tecnica" con los niveles 'acuosas', 'fresco' y 'otras'. 
+
+Comenzando con "orientación" podemos ver que es obvio el hecho de que en el nivel 'cuadrado' no va a aparecer ningún éxito por definición: si es cuadrado es imposible que siga la proporción aurea. No podemso simplemente eliminar estos casos, aunque sean pocos, porque estariamos generando un sesgo sistemático, pero lo que sí haremos será aplicar esta regla en el ajuste. Es decir, los cuadrados siempre serán catalogados como exito=0 y las interpretaciones se haran teniendo en cuenta la modificación en la inferencia, solo podremos inferir en aquellas obras no cuadradas.
+
+Las dos otras variables se solucionarán simplemente reagrupando sus niveles. Para "soporte_grp" reagruparemos 'Papel/Vitela' en 'Otros', y para "tecnica" reagruparemos únicamente en 'oleo', 'mixta' y 'otras'.
+```{r}
+# soporte_grp: mover "Papel/Vitela" a "Otros"
+df$soporte_grp <- as.character(df$soporte_grp)
+df$soporte_grp[df$soporte_grp == "Papel/Vitela"] <- "Otros"
+df$soporte_grp <- factor(df$soporte_grp)
+
+# tecnica: dejar solo "oleo", "mixta" y "otras"
+df$tecnica <- as.character(df$tecnica)
+df$tecnica[!(df$tecnica %in% c("oleo", "mixta"))] <- "otras"
+df$tecnica <- factor(df$tecnica)
+
+# comprobar
+cat("\n====================\n")
+cat("Frecuencias margincales:")
+table(df$soporte_grp)
+table(df$tecnica)
+cat("\n====================\n")
+cat("Frecuencias cruzadas:")
+table(df$exito, df$soporte_grp)
+table(df$exito, df$tecnica)
+```
+
+**BASE DE DATOS FINAL**
+
+Finalmente obtenemos la base de datos ya tratada ('df_completa') y una extracción solo con las variables útiles para el análisis ('df')
+```{r}
+##### BASE DE DATOS FINAL
+
+df_completa <- df[, c(
+ 
+  # no útiles
+  "numero_catalogo",
+  "titulo",
+  "url",
+  "nombre_autor",
+  "procedencia",
+  "fecha",
+  "alto",
+  "ancho",
+ 
+  # útiles
+  "exito",
+  "area",
+  "tam_cat",
+  "orientacion",
+  "soporte",
+  "soporte_grp",
+  "sop_montaje",
+  "tecnica",
+  "tipo_autor",
+  "serie",
+  "fecha_est",
+  "fecha_ancho",
+  "tema"
+)]
+
+df <- df[, c(
+  "exito",
+  "area",
+  "tam_cat",
+  "orientacion",
+  "soporte_grp",
+  "sop_montaje",
+  "tecnica",
+  "tipo_autor",
+  "serie",
+  "fecha_est",
+  "fecha_ancho",
+  "tema"
+)]
+
+str(df_completa); str(df)
+
+# para exportar los archivos:
+write.csv(df_completa, "prado_gestionado.csv", row.names = FALSE)
+write.csv(df, "prado_variables.csv", row.names = FALSE)
+```
+
+Por último, comprobamos no haber introducido algún dato faltante:
+```{r}
+# comprobación última
+colSums(is.na(df))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 4. Análisis descriptivo
+
+```{r, echo = F}
+#####################################################
+# ANÁLISIS DESCRIPTIVO
+#####################################################
+df <- read_csv("prado_variables.csv")
+
+df$exito <- as.factor(df$exito)
+df$tam_cat <- factor(
+  df$tam_cat,
+  levels = c("0", "1-10", "11-98", "99", "+100"),
+  ordered = TRUE
+)
+df$orientacion <- as.factor(df$orientacion)
+df$soporte_grp <-as.factor(df$soporte_grp)
+df$sop_montaje <-as.factor(df$sop_montaje)
+df$tecnica <- as.factor(df$tecnica)
+df$tipo_autor <- as.factor(df$tipo_autor)
+df$serie <- as.factor(df$serie)
+df$fecha_est <- as.integer(df$fecha_est)
+df$tema <- as.factor(df$tema)
+```
+
+Empezamos el análisis descriptivo construyendo para cada variable, una tabla de frecuencias y el gráfico de barras correspondiente, la forma más directa de entender cómo se reparte la información dentro del conjunto de datos. Antes de comparar con la variable respuesta (exito) o plantear cualquier modelo, necesitamos saber qué categorías aparecen, con qué peso y si existe algún patrón evidente en la composición de la muestra.
+
+Como control de calidad permite detectar problemas típicos en datos obtenidos por web scraping, como etiquetas duplicadas, niveles inesperados o valores codificados de manera especial.
+
+Las frecuencias son necesarias para interpretar correctamente lo que venga después. Si tenemos una categoría muy mayoritaria cualquier resultado puede estar condicionado por esa dominancia. Tener la proporción de cada nivel ayuda a contextualizar comparaciones; no es lo mismo observar un patrón en una categoría con miles de obras que en otra con muy pocas.
+
+Las clases minoritarias aun que ess habitual que algunas categorías tengan pocas observaciones.Si tenemos demasiados niveles con baja frecuencia hacen que los gráficos sean ilegibles y no podamos extraer conclusiones.
+
+En resumen, trabajar variable por variable es una etapa imprescindible porque permite verificar la coherencia de las variables, comprender la estructura real de los datos y anticipar problemas derivados de categorías raras. Esto asegura que las comparaciones posteriores con exito sean interpretables, estables y defendibles.
+
+## 4.1 Variables individuales
+
+**EXITO**
+
+```{r, echo = F}
+table(df$exito)
+v <- "exito"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+names(tab)[names(tab) == "0"] <- "0 (no cumple)"
+names(tab)[names(tab) == "1"] <- "1 (cumple)"
+barplot(tab, las = 1, main = "¿Cumple la proporción áurea?", ylab = "frequencia")
+```
+
+
+**AREA**
+
+```{r, echo = F}
+hist(df$area, breaks=40, main="Histograma de área", xlab="area")
+hist(log(df$area ), breaks=40, main="Histograma de log(area)", xlab="log(area)")
+boxplot(df$area, main="Boxplot área", ylab="area")
+boxplot(log(df$area), main="Boxplot log(area)", ylab="log(area)")
+```
+
+La variable area esta muy sesgada a la derecha: la mayoría de obras tienen áreas pequeñas y hay pocas con áreas enormes (por eso el histograma “normal” queda aplastado y el boxplot de area sale con mil outliers).
+
+Al hacer log(area) la distribución queda mucho más “normalita” (campana) y el boxplot se vuelve legible.
+
+**AREA CON ÉXITO**
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+boxplot(log(df$area) ~ df$exito_f,
+        col = c("red","green"),
+        main = "Área (log(area)) según éxito",
+        xlab = "Éxito",
+        ylab = "log(area)",
+        las = 1)
+
+
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+x <- log(df$area )
+
+op <- par(no.readonly=TRUE)
+par(mfrow=c(1,2))
+
+hist(x[df$exito_f=="No cumple"], breaks=40,
+     main="No cumple", xlab="log(area)")
+hist(x[df$exito_f=="Sí cumple"], breaks=40,
+     main="Sí cumple", xlab="log(area)")
+
+par(op)
+
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+k <- 10  # 10 barras (puedes subir/bajar)
+br <- quantile(df$area, probs = seq(0, 1, length.out = k + 1), na.rm = TRUE)
+
+br <- unique(br)
+df$area_bin <- cut(df$area, breaks = br, include.lowest = TRUE)
+
+
+
+```
+
+
+**TAM_CAT**
+
+```{r, echo = F}
+table(df$tam_cat)
+v <- "tam_cat"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+barplot(tab, las = 1, main = "Tamaño", ylab = "frequencia")
+```
+
+**TAM_CAT CON ÉXITO**
+
+```{r, echo = F}
+tab <- table(df$tam_cat, df$exito)
+
+prop <- prop.table(tab, 1)
+
+bp <- barplot(t(prop),           
+              beside = FALSE,
+              ylim = c(0, 1),
+              ylab = "Proporción",
+              xlab = "tam_cat",
+              main = "tam_cat vs exito ",
+              las = 2)
+
+legend("topright",
+       legend = rownames(t(prop)),
+       bty = "n")
+
+cum <- apply(t(prop), 2, cumsum)
+mid <- cum - (t(prop) / 2)    
+
+text(x = rep(bp, each = nrow(t(prop))),
+     y = as.vector(mid),
+     labels = sprintf("%.2f", as.vector(t(prop))),
+     cex = 0.8)
+
+```
+
+
+
+**ORIENTACIÓN**
+
+```{r, echo = F}
+table(df$orientacion)
+v <- "orientacion"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+barplot(tab, las = 1, main = "Orientación", ylab = "frequencia")
+```
+
+**EXITO SEGÚN ORIENTACIÓN**
+
+```{r, echo = F}
+tab <- table(df$orientacion, df$exito_f)
+
+prop <- prop.table(tab, 1)
+
+cols <- c("red", "green")  
+
+par(mar=c(6,5,4,2)+0.1)
+bp <- barplot(t(prop),
+              beside = FALSE,      
+              ylim = c(0,1),  
+              col = cols,
+              las = 1,
+              main = "Éxito según orientación (proporciones)",
+              xlab = "Orientación",
+              ylab = "Proporción")
+
+legend("topleft",
+       legend = c("No cumple","Sí cumple"),
+       fill = cols,
+       bty = "n",
+       cex = 0.9)
+
+# (opcional) n encima de cada barra
+n <- rowSums(tab)
+text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
+
+```
+
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels = c(0, 1), labels = c("No cumple", "Sí cumple"))
+
+tab <- table(df$orientacion, df$exito_f)
+
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n    <- rowSums(tab)
+
+ord  <- order(rate, decreasing = TRUE)
+rate <- rate[ord]
+n    <- n[ord]
+
+wrap_labels <- function(x, width = 18){
+  sapply(x, function(s) paste(strwrap(s, width = width), collapse = "\n"))
+}
+ylab2 <- wrap_labels(names(rate), width = 18)
+
+p_global <- mean(df$exito == 1)
+
+max_chars <- max(nchar(gsub("\n", "", ylab2)))
+left_mar  <- min(22, max(11, ceiling(max_chars/2) + 3))
+cex_txt   <- if (length(rate) > 20) 0.65 else if (length(rate) > 12) 0.8 else 0.95
+
+if (dev.cur() == 1) dev.new(width = 10, height = 6)
+
+op <- par(no.readonly = TRUE)
+par(mar = c(5, left_mar, 4, 2) + 0.1)
+
+xmax <- max(rate) * 1.35
+bp <- barplot(rate,
+              horiz = TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col = "lightblue",
+              las = 1,
+              cex.names = cex_txt,
+              main = "Tasa de cumplimiento áureo por orientación",
+              xlab = "P(Sí cumple)",
+              ylab = "")
+
+mtext("Orientación", side = 2, line = left_mar - 2)
+
+abline(v = p_global, lty = 2, lwd = 2)
+text(x = rate, y = bp, labels = paste0("  n=", n), pos = 4, cex = 0.85)
+text(x = p_global, y = max(bp) + 0.7, labels = "media", pos = 3, cex = 0.8)
+
+par(op)
+
+```
+
+
+**SOPORTE_GRP**
+
+```{r, echo = F}
+table(df$soporte_grp)
+v <- "soporte_grp"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+barplot(tab, las = 1, main = "Soporte", ylab = "frequencia")
+```
+
+**SOPORTE_GRP CON EXITO** 
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+tab <- table(df$soporte_grp, df$exito_f)
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n <- rowSums(tab)
+ord <- order(rate, decreasing=TRUE)
+rate <- rate[ord]; n <- n[ord]
+ylab2 <- names(rate)
+ylab2 <- gsub("Papel/Vitela", "Papel/\nVitela", ylab2)
+ylab2 <- gsub("Tabla/Panel", "Tabla/\nPanel", ylab2)
+
+
+p_global <- mean(df$exito == 1)
+
+op <- par(no.readonly=TRUE)
+par(mar=c(5, 11, 4, 2) + 0.1)
+
+xmax <- max(rate) * 1.35
+bp <- barplot(rate,
+              horiz=TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col="lightblue",
+              las=1,
+              cex.names=0.95,
+              main="Tasa de cumplimiento áureo por soporte",
+              xlab="P(Sí cumple)",
+              ylab="")
+
+mtext("Soporte", side=2, line=3)
+
+abline(v = p_global, lty = 2, lwd = 2)
+text(x=rate, y=bp, labels=paste0("  n=", n), pos=4, cex=0.9)%%
+text(x=p_global, y=max(bp)+0.6, labels="media", pos=3, cex=0.8)
+
+par(op)
+
+```
+
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+tab <- table(df$soporte_grp, df$exito_f)
+
+prop <- prop.table(tab, 1)
+
+rate <- prop[, "Sí cumple"]
+ord <- order(rate, decreasing=TRUE)
+prop <- prop[ord, , drop=FALSE]
+n <- rowSums(tab)[ord]
+
+cols <- c("red", "green") 
+
+op <- par(no.readonly=TRUE)
+par(mar=c(10,4,4,2)+0.1)
+
+bp <- barplot(t(prop),
+              beside = FALSE,
+              ylim = c(0,1),
+              las = 2,
+              col = cols,
+              main = "Éxito dentro de cada soporte (barras 100%)",
+              ylab = "Proporción",
+              xlab = "Soporte")
+
+legend("topright", legend = c("No cumple","Sí cumple"), fill = cols, bty = "n")
+text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
+
+par(op)
+
+```
+
+
+
+**SOP_MONTAJE**
+
+```{r, echo = F}
+table(df$sop_montaje)
+v <- "sop_montaje"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+names(tab)[names(tab) == "0"] <- "0 (No es un montaje)"
+names(tab)[names(tab) == "1"] <- "1 (Sí es un montaje)"
+
+barplot(tab, las = 1, main = "Soportes", ylab = "frequencia")
+```
+
+**SOP_MONTAJE Y EXITO**
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$sop_f <- factor(df$sop_montaje, levels=c(0,1), labels=c("No montaje","Sí montaje"))
+
+tab <- table(df$sop_f, df$exito_f)
+prop <- prop.table(tab, 1)
+n <- rowSums(tab)
+
+cols <- c("red","green")
+
+par(mar=c(6,4,4,2)+0.1)
+bp <- barplot(t(prop),
+              beside = FALSE,
+              ylim = c(0,1),
+              col = cols,
+              las = 1,
+              main = "Éxito según sop_montaje (proporciones)",
+              xlab = "sop_montaje",
+              ylab = "Proporción")
+
+legend("topright", legend = c("No cumple","Sí cumple"), fill = cols, bty = "n")
+text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
+
+tab
+round(prop, 3)
+
+```
+
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito,
+                     levels = c(0, 1),
+                     labels = c("No cumple", "Sí cumple"))
+
+tab <- table(df$sop_montaje, df$exito_f)
+
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n    <- rowSums(tab)
+
+ord  <- order(rate, decreasing = TRUE)
+rate <- rate[ord]
+n    <- n[ord]
+
+wrap_labels <- function(x, width = 18){
+  sapply(x, function(s) paste(strwrap(s, width = width), collapse = "\n"))
+}
+ylab2 <- wrap_labels(names(rate), width = 18)
+
+
+p_global <- mean(df$exito == 1)
+
+max_chars <- max(nchar(gsub("\n", "", ylab2)))
+left_mar  <- min(22, max(11, ceiling(max_chars / 2) + 3))
+cex_txt   <- if (length(rate) > 20) 0.65 else if (length(rate) > 12) 0.8 else 0.95
+
+if (dev.cur() == 1) dev.new(width = 10, height = 6)
+
+op <- par(no.readonly = TRUE)
+par(mar = c(5, left_mar, 4, 2) + 0.1)
+
+xmax <- max(rate) * 1.35
+bp <- barplot(rate,
+              horiz = TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col = "lightblue",
+              las = 1,
+              cex.names = cex_txt,
+              main = "Tasa de cumplimiento áureo por soporte de montaje",
+              xlab = "P(Sí cumple)",
+              ylab = "")
+
+mtext("sop_montaje", side = 2, line = left_mar - 2)
+
+abline(v = p_global, lty = 2, lwd = 2)
+text(x = rate, y = bp, labels = paste0("  n=", n), pos = 4, cex = 0.85)
+text(x = p_global, y = max(bp) + 0.7, labels = "media", pos = 3, cex = 0.8)
+
+par(op)
+
+```
+
+
+
+**TECNICA**
+
+```{r, echo = F}
+
+table(df$tecnica)
+v <- "tecnica"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+barplot(tab, las = 1, main = "Tecnica", ylab = "frequencia")
+```
+
+**TECNICA CON EXITO**
+
+```{r, echo = F}
+
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tecnica_f <- factor(df$tecnica)
+
+tab <- table(df$tecnica_f, df$exito_f)
+prop <- prop.table(tab, 1)  
+n <- rowSums(tab)
+
+rate <- prop[, "Sí cumple"]
+ord <- order(rate, decreasing=TRUE)
+prop <- prop[ord, , drop=FALSE]
+n <- n[ord]
+
+cols <- c("red","green")
+
+par(mar=c(10,4,4,2)+0.1)
+bp <- barplot(t(prop),
+              beside = FALSE,
+              ylim = c(0,1),
+              col = cols,
+              las = 2,
+              main = "Éxito según técnica (proporciones)",
+              xlab = "Técnica",
+              ylab = "Proporción")
+
+legend("topright", legend=c("No cumple","Sí cumple"), fill=cols, bty="n")
+text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
+
+tab
+round(prop, 3)
+
+```
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels = c(0, 1), labels = c("No cumple", "Sí cumple"))
+
+tab <- table(df$tecnica, df$exito_f)
+
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n    <- rowSums(tab)
+
+ord  <- order(rate, decreasing = TRUE)
+rate <- rate[ord]
+n    <- n[ord]
+
+wrap_labels <- function(x, width = 18){
+  sapply(x, function(s) paste(strwrap(s, width = width), collapse = "\n"))
+}
+ylab2 <- wrap_labels(names(rate), width = 18)
+
+p_global <- mean(df$exito == 1)
+
+max_chars <- max(nchar(gsub("\n", "", ylab2)))
+left_mar  <- min(26, max(11, ceiling(max_chars/2) + 3))
+cex_txt   <- if (length(rate) > 25) 0.55 else if (length(rate) > 18) 0.7 else if (length(rate) > 12) 0.8 else 0.95
+
+if (dev.cur() == 1) dev.new(width = 11, height = 7)
+
+op <- par(no.readonly = TRUE)
+par(mar = c(5, left_mar, 4, 2) + 0.1)
+
+xmax <- max(rate) * 1.35
+bp <- barplot(rate,
+              horiz = TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col = "lightblue",
+              las = 1,
+              cex.names = cex_txt,
+              main = "Tasa de cumplimiento áureo por técnica",
+              xlab = "P(Sí cumple)",
+              ylab = "")
+
+mtext("Técnica", side = 2, line = left_mar - 2)
+
+abline(v = p_global, lty = 2, lwd = 2)
+text(x = rate, y = bp, labels = paste0("  n=", n), pos = 4, cex = 0.85)
+text(x = p_global, y = max(bp) + 0.7, labels = "media", pos = 3, cex = 0.8)
+
+par(op)
+
+```
+
+
+**TIPO_AUTOR**
+
+```{r, echo = F}
+table(df$tipo_autor)
+
+v <- "tipo_autor"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+
+barplot(tab, las = 1, main = "Tipo de Autor", ylab = "frequencia")
+```
+
+**TIPO AUTOR CON EXITO**
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tipo_autor_f <- factor(df$tipo_autor)
+
+tab <- table(df$tipo_autor_f, df$exito_f)
+prop <- prop.table(tab, 1)  
+n <- rowSums(tab)
+rate <- prop[, "Sí cumple"]
+ord <- order(rate, decreasing=TRUE)
+prop <- prop[ord, , drop=FALSE]
+n <- n[ord]
+
+cols <- c("red","green")
+
+par(mar=c(9,4,4,2)+0.1)
+bp <- barplot(t(prop),
+              beside = FALSE,
+              ylim = c(0,1),
+              col = cols,
+              las = 2,
+              main = "Éxito según tipo de autor (proporciones)",
+              xlab = "Tipo de autor",
+              ylab = "Proporción")
+
+legend("topright", legend=c("No cumple","Sí cumple"), fill=cols, bty="n")
+text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
+
+tab
+round(prop, 3)
+
+```
+
+En todos los grupos (varios, mujer, hombre y anónimo) la mayoría de las obras no cumple la razón áurea, y la parte verde es siempre pequeña. Las proporciones de “sí cumple” son muy parecidas entre tipos de autor, sin un grupo que destaque claramente por cumplir mucho más que los demás. Esto sugiere que el éxito en cumplir la razón áurea no depende de quién sea el autor, sino que el incumplimiento es lo normal independientemente del tipo de autor.
+
+
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels = c(0, 1), labels = c("No cumple", "Sí cumple"))
+
+tab <- table(df$tipo_autor, df$exito_f)
+
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n    <- rowSums(tab)
+
+ord  <- order(rate, decreasing = TRUE)
+rate <- rate[ord]
+n    <- n[ord]
+
+wrap_labels <- function(x, width = 18){
+  sapply(x, function(s) paste(strwrap(s, width = width), collapse = "\n"))
+}
+ylab2 <- wrap_labels(names(rate), width = 18)
+
+p_global <- mean(df$exito == 1)
+
+max_chars <- max(nchar(gsub("\n", "", ylab2)))
+left_mar  <- min(26, max(11, ceiling(max_chars/2) + 3))
+cex_txt   <- if (length(rate) > 25) 0.55 else if (length(rate) > 18) 0.7 else if (length(rate) > 12) 0.8 else 0.95
+
+if (dev.cur() == 1) dev.new(width = 11, height = 7)
+
+op <- par(no.readonly = TRUE)
+par(mar = c(5, left_mar, 4, 2) + 0.1)
+
+xmax <- max(rate) * 1.35
+bp <- barplot(rate,
+              horiz = TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col = "lightblue",
+              las = 1,
+              cex.names = cex_txt,
+              main = "Tasa de cumplimiento áureo por tipo de autor",
+              xlab = "P(Sí cumple)",
+              ylab = "")
+
+mtext("Tipo de autor", side = 2, line = left_mar - 2)
+
+abline(v = p_global, lty = 2, lwd = 2)
+text(x = rate, y = bp, labels = paste0("  n=", n), pos = 4, cex = 0.85)
+text(x = p_global, y = max(bp) + 0.7, labels = "media", pos = 3, cex = 0.8)
+
+par(op)
+
+```
+
+
+**SERIE**
+
+```{r, echo = F}
+table(df$serie)
+v <- "serie"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+names(tab)[names(tab) == "0"] <- "0 (No)"
+names(tab)[names(tab) == "1"] <- "1 (Sí)"
+
+barplot(tab, las = 1, main = "Forma parte de una serie", ylab = "frequencia")
+```
+
+**SERIE CON EXITO **
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+if (is.numeric(df$serie) || is.integer(df$serie)) {
+  df$serie_f <- factor(df$serie, levels=c(0,1),
+                       labels=c("No pertenece a serie","Pertenece a serie"))
+} else {
+  df$serie_f <- factor(df$serie)
+}
+
+tab <- table(df$serie_f, df$exito_f)
+prop <- prop.table(tab, 1) 
+n <- rowSums(tab)
+
+cols <- c("red","green")
+par(mar=c(6,4,4,2)+0.1)
+bp <- barplot(t(prop),
+              beside = FALSE,
+              ylim = c(0,1),
+              col = cols,
+              las = 1,
+              main = "Éxito según pertenencia a serie (proporciones)",
+              xlab = "Serie",
+              ylab = "Proporción")
+
+legend("topright", legend=c("No cumple","Sí cumple"), fill=cols, bty="n")
+text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
+
+tab
+round(prop, 3)
+
+```
+
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels = c(0, 1), labels = c("No cumple", "Sí cumple"))
+
+serie2 <- df$serie
+if (is.numeric(serie2) || is.integer(serie2)) {
+  serie2 <- factor(serie2, levels = c(0, 1), labels = c("0 (No)", "1 (Sí)"))
+} else {
+  serie2 <- as.factor(serie2)
+}
+
+tab <- table(serie2, df$exito_f)
+
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n    <- rowSums(tab)
+
+ord  <- order(rate, decreasing = TRUE)
+rate <- rate[ord]
+n    <- n[ord]
+
+wrap_labels <- function(x, width = 18){
+  sapply(x, function(s) paste(strwrap(s, width = width), collapse = "\n"))
+}
+ylab2 <- wrap_labels(names(rate), width = 18)
+
+p_global <- mean(df$exito == 1)
+
+max_chars <- max(nchar(gsub("\n", "", ylab2)))
+left_mar  <- min(22, max(11, ceiling(max_chars/2) + 3))
+cex_txt   <- if (length(rate) > 20) 0.65 else if (length(rate) > 12) 0.8 else 0.95
+
+if (dev.cur() == 1) dev.new(width = 10, height = 6)
+
+op <- par(no.readonly = TRUE)
+par(mar = c(5, left_mar, 4, 2) + 0.1)
+
+xmax <- max(rate) * 1.35
+bp <- barplot(rate,
+              horiz = TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col = "lightblue",
+              las = 1,
+              cex.names = cex_txt,
+              main = "Tasa de cumplimiento áureo por serie",
+              xlab = "P(Sí cumple)",
+              ylab = "")
+
+mtext("Serie", side = 2, line = left_mar - 2)
+
+abline(v = p_global, lty = 2, lwd = 2)
+text(x = rate, y = bp, labels = paste0("  n=", n), pos = 4, cex = 0.85)
+text(x = p_global, y = max(bp) + 0.7, labels = "media", pos = 3, cex = 0.8)
+
+par(op)
+
+```
+
+**FECHA_ESTIMADA**
+
+```{r, echo = F}
+x <- as.integer(df$fecha_est)
+x <- x[is.finite(x)]
+
+# breaks de 25
+xmin <- floor(min(x)/25)*25
+xmax <- ceiling(max(x)/25)*25
+br <- seq(xmin, xmax + 25, by = 25)  
+
+hist(x, breaks = br,
+     main = "Fecha estimada (bins de 25 años)",
+     xlab = "Año", ylab = "Frecuencia",
+     right = FALSE)
+
+```
+
+**FECHA Y ÉXITO **
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+x <- as.integer(df$fecha_est)
+ok <- is.finite(x) & !is.na(df$exito_f)
+x <- x[ok]
+ex <- df$exito_f[ok]
+
+bin_w <- 50  
+xmin <- floor(min(x)/bin_w)*bin_w
+xmax <- ceiling(max(x)/bin_w)*bin_w
+br <- seq(xmin, xmax + bin_w, by=bin_w)
+
+bin <- cut(x, breaks=br, right=FALSE, include.lowest=TRUE)
+
+tab <- table(ex, bin)
+prop <- prop.table(tab, 2)
+
+cols <- c("red","green")
+
+op <- par(no.readonly=TRUE)
+par(mar=c(7,4,4,2)+0.1)
+
+bp <- barplot(prop,
+              beside=FALSE,
+              col=cols,
+              ylim=c(0,1),
+              las=1,
+              names.arg = rep("", ncol(prop)),  # quita TODAS las etiquetas feas
+              main=paste0("Éxito por fecha_est (bins ", bin_w, " años) - proporciones"),
+              xlab="Intervalo (años)",
+              ylab="Proporción")
+
+k <- 8
+idx <- unique(round(seq(1, ncol(prop), length.out = k)))
+labs <- colnames(prop)[idx]
+text(x = bp[idx], y = -0.06, labels = labs, srt = 45, adj = 1, xpd = TRUE, cex = 0.8)
+
+legend("topright", legend=rownames(prop), fill=cols, bty="n")
+par(op)
+
+```
+ 
+
+```{r, echo = F}
+boxplot((df$fecha_est) ~ df$exito,
+        main = "Distribución de la fecha estimada según cumplimiento de la condición áurea",
+        xlab = "¿Cumple la condición áurea?",
+        ylab = "fecha estimada",
+        las = 1)
+```
+
+**FECHA_ANCHO**
+
+```{r, echo = F}
+hist(df$fecha_ancho, breaks=40, main="Histograma de fecha_ancho", xlab="area")
+```
+
+**TEMA** 
+
+```{r, echo = F}
+table(df$tema)
+
+v <- "tema"
+tab <- sort(table(df[[v]]), decreasing = TRUE)
+barplot(tab, las = 2, main = "Tema de la Obra", ylab = "frequencia")
+```
+
+**TEMA CON EXITO**
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels = c(0,1),
+                     labels = c("No cumple","Sí cumple"))
+
+tab <- table(df$tema, df$exito_f)
+
+prop <- prop.table(tab, 1)
+
+cols <- c("red", "green")
+
+op <- par(no.readonly = TRUE)
+
+bp <- barplot(t(prop),
+              beside = FALSE,
+              col = cols,
+              ylim = c(0,1),
+              las = 2,
+              main = "Éxito según tema (proporciones)",
+              xlab = "Tema",
+              ylab = "Proporción")
+
+legend("topright",
+       legend = c("No cumple", "Sí cumple"),
+       fill = cols,
+       bty = "n")
+
+n <- rowSums(tab)
+text(x = bp, y = 1.02, labels = paste0("n=", n),
+     xpd = TRUE, cex = 0.8)
+
+par(op)
+
+```
+
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels = c(0, 1), labels = c("No cumple", "Sí cumple"))
+
+tab <- table(df$tema, df$exito_f)
+
+rate <- tab[, "Sí cumple"] / rowSums(tab)
+n    <- rowSums(tab)
+
+ord  <- order(rate, decreasing = TRUE)
+rate <- rate[ord]
+n    <- n[ord]
+
+wrap_labels <- function(x, width = 18){
+  sapply(x, function(s) paste(strwrap(s, width = width), collapse = "\n"))
+}
+ylab2 <- wrap_labels(names(rate), width = 18)
+
+p_global <- mean(df$exito == 1)
+
+max_chars <- max(nchar(gsub("\n", "", ylab2)))
+left_mar  <- min(30, max(11, ceiling(max_chars/2) + 3))
+cex_txt   <- if (length(rate) > 30) 0.50 else if (length(rate) > 22) 0.65 else if (length(rate) > 15) 0.8 else 0.95
+
+if (dev.cur() == 1) dev.new(width = 12, height = 8)
+
+op <- par(no.readonly = TRUE)
+par(mar = c(5, left_mar, 4, 2) + 0.1)
+
+xmax <- max(rate) * 1.35
+bp <- barplot(rate,
+              horiz = TRUE,
+              names.arg = ylab2,
+              xlim = c(0, xmax),
+              col = "lightblue",
+              las = 1,
+              cex.names = cex_txt,
+              main = "Tasa de cumplimiento áureo por tema",
+              xlab = "P(Sí cumple)",
+              ylab = "")
+
+mtext("Tema", side = 2, line = left_mar - 2)
+
+abline(v = p_global, lty = 2, lwd = 2)
+text(x = rate, y = bp, labels = paste0("  n=", n), pos = 4, cex = 0.85)
+text(x = p_global, y = max(bp) + 0.7, labels = "media", pos = 3, cex = 0.8)
+
+par(op)
+
+```
+
+
+## 4.2 Combinaciones dos a dos
+
+**Orientación VS Tam_cat**
+
+```{r, echo = F}
+tab <- table(df$orientacion, df$tam_cat)
+prop_col <- prop.table(tab, 2)  
+round(prop_col, 3)
+
+cols <- c("skyblue3","orange2","gray50") 
+
+barplot(prop_col,
+        beside = FALSE,
+        ylim = c(0, 1),
+        las = 1,
+        col = cols,
+        main = "Orientación dentro de cada tamaño (tam_cat)",
+        xlab = "Tamaño (tam_cat)",
+        ylab = "Proporción")
+
+legend("topright", legend = rownames(prop_col), fill = cols, bty = "n")
+```
+
+En los tres tamaños (pequeño, mediano y grande) prácticamente no aparecen obras “cuadrado” (proporción casi 0), así que la orientación dominante es horizontal/vertical.
+
+Sí hay diferencias entre categorías: en “mediano” aumenta la proporción de verticales (y bajan las horizontales) respecto a “grande” y “pequeño”, pero las diferencias no parecen enormes (el patrón general se mantiene).
+
+
+**Orientación VS Tam_cat con Éxito**
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("0 (No cumple)","1 (Sí cumple)"))
+df$tam_cat <- factor(df$tam_cat, levels=c("pequeno","mediano","grande"))
+df$orientacion <- factor(df$orientacion, levels=c("horizontal","vertical","cuadrado"))
+
+tab3 <- table(df$orientacion, df$tam_cat, df$exito_f)
+
+cols_ex <- c("red","green")
+op <- par(no.readonly = TRUE)
+par(mfrow=c(1,3), mar=c(7,4,4,2)+0.1)
+
+for(tam in levels(df$tam_cat)){
+
+  tab_tam <- tab3[, tam, , drop=FALSE]  
+  tab_tam <- tab_tam[, 1, ]              
+
+  prop_tam <- prop.table(tab_tam, 1)
+
+  bp <- barplot(t(prop_tam),
+                beside=FALSE,
+                ylim=c(0,1),
+                las=2,
+                col=cols_ex,
+                main=paste("tam_cat =", tam),
+                ylab="Proporción",
+                xlab="Orientación")
+
+  n <- rowSums(tab_tam)
+  text(x=bp, y=1.02, labels=paste0("n=", n), xpd=TRUE, cex=0.8)
+}
+
+legend("topright",
+       legend=c("No cumple","Sí cumple"),
+       fill=cols_ex, bty="n")
+
+par(op)
+
+```
+
+**Série VS Soporte_grp**
+
+```{r, echo = F}
+df$serie_f <- factor(df$serie, levels = c(0,1),
+                     labels = c("No pertenece a serie", "Pertenece a serie"))
+tab <- table(df$soporte_grp, df$serie_f)
+tab 
+```
+
+```{r, echo = F}
+
+tab <- table(df$soporte_grp, df$serie)
+prop <- prop.table(tab, 2)
+
+cols <- rainbow(nrow(prop))  
+
+op <- par(no.readonly=TRUE)
+par(mar=c(6,4,4,12)+0.1, xpd=NA)
+
+bp <- barplot(prop,
+              beside = FALSE,
+              ylim = c(0,1),
+              las = 1,
+              col = cols,
+              main = "Soporte dentro de cada grupo de serie",
+              xlab = "Serie",
+              ylab = "Proporción")
+
+n_serie <- colSums(tab)
+text(x = bp, y = 1.02, labels = paste0("n=", n_serie), cex = 0.85)
+
+legend("topright",
+       inset = c(-0.35, 0),
+       legend = rownames(prop),
+       fill = cols,
+       bty = "n",
+       cex = 0.9)
+
+par(op)
+
+```
+
+**Soporte_grp VS Serie y Éxito**
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$serie_f <- factor(df$serie, levels=c(0,1),
+                     labels=c("No pertenece a serie","Pertenece a serie"))
+
+tab3 <- table(df$soporte_grp, df$serie_f, df$exito_f)
+
+tot_sop <- apply(tab3, 1, sum)
+tab3 <- tab3[order(tot_sop, decreasing=TRUE), , , drop=FALSE]
+
+ylab2 <- rownames(tab3)
+ylab2 <- gsub("Papel/Vitela", "Papel/\nVitela", ylab2)
+ylab2 <- gsub("Tabla/Panel", "Tabla/\nPanel", ylab2)
+
+cols <- c("red", "green") 
+
+op <- par(no.readonly=TRUE)
+
+layout(matrix(c(1,2,3), nrow=1), widths=c(1,1,0.55))
+
+for (s in levels(df$serie_f)) {
+
+  tab_s <- tab3[, s, , drop=FALSE][,,1:2]   
+  tab_s <- tab_s[, c("No cumple","Sí cumple")]
+
+  prop_s <- prop.table(tab_s, 1) 
+  prop_s[is.na(prop_s)] <- 0
+  n <- rowSums(tab_s)
+
+  par(mar=c(5, 9.5, 3.5, 2) + 0.1, xpd=NA)
+
+  bp <- barplot(t(prop_s),
+                horiz=TRUE,
+                names.arg=ylab2,
+                col=cols,
+                xlim=c(0,1),
+                las=1,
+                cex.names=0.9,
+                main=paste("Serie:\n", s),
+                xlab="Proporción",
+                border=NA)
+
+  axis(1, at=seq(0,1,0.2))
+  box()
+
+  text(x=1.02, y=bp, labels=paste0("n=", n), pos=4, cex=0.8)
+}
+
+par(mar=c(0,0,0,0))
+plot.new()
+legend("center",
+       legend=c("No cumple","Sí cumple"),
+       fill=cols,
+       bty="n",
+       cex=1)
+```
+
+**Serie VS Fecha_est**
+
+```{r, echo = F}
+df$serie_f <- factor(df$serie, levels = c(0,1),
+                     labels = c("No pertenece a serie", "Pertenece a serie"))
+
+par(mar = c(6,6,4,2) + 0.1)
+
+boxplot(fecha_est ~ serie_f, data = df,
+        col = c("gray85","lightblue"),
+        pch = 16, cex = 0.7,
+        main = "Fecha estimada según pertenencia a serie",
+        xlab = "Serie",
+        ylab = "fecha_est (año)",
+        las = 1)
+
+set.seed(1)
+m <- min(800, nrow(df))
+idx <- sample(seq_len(nrow(df)), m)
+
+stripchart(df$fecha_est[idx] ~ df$serie_f[idx],
+           vertical = TRUE, method = "jitter",
+           pch = 16, cex = 0.35,
+           col = adjustcolor("black", alpha.f = 0.25),
+           add = TRUE)
+
+grid(nx = NA, ny = NULL)
+```
+
+**Fecha_est VS Série con Éxito**
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels = c(0,1),
+                     labels = c("No cumple","Sí cumple"))
+
+df$serie_f <- factor(df$serie, levels = c(0,1),
+                     labels = c("No pertenece a serie", "Pertenece a serie"))
+
+cols <- c("red", "green")  
+
+op <- par(no.readonly = TRUE)
+
+par(mfrow = c(1,2), mar = c(6,5,4,1) + 0.1, oma = c(0,0,2,0))
+
+for (s in levels(df$serie_f)) {
+  sub <- df[df$serie_f == s, , drop = FALSE]
+
+  bp <- boxplot(fecha_est ~ exito_f, data = sub,
+                col = cols,
+                main = paste("Serie:", s),
+                xlab = "Éxito",
+                ylab = "fecha_est (año)",
+                las = 1,
+                outline = TRUE)
+
+  grid(nx = NA, ny = NULL)
+
+  # n encima de cada caja
+  text(x = 1:2, y = par("usr")[4], labels = paste0("n=", bp$n),
+       xpd = TRUE, pos = 3, cex = 0.85)
+}
+
+mtext("Fecha estimada por éxito, separando si pertenece a serie", outer = TRUE, cex = 1.1)
+
+legend("topleft", inset = 0.02,
+       legend = levels(df$exito_f), fill = cols, bty = "n", cex = 0.9)
+```
+
+
+**Tema VS Técnica**
+
+```{r, echo = F}
+tema <- factor(df$tema)
+tec  <- factor(df$tecnica) 
+
+tab  <- table(tema, tec)
+prop <- prop.table(tab, 1) 
+n_tema <- rowSums(tab)
+
+ord <- order(n_tema, decreasing = TRUE)
+prop <- prop[ord, , drop = FALSE]
+n_tema <- n_tema[ord]
+
+tema_lab <- rownames(prop)
+tema_lab <- gsub("_", "\n", tema_lab)  
+
+cols <- rainbow(ncol(prop))
+names(cols) <- colnames(prop)
+
+op <- par(no.readonly = TRUE)
+
+layout(matrix(c(1,2), 1, 2), widths = c(4.8, 1.6))
+
+par(mar = c(5, 12, 4, 1) + 0.1, xpd = NA)
+bp <- barplot(t(prop),
+              horiz = TRUE,
+              beside = FALSE,
+              xlim = c(0, 1),
+              las = 1,
+              col = cols[colnames(prop)],
+              names.arg = tema_lab,
+              main = "Distribución de técnicas dentro de cada tema",
+              xlab = "Proporción",
+              ylab = "Tema",
+              cex.names = 0.85)
+
+text(x = 1.02, y = bp, labels = paste0("n=", n_tema), pos = 4, cex = 0.8)
+
+par(mar = c(0,0,0,0))
+plot.new()
+legend("center",
+       legend = colnames(prop),
+       fill = cols[colnames(prop)],
+       bty = "n",
+       cex = 1)
+
+layout(1)
+par(op)
+
+tab
+round(prop, 3)
+```
+
+
+**Tema VS Técnica y Éxito**
+
+```{r, echo = F}
+dev.new(width = 13, height = 5)
+
+df$exito_f   <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tema_f    <- factor(df$tema)
+df$tecnica_f <- factor(df$tecnica)
+
+tab3 <- with(df, table(tema_f, tecnica_f, exito_f))
+
+tab_total <- apply(tab3, c(1,2), sum)
+n_total   <- rowSums(tab_total)
+ord <- order(n_total, decreasing = TRUE)
+
+tab3 <- tab3[ord, , , drop=FALSE]
+tema_levels <- dimnames(tab3)[[1]]
+
+tema_lab <- gsub("_", "\n", tema_levels)
+
+cols <- rainbow(nlevels(df$tecnica_f))
+names(cols) <- levels(df$tecnica_f)
+
+prop_list <- vector("list", length(levels(df$exito_f)))
+n_list    <- vector("list", length(levels(df$exito_f)))
+
+for (k in seq_along(levels(df$exito_f))) {
+  tab_k <- tab3[,,k]
+  n_k   <- rowSums(tab_k)
+  prop_k <- prop.table(tab_k, 1)   # cada tema suma 1
+  prop_k[is.na(prop_k)] <- 0
+  prop_list[[k]] <- prop_k
+  n_list[[k]] <- n_k
+}
+
+op <- par(no.readonly = TRUE)
+
+layout(matrix(c(1,2,3), 1, 3), widths = c(5.2, 5.2, 1.7))
+par(oma=c(0,0,2,0)) 
+
+for (k in seq_along(levels(df$exito_f))) {
+
+  par(mar = c(4.5, ifelse(k==1, 12, 2), 3, 1) + 0.1, xpd = NA)
+
+  bp <- barplot(t(prop_list[[k]]),
+                horiz = TRUE,
+                beside = FALSE,
+                col = cols[colnames(prop_list[[k]])],
+                xlim = c(0,1),
+                las = 1,
+                names.arg = if (k==1) tema_lab else rep("", length(tema_lab)),
+                cex.names = 0.85,
+                cex.axis = 0.9,
+                main = paste("Éxito:", levels(df$exito_f)[k]),
+                xlab = "Proporción",
+                ylab = if (k==1) "Tema" else "")
+
+
+  text(x = 1.02, y = bp, labels = paste0("n=", n_list[[k]]), pos = 4, cex = 0.75)
+}
+
+par(mar=c(0,0,0,0))
+plot.new()
+legend("center",
+       legend = levels(df$tecnica_f),
+       fill = cols[levels(df$tecnica_f)],
+       bty = "n",
+       cex = 1)
+
+mtext("Distribución de técnicas dentro de cada tema (separado por éxito)", outer=TRUE, cex=1.1)
+
+layout(1)
+par(op)
+
+```
+
+
+**Área VS Fecha**
+
+```{r, echo = F}
+
+df$log_area <- log(df$area)
+
+plot(df$fecha_est, df$log_area,
+     main = "log(Área) vs Fecha Estimada",
+     xlab = "Fecha Estimada",
+     ylab = "log(Área)",
+     pch = 19,  
+     col = rgb(0, 0, 1, 0.5), 
+     cex = 0.7)  
+
+abline(lm(df$log_area ~ df$fecha_est), col = "red", lwd = 2)
+
+```
+
+La línea LOWESS es la tendencia: como está casi plana (ligeramente hacia abajo), no parece que el área cambie mucho con la fecha, las  verticales salen porque muchos años se repiten.
+
+**Área VS Fecha_est con Éxito**
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+col_ex <- ifelse(df$exito_f == "Sí cumple", "green3", "red3")
+
+x <- jitter(df$fecha_est, amount = 0.25)
+y <- log(df$area)
+
+plot(x, y,
+     pch = 16, cex = 0.5,
+     col = col_ex,
+     xlab = "fecha_est",
+     ylab = "log(area+1)",
+     main = "Área vs fecha_est (coloreado por éxito)")
+
+legend("topright",
+       legend = c("No cumple","Sí cumple"),
+       col = c("red3","green3"),
+       pch = 16, bty = "n")
+
+lines(lowess(df$fecha_est, y), lwd = 2)
+
+lines(lowess(df$fecha_est[df$exito_f=="No cumple"], y[df$exito_f=="No cumple"]), lwd=2, col="red3")
+lines(lowess(df$fecha_est[df$exito_f=="Sí cumple"], y[df$exito_f=="Sí cumple"]), lwd=2, col="green3")
+```
+
+**Área VS Orientación **
+
+```{r, echo = F}
+boxplot(log(df$area) ~ df$orientacion, las=2,
+        main="log(area) por orientación", xlab="orientación", ylab="log(area)")
+
+```
+
+**Área VS Orientación con Éxito **
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+df2 <- subset(df, orientacion != "cuadrado" & !is.na(area))
+
+df2$orientacion <- droplevels(factor(df2$orientacion))
+df2$exito_f      <- droplevels(df2$exito_f)
+
+grp <- interaction(df2$orientacion, df2$exito_f, sep="\n", drop=TRUE)
+
+col_grp <- ifelse(grepl("No cumple", levels(grp)), "red", "green")
+
+par(mar=c(9,4,4,2)+0.1)
+boxplot(log(df2$area + 1) ~ grp,
+        las=2,
+        col=col_grp,
+        main="log(area) por orientación y éxito (sin cuadrados)",
+        ylab="log(area)",
+        xlab="")
+
+legend("topright", legend=c("No cumple","Sí cumple"), fill=c("red","green"), bty="n")
+```
+
+**Área VS Soporte**
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+with(df, table(orientacion, exito_f))
+```
+
+```{r, echo = F}
+boxplot(log(df$area) ~ df$soporte_grp, las=2,
+        main="log(area) por soporte", xlab="soporte", ylab="log(area)")
+```
+
+
+**Area VS Técnica**
+
+```{r, echo = F}
+boxplot(log(df$area) ~ df$tecnica_f,
+        main = "Area por técnica",
+        xlab = "Técnica",
+        ylab = "Área",
+        col = rainbow(length(levels(df$tecnica_f))),
+        outline = TRUE)
+
+```
+
+**Area VS Técnica y Éxito**
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0, 1), labels=c("No cumple", "Sí cumple"))
+df$tecnica_f <- factor(df$tecnica)
+
+log_area <- log(df$area)
+
+interaction_var <- interaction(df$tecnica_f, df$exito_f, drop=TRUE)
+
+lst <- split(log_area, interaction_var)
+
+cols_exito <- c("red", "green")
+
+op <- par(no.readonly=TRUE)
+par(mar=c(7,5,4,2)+0.1)
+
+boxplot(lst,
+        col=cols_exito,
+        ylab="log(Área)",
+        xlab="Técnica y Éxito",
+        main="log(Área) por Técnica y Éxito",
+        las=2,
+        outline=TRUE)
+
+axis(1, at=1:length(levels(df$tecnica_f)), labels=levels(df$tecnica_f), las=2)
+abline(v=seq(2.5, by=2, length.out=length(levels(df$tecnica_f))-1), col="gray80", lty=2)
+
+legend("topright", legend=c("No cumple", "Sí cumple"), fill=cols_exito, bty="n")
+
+par(op)
+
+```
+
+**Soporte VS Área y Éxito**
+
+```{r, echo = F}
+par(mar=c(9,5,4,2)+0.1)
+
+k2 <- length(levels(df$soporte_grp))
+
+boxplot(y ~ df$soporte_grp * df$exito_f,
+        col  = rep(cols_ex, times = k2),
+        xaxt = "n",
+        las  = 1,
+        main = "log(area) por soporte y éxito",
+        ylab = "log(area)",
+        xlab = "")
+
+axis(1,
+     at = seq(1.5, by = 2, length.out = k2),
+     labels = levels(df$soporte_grp),
+     las = 2)
+
+abline(v = seq(2.5, by = 2, length.out = k2-1), col = "gray80", lty = 2)
+
+legend("topright", legend = levels(df$exito_f), fill = cols_ex, bty = "n")
+
+par(op)
+```
+
+
+**Orientación VS soporte_grp**
+
+```{r, echo = F}
+tab_orient_soporte <- table(df$orientacion, df$soporte_grp)
+prop_orient_soporte <- prop.table(tab_orient_soporte, 2)
+
+cols <- c("orange", "purple", "blue", "green")
+
+barplot(prop_orient_soporte, 
+        beside = FALSE, 
+        col = cols, 
+        ylim = c(0, 1), 
+        main = "Distribución de orientación por soporte_grp", 
+        xlab = "Soporte", 
+        ylab = "Proporción", 
+        las = 1) 
+
+legend("topright", 
+       legend = rownames(prop_orient_soporte), 
+       fill = cols, 
+       bty = "n", 
+       cex = 0.9)
+
+```
+
+**Orientación VS Soporte_grp con Éxito**
+
+```{r, echo = F}
+ori <- factor(df$orientacion)
+sup <- factor(df$soporte_grp)
+ex  <- factor(df$exito, levels = c(0,1), labels = c("No cumple","Sí cumple"))
+
+ok <- !is.na(ori) & !is.na(sup) & !is.na(ex)
+ori <- ori[ok]; sup <- sup[ok]; ex <- ex[ok]
+
+tab <- table(ori, sup, ex)
+
+ori_levels <- dimnames(tab)[[1]]
+sup_levels <- dimnames(tab)[[2]]
+ex_levels  <- dimnames(tab)[[3]]
+
+cols_ori <- rainbow(length(ori_levels)) 
+
+op <- par(no.readonly = TRUE)
+par(mfrow = c(1,2), mar = c(7,4,4,1) + 0.1, xpd = NA)
+
+for(i in seq_along(ex_levels)){
+  m <- tab[,, i, drop = FALSE]
+  m <- m[,,1] 
+
+  prop <- prop.table(m, 2)    
+  prop[!is.finite(prop)] <- 0   
+
+  barplot(as.matrix(prop),
+          beside = FALSE,
+          ylim = c(0,1),
+          col = cols_ori,
+          main = paste("Éxito:", ex_levels[i]),
+          xlab = "soporte_grp",
+          ylab = "Proporción",
+          las = 2)
+
+  abline(h = seq(0,1,0.2), col = "gray90")
+}
+
+legend("topright", inset = c(-0.25, 0),
+       legend = ori_levels, fill = cols_ori, bty = "n", cex = 0.9)
+
+par(op)
+
+```
+
+
+**Orientación VS técnica**
+
+```{r, echo = F}
+ori <- factor(df$orientacion)
+tec <- factor(df$tecnica)
+
+ok <- !is.na(ori) & !is.na(tec)
+ori <- ori[ok]; tec <- tec[ok]
+
+tab <- table(ori, tec)          
+prop <- prop.table(tab, 2) 
+
+cols_ori <- rainbow(nlevels(ori))
+
+op <- par(no.readonly=TRUE)
+par(mar=c(7,4,4,2)+0.1, xpd=NA)
+
+barplot(as.matrix(prop),
+        beside = FALSE,
+        ylim = c(0,1),
+        col = cols_ori,
+        main = "Distribución de orientación dentro de cada técnica",
+        xlab = "Técnica",
+        ylab = "Proporción",
+        las = 2)
+
+abline(h = seq(0,1,0.2), col="gray")
+legend("topright", inset=c(-0.25,0),
+       legend=levels(ori), fill=cols_ori, bty="n", cex=0.9)
+
+par(op)
+
+```
+
+**Orientación VS Técnica con Éxito**
+
+```{r, echo = F}
+ori <- factor(df$orientacion)
+tec <- factor(df$tecnica)
+ex  <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+ok <- !is.na(ori) & !is.na(tec) & !is.na(ex)
+ori <- ori[ok]; tec <- tec[ok]; ex <- ex[ok]
+
+tab <- table(ori, tec, ex)
+
+ori_levels <- dimnames(tab)[[1]]
+tec_levels <- dimnames(tab)[[2]]
+ex_levels  <- dimnames(tab)[[3]]
+
+cols_ori <- rainbow(length(ori_levels))
+
+op <- par(no.readonly=TRUE)
+par(mfrow=c(1,2), mar=c(7,4,4,1)+0.1, xpd=NA)
+
+for(i in seq_along(ex_levels)){
+  m <- tab[,,i]
+  prop <- prop.table(m, 2)
+  prop[!is.finite(prop)] <- 0
+
+  barplot(as.matrix(prop),
+          beside=FALSE,
+          ylim=c(0,1),
+          col=cols_ori,
+          main=paste("Éxito:", ex_levels[i]),
+          xlab="Técnica",
+          ylab="Proporción",
+          las=2)
+
+  abline(h=seq(0,1,0.2), col="gray90")
+}
+
+legend("topright", inset=c(-0.25,0),
+       legend=ori_levels, fill=cols_ori, bty="n", cex=0.9)
+
+par(op)
+
+```
+
+
+**Orientación VS Fecha_est**
+
+```{r, echo = F}
+df$orientacion <- factor(df$orientacion)
+df$fecha_est_num <- as.numeric(df$fecha_est)  
+
+boxplot(fecha_est_num ~ orientacion,
+        data = df,
+        col = rainbow(length(levels(df$orientacion))),
+        main = "Distribución de fecha_est por orientación",
+        xlab = "Orientación",
+        ylab = "Fecha Estimada",
+        las = 2) 
+
+```
+
+**Orientación VS Fecha_est con Éxito**
+
+```{r, echo = F}
+ori <- factor(df$orientacion)
+ex  <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+fe  <- as.numeric(df$fecha_est)
+
+ok <- !is.na(ori) & !is.na(ex) & is.finite(fe)
+ori <- ori[ok]; ex <- ex[ok]; fe <- fe[ok]
+
+ori_levels <- levels(ori)
+cols_ori <- c("blue", "orange", "gray")
+cols_ori <- cols_ori[seq_along(ori_levels)] 
+
+op <- par(no.readonly=TRUE)
+par(mfrow=c(1,2), mar=c(7,4,4,5)+0.1)
+
+for (lev in levels(ex)) {
+  idx <- ex == lev
+  boxplot(fe[idx] ~ ori[idx],
+          las = 2,
+          col = cols_ori,
+          main = paste("fecha_est por orientación (", lev, ")", sep=""),
+          xlab = "Orientación",
+          ylab = "Fecha estimada",
+          outline = TRUE)
+  
+  legend("topright", legend=ori_levels, fill=cols_ori, bty="n", cex=0.9)
+}
+
+par(op)
+
+```
+
+
+**soporte_grp VS Técnica **
+
+
+```{r, echo = F}
+sup <- factor(df$soporte_grp)
+tec <- factor(df$tecnica)
+
+ok <- !is.na(sup) & !is.na(tec)
+sup <- sup[ok]; tec <- tec[ok]
+
+tab  <- table(tec, sup) 
+prop <- prop.table(tab, 2)     
+
+cols_tec <- rainbow(nrow(prop)) 
+
+op <- par(no.readonly=TRUE)
+par(mar=c(7,4,4,10)+0.1, xpd=NA) 
+
+bp <- barplot(as.matrix(prop),
+              beside = FALSE,
+              ylim = c(0,1),
+              col = cols_tec,
+              main = "Distribución de técnica dentro de cada soporte",
+              xlab = "soporte_grp",
+              ylab = "Proporción",
+              las = 2)
+
+abline(h = seq(0,1,0.2), col="gray90")
+
+n_sup <- colSums(tab)
+text(x = bp, y = 1.02, labels = paste0("n=", n_sup), cex = 0.8)
+
+legend("topright",
+       inset = c(-0.35, 0),
+       legend = rownames(prop),
+       fill = cols_tec,
+       bty = "n",
+       cex = 0.9)
+
+par(op)
+
+```
+
+
+**soporte_grp VS Técnica con Éxito**
+
+```{r, echo = F}
+sup <- factor(df$soporte_grp)
+tec <- factor(df$tecnica)
+ex  <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+ok <- !is.na(sup) & !is.na(tec) & !is.na(ex)
+sup <- sup[ok]; tec <- tec[ok]; ex <- ex[ok]
+
+tab <- table(tec, sup, ex) 
+
+tec_levels <- dimnames(tab)[[1]]
+sup_levels <- dimnames(tab)[[2]]
+ex_levels  <- dimnames(tab)[[3]]
+
+cols_tec <- rainbow(length(tec_levels)) 
+
+op <- par(no.readonly=TRUE)
+par(mfrow=c(1,2), mar=c(7,4,4,10)+0.1, xpd=NA)
+
+for(i in seq_along(ex_levels)){
+  m <- tab[,,i]
+  prop <- prop.table(m, 2)     
+  prop[!is.finite(prop)] <- 0   
+
+  bp <- barplot(as.matrix(prop),
+                beside=FALSE,
+                ylim=c(0,1),
+                col=cols_tec,
+                main=paste("Éxito:", ex_levels[i]),
+                xlab="soporte_grp",
+                ylab="Proporción",
+                las=2)
+
+  abline(h=seq(0,1,0.2), col="gray")
+
+  n_sup <- colSums(m)
+  text(x=bp, y=1.02, labels=paste0("n=", n_sup), cex=0.8)
+}
+
+legend("topright", inset=c(-0.35,0),
+       legend=tec_levels, fill=cols_tec, bty="n", cex=0.9)
+
+par(op)
+
+```
+
+
+**Soporte_grp VS Fecha_estimada**
+
+```{r, echo = F}
+sup <- factor(df$soporte_grp)
+fe  <- as.numeric(df$fecha_est)
+
+ok <- !is.na(sup) & is.finite(fe)
+sup <- sup[ok]; fe <- fe[ok]
+
+sup_levels <- levels(sup)
+cols_sup <- rainbow(length(sup_levels))
+
+op <- par(no.readonly=TRUE)
+par(mar=c(7,4,4,2)+0.1)
+
+boxplot(fe ~ sup,
+        col = cols_sup,
+        las = 2,
+        main = "fecha_est por soporte_grp",
+        xlab = "soporte_grp",
+        ylab = "Fecha estimada",
+        outline = TRUE)
+
+legend("topright", legend=sup_levels, fill=cols_sup, bty="n", cex=0.85)
+
+par(op)
+
+```
+
+
+
+**Soporte_grp VS Fecha_estimada con Éxito**
+
+```{r, echo = F}
+sup <- factor(df$soporte_grp)
+ex  <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+fe  <- as.numeric(df$fecha_est)
+
+ok <- !is.na(sup) & !is.na(ex) & is.finite(fe)
+sup <- sup[ok]; ex <- ex[ok]; fe <- fe[ok]
+
+sup_levels <- levels(sup)
+cols_sup <- rainbow(length(sup_levels))
+
+op <- par(no.readonly=TRUE)
+par(mfrow=c(1,2), mar=c(7,4,4,5)+0.1, xpd=NA)
+
+for(lev in levels(ex)){
+  idx <- ex == lev
+  boxplot(fe[idx] ~ sup[idx],
+          col = cols_sup,
+          las = 2,
+          main = paste("fecha_est por soporte_grp (", lev, ")", sep=""),
+          xlab = "soporte_grp",
+          ylab = "Fecha estimada",
+          outline = TRUE)
+  legend("topright", legend=sup_levels, fill=cols_sup, bty="n", cex=0.85)
+}
+
+par(op)
+
+```
+
+
+**Técnica VS Fecha_estimada**
+
+```{r, echo = F}
+tec <- factor(df$tecnica)
+fe  <- as.numeric(df$fecha_est)
+
+ok <- !is.na(tec) & is.finite(fe)
+tec <- tec[ok]; fe <- fe[ok]
+
+tec_levels <- levels(tec)
+cols_tec <- rainbow(length(tec_levels))
+
+op <- par(no.readonly=TRUE)
+par(mar=c(7,4,4,6)+0.1, xpd=NA)
+
+boxplot(fe ~ tec,
+        col = cols_tec,
+        las = 2,
+        main = "fecha_est por técnica",
+        xlab = "Técnica",
+        ylab = "Fecha estimada",
+        outline = TRUE)
+
+legend("topright", inset=c(-0.25,0),
+       legend=tec_levels, fill=cols_tec, bty="n", cex=0.9)
+
+par(op)
+
+```
+
+
+
+**Técnica VS Fecha_estimada con Éxito**
+
+```{r, echo = F}
+tec <- factor(df$tecnica)
+ex  <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+fe  <- as.numeric(df$fecha_est)
+
+ok <- !is.na(tec) & !is.na(ex) & is.finite(fe)
+tec <- tec[ok]; ex <- ex[ok]; fe <- fe[ok]
+
+tec_levels <- levels(tec)
+cols_tec <- rainbow(length(tec_levels))
+
+op <- par(no.readonly=TRUE)
+par(mfrow=c(1,2), mar=c(7,4,4,8)+0.1, xpd=NA)
+
+for(lev in levels(ex)){
+  idx <- ex == lev
+  boxplot(fe[idx] ~ tec[idx],
+          col = cols_tec,
+          las = 2,
+          main = paste("fecha_est por técnica (", lev, ")", sep=""),
+          xlab = "Técnica",
+          ylab = "Fecha estimada",
+          outline = TRUE)
+  legend("topright", inset=c(-0.30,0),
+         legend=tec_levels, fill=cols_tec, bty="n", cex=0.85)
+}
+
+par(op)
+
+```
+
+
+**Tipo_autor VS Tema**
+```{r, echo = F}
+tab <- table(df$tipo_autor, df$tema)
+prop <- prop.table(tab, 1)
+n <- rowSums(tab)
+
+tema_levels <- colnames(prop)
+cols <- grDevices::rainbow(length(tema_levels))
+
+par(mar=c(9,4,4,12)+0.1)  
+bp <- barplot(t(prop),
+              beside=FALSE, ylim=c(0,1), las=2,
+              col=cols,
+              main="Temas por cada tipo de autor",
+              ylab="Proporción", xlab="Tipo de autor")
+text(x=bp, y=1.02, labels=paste0("n=", n), xpd=TRUE, cex=0.8)
+
+legend("topright", inset=c(-0.35,0), xpd=TRUE,
+       legend=tema_levels, fill=cols, bty="n", cex=0.8)
+
+tab
+round(prop, 3)
+
+```
+
+Los temas no se reparten igual según el tipo de autor: cambian bastante entre anónimo, hombre, mujer y varios.
+Pero “mujer” y “varios” tienen muy pocos casos, así que ahí las proporciones pueden engañar.
+Esto sugiere que tipo_autor y tema están relacionados, así que si metemos uno en el modelo el otro puede aportar poco (o habría que agrupar categorías).
+
+**Tipo_autor VS Tema con Éxito**
+
+```{r, echo = F}
+
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tipo_autor_f <- factor(df$tipo_autor)
+df$tema_f <- factor(df$tema)
+
+tab3 <- with(df, table(tipo_autor_f, tema_f, exito_f))
+
+tab_total <- apply(tab3, c(1,2), sum)     
+tema_tot  <- colSums(tab_total) 
+ord_tema  <- order(tema_tot, decreasing = TRUE)
+
+tab3 <- tab3[, ord_tema, , drop=FALSE]
+tema_levels <- dimnames(tab3)[[2]]
+
+tema_lab <- gsub("_", "\n", tema_levels)
+
+cols <- grDevices::rainbow(length(tema_levels))
+names(cols) <- tema_levels
+
+op <- par(no.readonly = TRUE)
+
+layout(matrix(c(1,2,3), 1, 3), widths = c(5.2, 5.2, 2.2))
+par(oma=c(0,0,2,0))
+
+for (k in 1:length(levels(df$exito_f))) {
+
+  tab_k <- tab3[, , k, drop=FALSE][,,1] 
+  prop  <- prop.table(tab_k, 1)                  
+  prop[is.na(prop)] <- 0
+  n_aut <- rowSums(tab_k)
+
+  par(mar=c(9,4,4,1)+0.1, xpd=NA)
+
+  bp <- barplot(t(prop),
+                beside = FALSE,
+                ylim = c(0,1),
+                las = 2,
+                col = cols[colnames(prop)],
+                main = paste("Éxito:", levels(df$exito_f)[k]),
+                ylab = "Proporción",
+                xlab = "Tipo de autor")
+
+  text(x=bp, y=1.02, labels=paste0("n=", n_aut), xpd=TRUE, cex=0.8)
+}
+
+par(mar=c(0,0,0,0))
+plot.new()
+legend("center",
+       legend = tema_lab,
+       fill = cols[tema_levels],
+       bty = "n",
+       cex = 0.75)
+
+mtext("Temas por cada tipo_autor separado por éxito", outer=TRUE, cex=1.1)
+
+layout(1)
+par(op)
+
+```
+
+La distribución de temas por tipo de autor es bastante parecida entre “No cumple” y “Sí cumple”, no se ve un cambio claro que explique el éxito.
+Los grupos “mujer” y “varios” tienen muy pocos casos (n muy pequeño), así que cualquier diferencia ahí puede ser casualidad.
+En el descriptivo, tipo_autor no parece una variable clave para el modelo; si metemos tema, tipo_autor probablemente aportará poco.
+
+**Tipo_autor VS Técnica**
+
+```{r, echo = F}
+tab <- table(df$tipo_autor, df$tecnica)
+prop <- prop.table(tab, 1)
+n <- rowSums(tab)
+
+tec_levels <- colnames(prop)
+cols <- grDevices::rainbow(length(tec_levels))
+
+par(mar=c(9,4,4,10)+0.1)
+bp <- barplot(t(prop),
+              beside=FALSE, ylim=c(0,1), las=2,
+              col=cols,
+              main="Distribución de técnicas dentro de cada tipo de autor",
+              ylab="Proporción", xlab="Tipo de autor")
+text(x=bp, y=1.02, labels=paste0("n=", n), xpd=TRUE, cex=0.8)
+
+legend("topright", inset=c(-0.25,0), xpd=TRUE,
+       legend=tec_levels, fill=cols, bty="n", cex=0.9)
+
+tab
+round(prop, 3)
+
+```
+
+Casi todo es óleo en anónimo/hombre/mujer, así que la técnica apenas cambia entre autores.
+Con tan poca diferencia, esta variable no parece que vaya a ayudar mucho a explicar el éxito (da poca “señal”).
+No debería ser prioritaria en el modelo; solo tendría sentido si en el gráfico técnica vs éxito se viera una diferencia clara.
+
+**Tipo_autor VS Técnica con Éxito**
+
+```{r, echo = F}
+
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tipo_autor_f <- factor(df$tipo_autor)
+df$tecnica_f <- factor(df$tecnica)
+
+tab3 <- with(df, table(tipo_autor_f, tecnica_f, exito_f))
+
+tab_total <- apply(tab3, c(1,2), sum)
+tec_tot   <- colSums(tab_total)   
+ord_tec   <- order(tec_tot, decreasing = TRUE)
+
+tab3 <- tab3[, ord_tec, , drop=FALSE]
+tec_levels <- dimnames(tab3)[[2]]
+
+tec_lab <- gsub("_", "\n", tec_levels)
+
+cols <- grDevices::rainbow(length(tec_levels))
+names(cols) <- tec_levels
+
+op <- par(no.readonly = TRUE)
+
+layout(matrix(c(1,2,3), 1, 3), widths = c(5.2, 5.2, 2.2))
+par(oma=c(0,0,2,0))
+
+for (k in 1:length(levels(df$exito_f))) {
+
+  tab_k <- tab3[, , k, drop=FALSE][,,1]
+  prop  <- prop.table(tab_k, 1)             
+  prop[is.na(prop)] <- 0
+  n_aut <- rowSums(tab_k)
+
+  par(mar=c(9,4,4,1)+0.1, xpd=NA)
+
+  bp <- barplot(t(prop),
+                beside = FALSE,
+                ylim = c(0,1),
+                las = 2,
+                col = cols[colnames(prop)],
+                main = paste("Éxito:", levels(df$exito_f)[k]),
+                ylab = "Proporción",
+                xlab = "Tipo de autor")
+
+  text(x=bp, y=1.02, labels=paste0("n=", n_aut), xpd=TRUE, cex=0.8)
+}
+
+par(mar=c(0,0,0,0))
+plot.new()
+legend("center",
+       legend = tec_lab,
+       fill = cols[tec_levels],
+       bty = "n",
+       cex = 0.9)
+
+mtext("Técnicas por cada tipo_autor separado por éxito", outer=TRUE, cex=1.1)
+
+layout(1)
+par(op)
+
+```
+
+**Tipo_autor VS Soporte_grp**
+```{r, echo = F}
+tab <- table(df$tipo_autor, df$soporte_grp)
+prop <- prop.table(tab, 1)
+n <- rowSums(tab)
+
+sup_levels <- colnames(prop)
+cols <- grDevices::rainbow(length(sup_levels))
+
+par(mar=c(9,4,4,10)+0.1)
+bp <- barplot(t(prop),
+              beside=FALSE, ylim=c(0,1), las=2,
+              col=cols,
+              main="Distribución de soportes dentro de cada tipo de autor",
+              ylab="Proporción", xlab="Tipo de autor")
+text(x=bp, y=1.02, labels=paste0("n=", n), xpd=TRUE, cex=0.8)
+
+legend("topright", inset=c(-0.25,0), xpd=TRUE,
+       legend=sup_levels, fill=cols, bty="n", cex=0.9)
+
+tab
+round(prop, 3)
+
+```
+
+**Tipo_autor VS Soporte_grp con Éxito**
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tipo_autor_f <- factor(df$tipo_autor)
+df$soporte_f <- factor(df$soporte_grp)
+
+tab3 <- with(df, table(tipo_autor_f, soporte_f, exito_f))
+
+tab_total <- apply(tab3, c(1,2), sum)  
+sup_tot   <- colSums(tab_total)  
+ord_sup   <- order(sup_tot, decreasing = TRUE)
+
+tab3 <- tab3[, ord_sup, , drop=FALSE]
+sup_levels <- dimnames(tab3)[[2]]
+
+sup_lab <- sup_levels
+sup_lab <- gsub("Papel/Vitela", "Papel/\nVitela", sup_lab)
+sup_lab <- gsub("Tabla/Panel", "Tabla/\nPanel", sup_lab)
+
+cols <- grDevices::rainbow(length(sup_levels))
+names(cols) <- sup_levels
+
+op <- par(no.readonly = TRUE)
+
+layout(matrix(c(1,2,3), 1, 3), widths = c(5.2, 5.2, 2.2))
+par(oma=c(0,0,2,0))
+
+for (k in 1:length(levels(df$exito_f))) {
+
+  tab_k <- tab3[, , k, drop=FALSE][,,1]   
+  prop  <- prop.table(tab_k, 1)
+  prop[is.na(prop)] <- 0
+  n_aut <- rowSums(tab_k)
+
+  par(mar=c(9,4,4,1)+0.1, xpd=NA)
+
+  bp <- barplot(t(prop),
+                beside = FALSE,
+                ylim = c(0,1),
+                las = 2,
+                col = cols[colnames(prop)],
+                main = paste("Éxito:", levels(df$exito_f)[k]),
+                ylab = "Proporción",
+                xlab = "Tipo de autor")
+
+  text(x=bp, y=1.02, labels=paste0("n=", n_aut), xpd=TRUE, cex=0.8)
+}
+
+# Panel leyenda aparte
+par(mar=c(0,0,0,0))
+plot.new()
+legend("center",
+       legend = sup_lab,
+       fill = cols[sup_levels],
+       bty = "n",
+       cex = 0.9)
+
+mtext("Soportes en cada tipo_autor separado por éxito", outer=TRUE, cex=1.1)
+
+layout(1)
+par(op)
+
+```
+
+
+**Tam_cat VS Tipo_autor**
+
+```{r, echo = F}
+
+table(df$tam_cat, useNA = "ifany")
+tam_raw <- df$tam_cat
+
+if (all(is.na(tam_raw))) {
+  # RECREAR tam_cat desde area (terciles)
+  qs <- quantile(df$area, probs = c(1/3, 2/3), na.rm = TRUE)
+  df$tam_cat <- cut(df$area,
+                    breaks = c(-Inf, qs[1], qs[2], Inf),
+                    labels = c("pequeno", "mediano", "grande"),
+                    include.lowest = TRUE, ordered_result = TRUE)
+} else {
+  df$tam_cat <- factor(as.character(tam_raw))
+}
+
+if (all(c("pequeno","mediano","grande") %in% levels(df$tam_cat))) {
+  df$tam_cat <- factor(df$tam_cat, levels = c("pequeno","mediano","grande"), ordered = TRUE)
+}
+
+df$tipo_autor_f <- factor(df$tipo_autor)
+
+tab <- table(df$tipo_autor_f, df$tam_cat)
+prop <- prop.table(tab, 1)
+n <- rowSums(tab)
+
+tam_levels <- colnames(prop)
+cols <- grDevices::heat.colors(length(tam_levels))
+
+par(mar=c(9,4,4,10)+0.1)
+bp <- barplot(t(prop),
+              beside = FALSE, ylim = c(0,1), las = 2,
+              col = cols,
+              main = "tam_cat en cada tipo de autor",
+              ylab = "Proporción", xlab = "Tipo de autor")
+
+text(x = bp, y = 1.02, labels = paste0("n=", n), xpd = TRUE, cex = 0.8)
+
+legend("topright", inset=c(-0.25,0), xpd=TRUE,
+       legend = tam_levels, fill = cols, bty = "n", cex = 0.9)
+
+tab
+round(prop, 3)
+
+```
+
+**tam_cat VS tipo_autor con Éxito**
+
+```{r, echo = F}
+tab <- table(df$tam_cat, df$tipo_autor, df$exito)
+
+prop <- prop.table(tab, 1) 
+prop_matrix <- apply(prop, c(1, 2), sum)
+
+cols_ex <- c("red", "green") 
+op <- par(no.readonly = TRUE)
+par(mar = c(6, 4, 4, 2) + 0.1)
+
+bp <- barplot(t(prop_matrix), 
+              beside = FALSE,  
+              col = cols_ex,
+              ylim = c(0, 1),
+              main = " Tam_cat por tipo de autor y éxito",
+              xlab = "Tipo de autor",
+              ylab = "Proporción",
+              legend.text = c("No cumple", "Sí cumple"),
+              args.legend = list(x = "topright", bty = "n"))
+
+n_totals <- rowSums(tab[,,1] + tab[,,2])  
+text(x = bp, y = 1.02, labels = paste0("n=", n_totals), xpd = TRUE, cex = 0.8)
+
+par(op)
+
+```
+
+
+**Tipo_autor VS Orientación**
+```{r, echo = F}
+tab <- table(df$tipo_autor, df$orientacion)
+prop <- prop.table(tab, 1)
+n <- rowSums(tab)
+
+ori_levels <- colnames(prop)
+cols <- c("gray50","orange2","skyblue3")[seq_along(ori_levels)]  # ajusta si quieres
+
+par(mar=c(9,4,4,2)+0.1)
+bp <- barplot(t(prop),
+              beside=FALSE, ylim=c(0,1), las=2,
+              col=cols,
+              main="Distribución de orientación dentro de cada tipo de autor",
+              ylab="Proporción", xlab="Tipo de autor")
+legend("topright", legend=ori_levels, fill=cols, bty="n")
+text(x=bp, y=1.02, labels=paste0("n=", n), xpd=TRUE, cex=0.8)
+
+tab
+round(prop, 3)
+
+```
+
+Este gráfico muestra la distribución de la orientación de las obras (horizontal, vertical, cuadrado) según el tipo de autor.
+Las obras de autores anónimos y hombres son predominantemente horizontales, mientras que las obras de mujeres y varios presentan una mayor proporción de obras verticales.
+Esta variable (orientación) podría ser relevante para el modelo si se confirma que influye en el éxito, ya que hay diferencias visibles en la distribución por tipo de autor.
+
+**Tipo_autor VS Área**
+
+```{r, echo = F}
+y <- log(df$area)
+
+par(mar=c(9,4,4,2)+0.1)
+boxplot(y ~ df$tipo_autor, las=2,
+        main="log(area) por tipo de autor",
+        xlab="Tipo de autor", ylab="log(area)")
+
+```
+
+
+**Área por Tipo_autor y Éxito**
+
+```{r, echo = F}
+ df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tipo_autor_f <- factor(df$tipo_autor)
+
+area_num <- as.numeric(df$area)
+ok <- is.finite(area_num) & area_num > 0 & !is.na(df$exito_f) & !is.na(df$tipo_autor_f)
+
+y  <- log(area_num[ok])
+ta <- df$tipo_autor_f[ok]
+ex <- df$exito_f[ok]
+
+g   <- interaction(ta, ex, sep="|", drop=TRUE)
+lst <- split(y, g)
+
+ord_names <- as.vector(sapply(levels(ta), function(a) paste(a, levels(ex), sep="|")))
+ord_names <- ord_names[ord_names %in% names(lst)]
+lst <- lst[ord_names]
+
+k1 <- nlevels(ta)
+centers <- seq(1.5, by=2, length.out=k1)
+at <- as.vector(sapply(centers, function(cc) cc + c(-0.35, 0.35)))
+at <- at[seq_along(lst)]
+
+cols_ex <- c("red","green")
+col_vec <- rep(cols_ex, times=k1)[seq_along(lst)]
+
+op <- par(no.readonly=TRUE)
+par(mar=c(8,5,4,2)+0.1)  # Aumentar el margen inferior para mejorar la visibilidad de las etiquetas
+
+boxplot(lst,
+        at=at,
+        col=col_vec,
+        ylab="log(area)",
+        xlab="Tipo de autor",
+        main="log(area) por tipo de autor y éxito",
+        las=2,  # Rotar las etiquetas del eje y
+        outline=TRUE)
+
+axis(1, at=centers, labels=levels(ta), las=2)  # Rotar las etiquetas del eje X
+abline(v=seq(2.5, by=2, length.out=k1-1), col="gray80", lty=2)
+legend("topright", legend=levels(ex), fill=cols_ex, bty="n")
+
+par(op)
+
+```
+
+**Tipo_autor VS Fecha_est** 
+
+```{r, echo = F}
+df$tipo_autor_f <- factor(df$tipo_autor)
+
+fe <- as.numeric(df$fecha_est)
+
+ok <- is.finite(fe) & !is.na(df$tipo_autor_f)
+
+y  <- fe[ok]
+ta <- df$tipo_autor_f[ok]
+
+op <- par(no.readonly=TRUE)
+par(mar=c(7,5,4,2)+0.1)  
+
+boxplot(y ~ ta,
+        col=c("blue", "pink", "yellow", "green"),
+        ylab="Fecha Estimada (fecha_est)",
+        xlab="Tipo de autor",
+        main="Fecha estimada por tipo de autor",
+        las=2,  
+        outline=TRUE)
+axis(1, at=seq_along(levels(ta)), labels=levels(ta), las=2)
+
+par(op) 
+
+```
+
+**Tipo_autor VS Fecha_est con Éxito**
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+df$tipo_autor_f <- factor(df$tipo_autor)
+
+fe <- as.numeric(df$fecha_est)
+
+ok <- is.finite(fe) & !is.na(df$exito_f) & !is.na(df$tipo_autor_f)
+
+y  <- fe[ok]
+ta <- df$tipo_autor_f[ok]
+ex <- df$exito_f[ok]
+
+lev_ta <- levels(ta)
+lev_ex <- levels(ex)
+g <- interaction(ta, ex, sep="|", drop=TRUE)
+lst <- split(y, g)
+
+ord_names <- as.vector(sapply(lev_ta, function(a) paste(a, lev_ex, sep="|")))
+ord_names <- ord_names[ord_names %in% names(lst)]
+lst <- lst[ord_names]
+
+k1 <- length(lev_ta)
+centers <- seq(1.5, by=2, length.out=k1)
+at <- as.vector(sapply(centers, function(cc) cc + c(-0.35, 0.35)))
+at <- at[seq_along(lst)]
+
+cols_ex <- c("red","green")
+col_vec <- rep(cols_ex, times=k1)[seq_along(lst)]
+
+op <- par(no.readonly=TRUE)
+par(mar=c(7,5,4,2)+0.1)
+
+boxplot(lst,
+        at=at,
+        col=col_vec,
+        ylab="fecha_est (año)",
+        xlab="Tipo de autor",
+        main="Fecha estimada por tipo de autor y éxito",
+        las=2,
+        outline=TRUE)
+
+axis(1, at=centers, labels=lev_ta, las=2)
+abline(v=seq(2.5, by=2, length.out=k1-1), col="gray80", lty=2)
+legend("topright", legend=lev_ex, fill=cols_ex, bty="n")
+
+par(op)
+
+```
+
+
+**Tipo_autor VS serie**
+```{r, echo = F}
+tab <- table(df$tipo_autor, df$serie)
+prop <- prop.table(tab, 1)
+n <- rowSums(tab)
+
+ser_levels <- colnames(prop)
+cols <- c("yellow","lightblue")[seq_along(ser_levels)]
+
+par(mar=c(9,4,4,2)+0.1)
+bp <- barplot(t(prop),
+              beside=FALSE, ylim=c(0,1), las=2,
+              col=cols,
+              main="Serie dentro de cada tipo de autor",
+              ylab="Proporción", xlab="Tipo de autor")
+legend("topright", legend=ser_levels, fill=cols, bty="n")
+text(x=bp, y=1.02, labels=paste0("n=", n), xpd=TRUE, cex=0.8)
+
+tab
+round(prop, 3)
+
+```
+
+
+**Tipo_autor VS Serie con Éxito**
+
+```{r, echo = F}
+df$exito_f <- factor(df$exito, levels=c(0,1), labels=c("No cumple","Sí cumple"))
+
+df$serie_f <- factor(df$serie, levels=c(0,1),
+                     labels=c("0 (con serie)", "1 (con serie)"))
+
+df$tipo_autor_f <- factor(df$tipo_autor)
+
+tab3 <- table(df$tipo_autor_f, df$serie_f, df$exito_f)
+
+cols_ex <- c("red","green")
+
+op <- par(no.readonly=TRUE)
+par(mfrow=c(1,2), mar=c(7,4,4,2)+0.1)
+
+for (s in levels(df$serie_f)) {
+
+  tab_s <- tab3[, s, ]      
+  prop  <- prop.table(tab_s, 1)
+  bp <- barplot(t(prop),
+                beside=FALSE,
+                ylim=c(0,1),
+                las=2,
+                col=cols_ex,
+                main=paste("Serie:", s),
+                ylab="Proporción",
+                xlab="Tipo de autor")
+
+  n <- rowSums(tab_s)
+  text(x=bp, y=1.02, labels=paste0("n=", n), xpd=TRUE, cex=0.8)
+}
+
+legend("topright", legend=levels(df$exito_f), fill=cols_ex, bty="n")
+par(op)
+
+```
+
+
+
+**Resumen:**
+
+Hemos revisado todos los gráficos para entender qué variables podrían estar relacionadas con exito, que es nuestra variable respuesta (sí cumple o no cumple la proporción áurea). 
+
+En primer lugar, los gráficos y tablas descriptivas muestran que el conjunto de datos está muy desequilibrado por tipo de autor. La gran mayoría de obras aparecen atribuidas a hombre, mientras que los grupos anónimo, varios y especialmente mujer tienen muchos menos casos. Cuando un grupo tiene muy pocas observaciones, cualquier diferencia que parezca grande en un gráfico puede deberse simplemente al tamaño muestral pequeño y no a un efecto real.
+
+Respecto a la variable respuesta, predominan claramente las obras que no cumplen la proporción áurea: hay muchas más observaciones en “no cumple” que en “sí cumple”. 
+
+En cambio donde se ve un patrón más marcado es en la dimensión temporal. La distribución de fecha_estimada varía mucho según el tipo de autor: en “hombre” hay mucha más dispersión y aparecen más valores extremos (obras muy antiguas), mientras que en “mujer” y “varios” las fechas están más concentradas en un intervalo más estrecho.
+
+Los gráficos indican patrones muy dominantes: casi todas las obras son óleo, el soporte más frecuente es lienzo, y la orientación vertical es la más común. Finalmente pertenecer a una serie es algo minoritario en general, pero en el grupo “varios” aparece con más frecuencia que en el resto. 
+
+La variable que más destaca en los gráficos es fecha_estimada. Al separar las obras por exito, observamos que las que sí cumplen tienden a concentrarse más en un rango de fechas mientras que las que no cumplen aparecen más dispersas y con más valores extremos. Además, esta dispersión no es igual para todos: por tipo_autor vemos mucha más variación en hombre y en parte en anónimo, mientras que mujer y varios están más concentrados pero aquí tenemos que insistimos en que mujer y varios tienen pocos datos y eso puede generar ruido. Con area ocurre algo parecido: el área es muy asimétrica y por eso trabajamos con log(area). 
+
+En cuanto a las variables categóricas (soporte_grp, tecnica, orientacion, tema, tam_cat y serie) los gráficos describen cómo se distribuyen las obras y que muchas de ellas están relacionadas entre sí. Por ejemplo tema cambia bastante según tipo_autor, y soporte y tecnica están muy conectadas con la fecha (aparecen más en unas épocas que en otras). Esto es importante en un estudio explicativo porque significa que algunas asociaciones aparentes con exito pueden estar “mezcladas” con otra variable (especialmente con la fecha). Por eso más que buscar reglas simples del tipo “este soporte siempre cumple más”, interpretamos que el éxito puede estar influido por un conjunto de factores relacionados y que el modelo nos servirá para separar efectos y controlar confusiones entre variables.
+
+Nosotros consideramos interacciones solo cuando los gráficos sugieren que una relación depende de un grupo.
+
+
+Podemos intuir que hay indicios de que Fecha_estimada afecta a exito, ya que al separar por sí/no se observa un patrón consistente de mayor concentración temporal en los casos que sí cumplen y mayor dispersión en los que no cumplen. 
+
+Por otro lado también intuimos que el tamaño afecta a exito, por lo que incluimos log(area) (en lugar de area) para trabajar en una escala más estable y menos dominada por valores extremos.
+
+Respecto a tema creemos que no afecta de manera clara al éxito según el descriptivo, pero lo incluimos como análisis alternativo porque forma parte del planteamiento y comprobamos si añade explicación o si su aparente relación se debe a que tema está asociado a otras variables. También mantenemos técnica y soporte en el modelo porque son variables relevantes del contexto de la obra y porque en los gráficos se relacionan con fecha y tamaño, de modo que pueden actuar como factores explicativos o de ajuste incluso aunque su relación directa con exito no sea uniforme.
+
+Para un enfoque explicativo proponemos como interacción principal soporte_grp × log(area); la medida no significa lo mismo en todos los soportes (por ejemplo, un mural y un lienzo tienen rangos y usos distintos), por lo que es razonable que la relación entre tamaño y exito dependa del soporte. Somos conscientes de que esta interacción puede generar problemas si hay combinaciones con pocos casos, por lo que la controlamos agrupando categorías poco frecuentes y revisando que no existan celdas casi vacías. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 5. Análisis principal
+
+Primeramente generamos la submuestra de la población aplicando la regla estructural de 'cuadrado'.
+```{r}
+#####################################################
+# ANÁLISIS PRINCIPAL
+#####################################################
+df <- read.csv("prado_variables.csv", stringsAsFactors = TRUE)
+
+df$sop_montaje <- as.factor(df$sop_montaje)
+df$serie <- as.factor(df$serie)
+
+# 0) Regla estructural: excluir "cuadrado"
+df <- subset(df, orientacion != "cuadrado")
+df$orientacion <- droplevels(df$orientacion)
+dim(df)
+```
+
+Continuamos con un total de 7002 pinturas
+
+Fijamos también los niveles de referencia para las variables factor. El nivel más frecuente como referencia para todos los factores a excepción de "tam_cat" donde por interpretabilidad se define la referencia en 'pequeno' y las variables binarias "sop_montaje" y "serie" donde se fija el valor "no"
+```{r}
+# 1) Niveles de los factores binarios 
+df$sop_montaje <- factor(df$sop_montaje, levels = c(0, 1), labels = c("no", "si"))
+df$serie       <- factor(df$serie,       levels = c(0, 1), labels = c("no", "si"))
+
+# 2) tam_cat nominal con referencia "pequeno"
+df$tam_cat <- factor(df$tam_cat, levels = c("pequeno", "mediano", "grande"))
+df$tam_cat <- relevel(df$tam_cat, ref = "pequeno")
+
+# 3) Binarios con referencia "no"
+df$sop_montaje <- relevel(df$sop_montaje, ref = "no")
+df$serie       <- relevel(df$serie, ref = "no")
+
+# 4) Referencias = nivel más frecuente (para el resto de factores)
+ref_orientacion <- names(sort(table(df$orientacion), decreasing = TRUE))[1]
+df$orientacion  <- relevel(df$orientacion, ref = ref_orientacion)
+
+ref_soporte <- names(sort(table(df$soporte_grp), decreasing = TRUE))[1]
+df$soporte_grp <- relevel(df$soporte_grp, ref = ref_soporte)
+
+ref_tecnica <- names(sort(table(df$tecnica), decreasing = TRUE))[1]
+df$tecnica  <- relevel(df$tecnica, ref = ref_tecnica)
+
+ref_autor <- names(sort(table(df$tipo_autor), decreasing = TRUE))[1]
+df$tipo_autor <- relevel(df$tipo_autor, ref = ref_autor)
+
+ref_tema <- names(sort(table(df$tema), decreasing = TRUE))[1]
+df$tema <- relevel(df$tema, ref = ref_tema)
+
+str(df)
+```
+
+## 5.1 Efectos principales
+
+Para determinar los efectos principales del modelo se seguirá la estructura por bloques definida en al sección de metodología
+
+**Modelo nulo**
+
+Como punto de partida se ajustó un modelo nulo (solos intercepto), sin covariables. Este modelo proporcionará la referencia sobre el cual iremos cuantificando el aporte de los bloques que se añadirán sucesivamente. En una regresión logística como la nuestra, el intercepto del modelo nulo estima la probabilidad media de éxito en la muestra (convertido en la escala correcta). Recordemos que estaremos trabajando en todo momento con la sub-muestra no-cuadrado.
+
+```{r}
+#####################################################
+# EFECTOS PRINCIPALES
+#####################################################
+# Modelo nulo (solo intercepto)
+m0 <- glm(exito ~ 1, data = df, family = binomial(link = "logit"))
+
+# Resumen del modelo
+cat("\nResumen del modelo:\n")
+summary(m0)
+
+# Probabilidad media estimada de éxito (a partir del intercepto)
+cat("\nProbabilidad estimada de éxito:\n")
+p0 <- plogis(coef(m0)[1])
+p0
+```
+
+Como ya sabiamos, la probabilidad de observar el evento de interés es baja, concretamente de un 12%.
+
+**Bloque 1: Datación y control de incertidumbre**
+
+Se incorpora la variable "fecha_est" y su covariable de incertidumbre "fecha_ancho", comparando especificación lineal vs flexible (spline) en ambas variables. Comenzaremos utilizando la especificación flexible para "fecha_est" y provando ambas especificaciones para "fecha_ancho". Además "fecha_ancho" se incorpora mediante "log1p".
+
+Comenzamos decidiendo la especificación del control "fecha_ancho".
+
+```{r}
+# Transformación log1p(fecha_ancho)
+df$log_ancho <- log1p(df$fecha_ancho)
+
+# Modelo A: control lineal en log_ancho
+m1_lin <- glm(exito ~ ns(fecha_est, 3) + log_ancho,
+              data = df, family = binomial(link = "logit"))
+
+# Modelo B: control flexible (spline) en log_ancho
+m1_spl <- glm(exito ~ ns(fecha_est, 3) + ns(log_ancho, 3),
+              data = df, family = binomial(link = "logit"))
+
+# Resúmenes (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m1_lin (control lineal):\n")
+summary(m1_lin)
+cat("\nResumen del modelo m1_spl (control flexible spline):\n")
+summary(m1_spl)
+```
+
+Comprobamos la aportación del bloque comparando ambas especificaciones con el modelo nulo:
+
+```{r}
+# Comparación --> aporte del Bloque 1
+
+# Información
+cat("\nAporte de información del Bloque 1 (control lineal):\n")
+anova(m0, m1_lin, test="Chisq")
+cat("\nAporte de información del Bloque 1 (control flexible spline):\n")
+anova(m0, m1_spl, test="Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m0, m1_lin, m1_spl)
+BIC(m0, m1_lin, m1_spl)
+```
+
+Comparamos también las dos formas funcionales del control entre si, mediante modelos anidados:
+
+```{r}
+# Comparación --> formas funcionales
+cat("\nAporte de información entre opciones (m1_lin vs m1_spl)\n")
+anova(m1_lin, m1_spl, test="Chisq")
+```
+
+El aporte del bloque 1 es claramente significativo en las dos opciones, ya que ambas especificaciones mejoraron significativamente el modelo nulo (LRT $p=9.933e-11$, $p=3.085e-10$). Sin embargo, la especificación flexible para el control "fecha_ancho" no proporcionó mejora adicional frente a la lineal (LRT $p = 0.2026$) y presentó peor ajuste penalizado por complejidad (AIC y BIC mayores). Por esta razón, se adoptó para los modelos posteriores la especificación lineal $log(1+fecha\_ancho)$ como ajuste definitivo del control de incertidumbre en la datación. 
+
+Para finaizar este bloque, comprobaremos las formas funcionales de "fecha_est" para ver si la especificación flexible de esta variable es necesaria para nuestro modelo o preferimos su versión simplificada (lineal).
+
+```{r}
+m1_lin_fecha <- glm(exito ~ fecha_est + log_ancho,
+              data = df, family = binomial(link = "logit"))
+```
+
+```{r}
+# Comparación
+# Información
+cat("\nAporte de la opción fecha_est flexible:\n")
+anova(m1_lin_fecha, m1_lin, test="Chisq")
+
+# Complejidad
+cat("\nComplejidad de la opción fecha_est flexible:\n")
+AIC(m1_lin,m1_lin_fecha)
+BIC(m1_lin,m1_lin_fecha)
+```
+
+Vemos que la especificación felxible es preferible frente a la lineal en terminos de información (LRT $p=0.049)$ como AIC ($\triangle AIC \approx -2$). Sin embargo la mejora de AIC es débil frente a una fuerte penalización en BIC ($\triangle AIC \approx -2$ vs $\triangle BIC \approx 12$). Teniendo en cuenta nuestro objetivo descriptivo, y no predictivo, decidimos seleccionar la versión lineal por facilidad interpretativa. Por otro lado, también seleccionamos esta opción por ser más conservadora, ya que añadimos menos parámetros al modelo (2 parámetros menos), y és preferible dado que la mayoría de las futuras covariables són facotres y nuestra variables respuesta está fuertemente desbalanceada. Sin embargo, dejamos constancia del hecho que la especificación flexible con spline par fecha_est podría ser considerada para análisis más exaustivos. 
+
+Modelo resultante después de añadir Bloque 1:
+```{r}
+m1 <- m1_lin_fecha
+```
+
+**Bloque 2: Morfología**
+
+Se incorporan las variables morfológicas de tamaño i formato, "area" y "orientación" respectivamente. Se evaluará si aportan infomración adicional, una vez controlado el efecto de datación (bloque 1). La variable "area" se introducirá mediante una transformación logarítmica $log(area)$, pudiendo llegar a ser tratada de manera flexible si fuera necesario. También se proporcinará un modelo secundario sustituyendo "area" por "tam_cat" (categorización de área), y se compararán. Se decidirá el mejor modelo siguiendo las idicaciones de la sección de metodología, que resumidamente dictan lo siguiente: 
+
+- si "area" presenta problemas o no mejora sustancialmente más que "tam_cat", permitimos ajuste flexible (spline) y si no funciona elejimos "tam_cat"
+
+- si "area" mejora sustanciamente más que "tam_cat", elejimos "area"
+
+- si "area" y "tam_cat" proporcionan resultados cualitativamente iguales, elejimos "area" pero manteniendo el modelo secundario "tam_cat" para interpretaciones claras.
+
+```{r}
+# Trnasformación log(area)
+df$log_area <- log(df$area)
+
+# BLOQUE 2 (principal candidato): log(area) + orientacion
+m2_area <- update(m1, . ~ . + log_area + orientacion)
+
+# BLOQUE 2 (secundario): tam_cat + orientacion
+m2_tamcat <- update(m1, . ~ . + tam_cat + orientacion)
+
+# Resúmenes (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m2_area (+ log_area + orientacion):\n")
+summary(m2_area)
+
+cat("\nResumen del modelo m2_tamcat (+ tam_cat + orientacion):\n")
+summary(m2_tamcat)
+
+# Comparación --> aporte del Bloque 2
+
+# Información
+cat("\nAporte de información del Bloque 2 (tamaño continuo):\n")
+anova(m1, m2_area, test="Chisq")
+
+cat("\nAporte de información del Bloque 2 (tamaño categórico):\n")
+anova(m1, m2_tamcat, test="Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m1, m2_area, m2_tamcat)
+BIC(m1, m2_area, m2_tamcat)
+```
+
+
+Ambas opciones del tamaño (log(area) continua vs. tam_cat categórica) aportan información adicional tras controlar la datación (LRT $p< 2.2e-16$ en ambos casos) y mejorar los criterios de información. Sin embargo, la especificación categórica presenta mejor ajuste–complejidad con AIC y BIC sustancialmente menores (AIC: 5058 vs 5000; BIC: 5092 vs 5042). 
+
+Antes de seleccionar "tam_cat" debemos tener en cuenta que podría haber una relación no lineal que actualmente $log(area)$ no esta pudiendo capturar. Por esta razón y dado que "area" ha demostrado mejorar el ajuste, frente al modelo anterior (m1), flexibilizaremos su especificacion (spline) y entonces volveremos a comparar con "tam_cat", para asegurar una decisión justa y cerrada.
+
+```{r}
+# Version flexible de log(area)
+m2_area_spl <- update(m1, . ~ . + splines::ns(log_area, 3) + orientacion)
+
+# Resúmenes (por si aparecen warnings / coeficientes raros / SE enormes)
+summary(m2_area_spl)
+
+# Comparaciones
+cat("\nAporte de la opción log(area) flexible")
+anova(m1, m2_area_spl, test="Chisq")
+
+cat("\nComplejidad de la opción log(area) flexible")
+AIC(m2_area, m2_area_spl, m2_tamcat)
+BIC(m2_area, m2_area_spl, m2_tamcat)
+```
+
+El modelo con $log(area)$ lineal mejoró el ajuste, y al permitir no linealidad, el ajuste mejoró frente al lineal (AIC: 5021 vs 5058). Sin embargo, la especificación categórica "tam_cat" presentó el mejor compromiso ajuste–complejidad, con AIC y BIC claramente inferiores (AIC: 5000 vs 5021); BIC: 5041 vs 5069), superando también a la versión flexible del tamaño continuo. Por ello, se seleccionó "tam_cat" como representación principal del tamaño para los modelos posteriores.  
+
+También se considera manejar en un modelo alternativo la opción de especificación continua del tamaño en versión lineal ($log(area)$ sin spline). El único obejtivo de mantener esta opción como alternativa, en vez de la flexible, es el de aportar un modelo más parsimonioso. Aunque su versión flexible mostró un mejor ajuste, vemos que añade incluso 1 parámetro que "tam_cat" y preferimos no añadir más complejidad para los analisis alernativos, teniendo la opción lineal que ya cumple con el requisito de aporte de información.
+
+Modelo resultante después de añadir Bloque 2:
+```{r}
+m2 <- m2_tamcat
+```
+
+Opción alternativa: especificación continua del tamaño en versión lineal ($log(area)$)
+
+**Bloque 3: Material y técnica**
+
+Se incorporan las variables "soporte" y "tecnica" para evaluar si aportan infomración adicional en conjunto, una vez controlados los efectos de datación (Bloque 1) y morfología (Bloque 2).  Se evaluará adicionalmente la inclusión de "sop_montaje" como extensión del bloque 3, comparando el modelo con y sin dicha covariable. 
+
+```{r}
+# BLOQUE 3 (versión base): soporte + técnica
+m3_base <- update(m2, . ~ . + soporte_grp + tecnica)
+
+# Resúmenes (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m3_base (soporte_grp + tecnica):\n")
+summary(m3_base)
+
+# Comparación--> aporte del Bloque 3
+
+# Información
+cat("\nAporte de información del Bloque 3 (base):\n")
+anova(m2, m3_base, test = "Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m2, m3_base)
+BIC(m2, m3_base)
+```
+
+La inclusión conjunta de "soporte_grp" y "tecnica" produjo una mejora significativa respecto al modelo con datación y morfología (LRT $p = 0.0003$) también mejoró el ajuste penalizado por AIC ($\triangle AIC \approx -13$), aunque el BIC aumentó ($\triangle BIC \approx +28$) (mayor penalización por el gran número de parámetros añadidos, 6 añadidos). Debido al objetivo descriptivo de nuestro estudio, se necide mantener el bloque por su relevancia teòrica y por la evidencia global de aporte de información.
+
+Extenderemos este bloque añadiendo ahora la variable "sop_montaje", de menos interés conceptual pero con posibles implicaciones en el modelo a nivel de control.
+
+```{r}
+# BLOQUE 3 (extendido): + sop_montaje
+m3_montaje <- update(m3_base, . ~ . + sop_montaje)
+
+# Resúmenes (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m3_montaje (+ sop_montaje):\n")
+summary(m3_montaje)
+
+# Comparación--> aporte de sop_montaje
+
+# Información
+cat("\nAporte de informacion de sop_montaje (m3_montaje vs m3_base):\n")
+anova(m3_base, m3_montaje, test = "Chisq")
+
+cat("\nComplejidad de sop_montaje:\n")
+AIC(m2, m3_base, m3_montaje)
+BIC(m2, m3_base, m3_montaje)
+```
+
+Se observó una mejora significativa del ajuste respecto al modelo sin esta covariable (LRT $p = 0.005$). El AIC disminuyó ($\triangle AIC \approx -5$), indicando también una mejora del ajuste teniendo en cuenta el aporte de complejidad, aunque el BIC aumentó ligeramente ($\triangle BIC \approx +1$), el incremento fue pequeño. Por tanto, se retuvo "sop_montaje" en el modelo para los bloques posteriores.
+
+Sin embargo, debemos recordar que aunque el incremento en BIC para la incluión de "sop_montaje" fue pequeño, la inclusión de Bloque 3 ya produjo aumento fuerte en BIC por lo que la complejidad añadida de todo el bloque más el extra sí representa un valor sustancial ($\triangle _{total} BIC \approx +29$). Por ello se contempla la opción de un modelo alternativo sin este bloque, con el objetivo de proporcionar modelos más convervadores en algunos aspecos que permitan analizar otros, aún siendo conscientes de podrían absorberse los efectos de este bloque.
+
+Modelo resultante después de añadir Bloque 3:
+```{r}
+m3 <- m3_montaje
+```
+
+Opción alternativa: modelo sin Bloque 3 (y sin "sop_montaje")
+
+**Bloque 4: Iconografía**
+
+Se incorpora la variable "tema" para evaluar si la iconografía de la pintura aporta información adicional sobre la probabilidad de exito, una vez controlados los efectos de datacion (Bloque 1), morfología (Bloque 2) y material/tecnica (Bloque 3). 
+
+```{r}
+# BLOQUE 4: + tema
+m4 <- update(m3, . ~ . + tema)
+
+# Resumen (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m4 (+ tema):\n")
+summary(m4)
+
+# Comparación--> aporte del Bloque 4
+# Información
+cat("\nAporte de información del Bloque 4:\n")
+anova(m3, m4, test = "Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m3, m4)
+BIC(m3, m4)
+```
+
+El bloque iconográfico (tema) mejoró significativamente el ajuste (LRT $p = 0.001$) y redujo el AIC ($\triangle AIC \approx -9$), pero incrementó fuertemente el BIC ($\triangle BIC \approx +53$), reflejando un aumento importante de complejidad por el número de niveles de tema (se añaden 9 parámetros). Dado que el objetivo principal del estudio es caracterizar el éxito con un modelo parsimonioso y fácilmente interpretable, se decidió mantener como modelo principal el que excluye tema. 
+
+Sin embargo, dado el interés interpretativo de la iconografía, se mantiene el modelo con tema como análisis complementario específico para interpretar relaciones temáticas. 
+
+Por lo tanto, el modelo resultante después del Bloque 4 es el 'm3' y la opción alternativa contempla la inclusión de "tema"
+
+**Bloque 5: autoría y serie**
+
+Se incorporan las variables "tipo_autor" y "serie" para evaluar si la información de autoría y pertenencia a serie aporta información adicional sobre la probabilidad de éxito, una vez controlados los efectos de datación (Bloque 1), morfología (Bloque 2) y material/técnica (Bloque 3)
+
+```{r}
+# BLOQUE 5: + tipo_autor + serie
+m5 <- update(m3, . ~ . + tipo_autor + serie)
+
+# Resumen (por si aparecen warnings / coeficientes raros / SE enormes)
+cat("\nResumen del modelo m5 (+ tipo_autor + serie):\n")
+summary(m5)
+
+# Comparación--> aporte del Bloque 5
+# Información
+cat("\nAporte de información del Bloque 5:\n")
+anova(m3, m5, test = "Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m3, m5)
+BIC(m3, m5)
+
+```
+
+El Bloque 5 (autoría y serie) mejoró significativamente el modelo previo (LRT $p=0.01$) y redujo el AIC ($\triangle AIC \approx -4$), aunque incrementó fuertemente el BIC ($\triangle BIC \approx +23$), reflejando un aumento de complejidad. En este caso podemos observar algo  interesante, los coeficientes pertenecientes a "tipo_autor" no serultaron significativos, mientras que el de "serie=1" sí. Esto refleja que el efecto significativo dentro del bloque parece concentrarse en serie. Para confirmar este hecho, se evaluará la contribución independiente de cada variable, mediante modelos anidados parciales, antes de tomar una decisión formal sobre el modelo principal.
+
+```{r}
+# modelos parciales del Bloque 5
+m5_serie <- update(m3, . ~ . + serie)
+m5_autor <- update(m3, . ~ . + tipo_autor)
+
+# Comparaciones --> aportes de los mdoelos parciales del Bloque 5
+# Información
+cat("\nAporte de información de 'serie':\n")
+anova(m3, m5_serie, test="Chisq")
+cat("\nAporte de información de 'tipo_autor':\n")
+anova(m3, m5_autor, test="Chisq")
+
+# Complejidad
+cat("\nAporte de complejidad:\n")
+AIC(m3, m5_serie, m5_autor, m5)
+BIC(m3, m5_serie, m5_autor, m5)
+```
+
+Efectivamente la variable "serie" sí demostró aportar información adicional (LRT $p=0.003$) mejorando también el AIC ($\triangle AIC \approx -6$) y manteniendo aproximadamente estable BIC, respecto al anterior modelo aceptado 'm3' y también reduciendo ambos criterios frente al modelo completo 'm5' ($\triangle AIC \approx -2$, $\triangle BIC \approx -23$). Por otro lado, "tipo_autor" no demostró aportar información adicional (LRT $p=0.26$) además de ser el que aporta los valores más de AIC, superando incluso el valor del modelo completo 'm5'. Se decide prescindir de la variable "tipo_autor" y conservar el modelo únicamente con la inclusión de "serie".
+
+Modelo resultante después de añadir Bloque 5:
+
+```{r}
+m5 <- m5_serie
+```
+
+**Resumen**
+
+Después de evaluar los efectos principales, el modelo principal es el siguiente:
+```{r}
+m_final <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie,
+  data = df, family = binomial(link = "logit")
+)
+summary(m_final)
+```
+
+## 5.2 Interacciones
+
+Para decidir qué variables son candidatas de entrar al modelo primero traeremos las conclusiones sobre estas, obtenidas en el análisis descriptivo. En dicha sección de determinó que las más plausibles eran "soporte_grp x fecha_est", "tecnica x fecha_est", "soporte_grp x tam_cat", "tecnica x tam_cat" y "soporte_grp x orientacion". Graficaremos los correspondientes gráficos de interacción para estas opciones y seleccionaremos las mejores, que seguidamente serán comprobadas con pruebas formales.
+
+**Gráficos de interacción**
+
+Graficamos $P(exito=1)$ predicha por el modelo, fijando el resto de covariables en valores de referencia/mediana.
+
+```{r}
+#####################################################
+# INTERACCIONES
+#####################################################
+# niveles de referencia factores ([1] porque ya se especificó al inicio del análisis)
+ref_tam_cat      <- levels(df$tam_cat)[1]
+ref_orientacion  <- levels(df$orientacion)[1]
+ref_soporte_grp  <- levels(df$soporte_grp)[1]
+ref_tecnica      <- levels(df$tecnica)[1]
+ref_sop_montaje  <- levels(df$sop_montaje)[1]
+ref_serie        <- levels(df$serie)[1]
+
+# niveles de referencia numéricas (mediana)
+fecha0     <- median(df$fecha_est)
+log_ancho0 <- median(df$log_ancho)
+```
+
+1) soporte_grp x fecha_est
+
+```{r}
+# =========================================================
+# 1) soporte_grp × fecha_est
+# =========================================================
+m_int_SopFecha <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    soporte_grp:fecha_est,
+  data = df, family = binomial(link = "logit")
+)
+
+x <- seq(min(df$fecha_est, na.rm = TRUE), max(df$fecha_est, na.rm = TRUE), length.out = 200)
+lev <- levels(df$soporte_grp)
+cols <- grDevices::hcl.colors(length(lev), palette = "Dark 3")
+
+nd <- expand.grid(
+  fecha_est = x,
+  soporte_grp = lev,
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+nd$log_ancho   <- log_ancho0
+nd$tam_cat     <- ref_tam_cat
+nd$orientacion <- ref_orientacion
+nd$tecnica     <- ref_tecnica
+nd$sop_montaje <- ref_sop_montaje
+nd$serie       <- ref_serie
+
+eta <- predict(m_int_SopFecha, newdata = nd, type = "link")
+
+plot(range(x), range(eta), type = "n",
+     xlab = "fecha_est", ylab = "logit{P(exito=1)}",
+     main = "Interacción: soporte_grp × fecha_est (escala logit)")
+
+for (i in seq_along(lev)) {
+  idx <- nd$soporte_grp == lev[i]
+  lines(nd$fecha_est[idx], eta[idx], col = cols[i], lty = 1, lwd = 2)
+}
+legend("bottomright", legend = lev, col = cols, lty = 1, lwd = 2, bty = "n")
+```
+
+Esta interacción plantea algunas preguntas, ya que aunque podemos observar algunos indicios vemos que existe una categoría, Otros, que presenta una fuerte diferencia. Esto nos hace pensar en que puede tratarse de una escasez de datos en el extremo. 
+
+Comprobamos frecuencias y recuento de éxitos por combinación:
+
+```{r}
+# Rangos observados por soporte
+tapply(df$fecha_est, df$soporte_grp, range)
+
+# Cortes de fecha_cat
+grp_fecha <- cut(df$fecha_est,
+breaks = c(1100, 1400, 1700, 2000),
+include.lowest = TRUE)
+
+cat("\nFrecuencias por combinación:\n")
+xtabs(~ soporte_grp + grp_fecha, data = df)
+
+cat("\nRecuento de éxitos por combinación:\n")
+xtabs(exito ~ soporte_grp + grp_fecha, data = df)
+```
+
+Estos resultados explican la fomra rara del gráfico "soporte_grp x fecha_est". Vemos como en el tramo [1100, 1400] todo son frecuencias bajas y celdas vacías. Concretamente vemos que la linea diferenciada de Otros estaba provocada por la inexistencia de esta categoría durante el primer periodo de años. Decidimos descartar esta interacción por inconsistencia de resultados a consecuencia de regiones sin datos.
+
+2) tenica x fecha_est
+
+```{r}
+# =========================================================
+# 2) tecnica × fecha_est
+# =========================================================
+m_int_TecFecha <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    tecnica:fecha_est,
+  data = df, family = binomial(link = "logit")
+)
+
+x <- seq(min(df$fecha_est, na.rm = TRUE), max(df$fecha_est, na.rm = TRUE), length.out = 200)
+lev <- levels(df$tecnica)
+cols <- grDevices::hcl.colors(length(lev), palette = "Dark 3")
+
+nd <- expand.grid(
+  fecha_est = x,
+  tecnica = lev,
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+nd$log_ancho   <- log_ancho0
+nd$tam_cat     <- ref_tam_cat
+nd$orientacion <- ref_orientacion
+nd$soporte_grp <- ref_soporte_grp
+nd$sop_montaje <- ref_sop_montaje
+nd$serie       <- ref_serie
+
+eta <- predict(m_int_TecFecha, newdata = nd, type = "link")
+
+plot(range(x), range(eta), type = "n",
+     xlab = "fecha_est", ylab = "logit{P(exito=1)}",
+     main = "Interacción: tecnica × fecha_est (escala logit)")
+
+for (i in seq_along(lev)) {
+  idx <- nd$tecnica == lev[i]
+  lines(nd$fecha_est[idx], eta[idx], col = cols[i], lty = 1, lwd = 2)
+}
+legend("bottomright", legend = lev, col = cols, lty = 1, lwd = 2, bty = "n")
+```
+
+Vemos indicios claros de interacción y un claro cruce: ólea pasa de estar por debajo a por encima. Sin embargo, estas observaciones podrían estar de nuevo sesgadas por falta de datos en algunos periodos. comporbamos recuentos:
+
+```{r}
+cat("\nFrecuencias por combinación:\n")
+xtabs(~ tecnica + grp_fecha, data=df)
+
+cat("\nRecuento de éxitos por combinación:\n")
+xtabs(exito ~ tecnica + grp_fecha, data=df)
+```
+
+Efectivamente podemos ver como la variable "tecnica" está fuertemente sesgada debido principalmente al nivel 'oleo', que experimentó un increible aumento después del primer tramo. Esto explica su trayectoria ascendente, que no sería a causa de una interacción real sinó a por el desbalance de frecuencias. Los otros dos niveles no experimentaron ningún cruce en el gráfico, por lo que no generan interés teniendo en cuenta estos resultados. Aunque esta variable forma parte de nuestras hipótesis principales, su inclusión ya se aceptó de manera separada asumiendo un aumento de complejidad elevado (incremento significativo en BIC en Bloque 2 de efectos principales), por lo que su interés conceptual e interpretativo ya fue considerado. Por esta razón preferimos descartar su interacción con el objetivo de no viciar nuestro modelo.
+
+3) tecnica x tam_cat
+
+```{r}
+# =========================================================
+# 3) tecnica × tam_cat
+# =========================================================
+m_int_TecTam <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    tecnica:tam_cat,
+  data = df, family = binomial(link = "logit")
+)
+
+nd <- expand.grid(
+  tam_cat = levels(df$tam_cat),
+  tecnica = levels(df$tecnica),
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+nd$fecha_est    <- fecha0
+nd$log_ancho    <- log_ancho0
+nd$orientacion  <- ref_orientacion
+nd$soporte_grp  <- ref_soporte_grp
+nd$sop_montaje  <- ref_sop_montaje
+nd$serie        <- ref_serie
+
+nd$eta <- predict(m_int_TecTam, newdata = nd, type = "link")
+
+interaction.plot(x.factor = nd$tam_cat, trace.factor = nd$tecnica,
+                 response = nd$eta, type = "b", pch = 19,
+                 xlab = "tam_cat", ylab = "logit{P(exito=1)} ajustada",
+                 main = "Interacción: tecnica × tam_cat (escala logit)")
+```
+
+De nuevo vemos puntos extremos de manera que comprobaremos recuentos:
+
+```{r}
+cat("\nFrecuencias por combinación:\n")
+xtabs(~ tecnica + tam_cat, data=df)
+
+cat("\nRecuento de éxitos por combinación:\n")
+xtabs(exito ~ tecnica + tam_cat, data=df)
+```
+
+Obtenemos los mismo resultados en esta interacción con "tecnica": nivel 'oloe' fuertemente predominante. Se descarta esta interacción.
+
+4) soporte_grp x tam_cat
+
+```{r}
+# =========================================================
+# 4) soporte_grp × tam_cat
+# =========================================================
+m_int_SopTam <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    soporte_grp:tam_cat,
+  data = df, family = binomial(link = "logit")
+)
+
+nd <- expand.grid(
+  tam_cat     = levels(df$tam_cat),
+  soporte_grp = levels(df$soporte_grp),
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+nd$fecha_est    <- fecha0
+nd$log_ancho    <- log_ancho0
+nd$orientacion  <- ref_orientacion
+nd$tecnica      <- ref_tecnica
+nd$sop_montaje  <- ref_sop_montaje
+nd$serie        <- ref_serie
+
+nd$eta <- predict(m_int_SopTam, newdata = nd, type = "link")
+
+interaction.plot(x.factor = nd$tam_cat, trace.factor = nd$soporte_grp,
+                 response = nd$eta, type = "b", pch = 19,
+                 xlab = "tam_cat", ylab = "logit{P(exito=1)} ajustada",
+                 main = "Interacción: soporte_grp × tam_cat (escala logit)")
+```
+
+A primera vista podemos ver algunos incidios pero no determinantes de modificación del efecto. Podrían explicarse por la baja frecuencia de algunas combinaciones: 
+
+```{r}
+cat("\nFrecuencias por combinación:\n")
+xtabs(~ soporte_grp + tam_cat, data=df)
+
+cat("\nRecuento de éxitos por combinación:\n")
+xtabs(exito ~ soporte_grp + tam_cat, data=df)
+```
+
+Efectivamente vemos que categorías como Metal-grande o Mural-pequeño presentan frecuencias realmente bajas, además los exitos se concentran alrededor de las categoría 'Lienzo' y 'Table/Panel' lo cual es lógico ya que són las categorías mayoritarias. Sin embargo se decide aceptar esta interacción como candidata para las posteriores pruebas formales, ya que es una hipótesis central del estudio.
+
+5) soporte_grp x orientacion
+
+```{r}
+# =========================================================
+# 5) soporte_grp × orientacion
+# =========================================================
+m_int_SopOri <- glm(
+  exito ~ fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    soporte_grp:orientacion,
+  data = df, family = binomial(link = "logit")
+)
+
+nd <- expand.grid(
+  orientacion = levels(df$orientacion),
+  soporte_grp = levels(df$soporte_grp),
+  KEEP.OUT.ATTRS = FALSE,
+  stringsAsFactors = FALSE
+)
+
+nd$fecha_est    <- fecha0
+nd$log_ancho    <- log_ancho0
+nd$tam_cat      <- ref_tam_cat
+nd$tecnica      <- ref_tecnica
+nd$sop_montaje  <- ref_sop_montaje
+nd$serie        <- ref_serie
+
+nd$eta <- predict(m_int_SopOri, newdata = nd, type = "link")
+
+interaction.plot(x.factor = nd$orientacion, trace.factor = nd$soporte_grp,
+                 response = nd$eta, type = "b", pch = 19,
+                 xlab = "orientacion", ylab = "logit{P(exito=1)} ajustada",
+                 main = "Interacción: soporte_grp × orientacion (escala logit)")
+
+```
+
+Esta interacción ha resultado la menos relevante, pero aun con incidios de posible interacción. Comprobaremos también los recuentos:
+
+```{r}
+cat("\nFrecuencias por combinación:\n")
+xtabs(~ soporte_grp + orientacion, data=df)
+
+cat("\nRecuento de éxitos por combinación:\n")
+xtabs(exito ~ soporte_grp + orientacion, data=df)
+```
+
+Vemos el mismo patrón para la variable respuesta: los éxitos se concentran al rededor de 'Lienzo', sin embargo no vemos fuertes desbalances para los grupos de orientación. La mantenemos como posble candidata a pruebas
+
+**Pruebas formales**
+
+Decidimos testear las siguientes interacciones: "soporte_grp x tam_cat" y "soporte_grp x orientacion". Ambas opciones parecen plausibles tanto por su representación gráfica como por interpretación conceptual, además concretamente "soporte x tam_cat" se incluía en nuestras hipótesis, de manera que consideramos muy apropiada esta selección.
+
+Comprobaremos en primer caso la inclusión de cada interacción de manera separada para estudiar si cada una por separado aporta información al modelo y su compromiso ajuste-complejidad.
+
+```{r}
+# soporte_grp x tam_cat
+cat("\n==============================\n soporte_grp x tam_cat \n==============================\n")
+m_soporte_tamcat <- update(m_final, . ~ . + soporte_grp:tam_cat)
+anova(m_final, m_soporte_tamcat, test = "Chisq")
+AIC(m_final, m_soporte_tamcat)
+BIC(m_final, m_soporte_tamcat)
+
+# soporte_grp x orientacion
+cat("\n==============================\n soporte_grp x orientacion \n==============================\n")
+m_soporte_orientacion <- update(m_final, . ~ . + soporte_grp:orientacion)
+anova(m_final, m_soporte_orientacion, test = "Chisq")
+AIC(m_final, m_soporte_orientacion)
+BIC(m_final, m_soporte_orientacion)
+```
+
+Vemos que ambas interacciones demuestran mejorar significativamente el modelo aportando informacion (LRT($99%$) $p<0.01$) i reduciendo el AIC ($\triangle AIC \approx -7; -10$). Aunque el BIC aumento en los dos casos ($\triangle BIC \approx +47; +17$). Por interés interpretativo decidimos mantener el modelo con la interacción "soporte_grp x tam_cat" como base y procedemos a examinar el modelo completo anidado con la otra interacción. 
+
+```{r}
+m_completo <- update(m_soporte_tamcat, . ~ . + soporte_grp:orientacion)
+
+anova(m_final, m_soporte_tamcat, test = "Chisq")
+AIC(m_final, m_soporte_tamcat)
+BIC(m_final, m_soporte_tamcat)
+```
+
+Vemos que la inclusión de la interacción "soporte_grp x orientación" sigue siendo significativa una vez controlado el efecto de "soporte_grp x tam_cat", sin embargo provoca un brave problema de complejidad ($\triangle BIC \approx +74$) que no consideramos aceptable ni necesario en este punto análisis. En consecuencia descartamos la interaccion con orientación una vez controlado por tamaño. Además ya detectamos anteriormente existencia de celdas problemáticas en soporte, que pueden provocar separación, por lo que algunos coeficientes pueden volverse fuertemente inestables. Por esta razón, debemos mencionar que la interacción con tamaño se mantendrá pero con interpretación principalmente en 'Lienzo' y 'Tabla/Panel', además de tratará de minimizar esta problematica en la siguiente sección.
+
+Finalmente se decide definir el modelo principal con únicamente la interacción "soporte_grp x tam_cat" con el obejtivo de dar respuesta a nuestra hipótesis. Sin embargo, se considera conservar el modelo sin interacciones como alternativo con el fin de explorar más rigurosamente los efectos principales, si se considera oportuno.
+
+**Resumen**
+
+Después de evaluar las interacciones, el modelo principal es el siguiente:
+
+```{r}
+m_completo <- glm(
+  exito ~
+    fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    soporte_grp:tam_cat,
+  data = df,
+  family = binomial(link = "logit")
+)
+```
+
+Y el modelo reducido conservado como alternativo, sin interacciones, es el siguiente:
+```{r}
+m_reducido <- glm(
+  exito ~
+    fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie,
+  data = df,
+  family = binomial(link = "logit")
+)
+```
+
+## 5.3 Diagnóstico de ajuste y correcciones
+
+En esta sección se presentan diagnósticos preliminares del modelo, centrados en la calidad del ajuste y en la estabilidad de los parámetros, especialmente considerando la baja prevalencia del evento y el uso de múltiples factores e interacciones. No se llevaran a cabo aún procedimientos de validación formales, ya que se abordarán en secciones posteriores.
+
+```{r}
+#####################################################
+# Diagnóstico de ajuste y correcciones
+#####################################################
+summary(m_completo)
+```
+
+Para comenzar vemos valores grandes para los errores de todos los coeficientes y incluso algunos enormes del orden de $10^3 $, lo cual se traduce en una inestabilidad preocupante que resta credibilidad a nuestras conclusiones futuras. 
+
+Examinaremos a continuación la capacidad del modelo para estimar los 22 coeficientes presentes en él.
+
+```{r}
+y <- model.response(model.frame(m_completo))
+E <- sum(y == 1)
+N <- length(y)
+p <- length(coef(m_completo))
+
+cat("N =", N, "  Eventos (1) =", E, "  Prevalencia =", round(E/N, 4), "\n")
+cat("Num coeficientes (incluye dummies) =", p, "\n")
+cat("EPV aprox (eventos por coef) =", round(E/p, 3), "\n")
+
+```
+
+Con 7002 observaciones y 849 eventos, el modelo dispone de información suficiente para estimar los 22 parámetros que contiene. El coeficiente de ($EPV \approx 38.6$) sugiere que el desnivel en la respuesta no plantea una limitación para el modelo seleccionado.
+
+```{r}
+Y <- xtabs(exito ~ soporte_grp + tam_cat, data = df)
+N <- xtabs(~ soporte_grp + tam_cat, data = df)
+P <- Y / N
+
+cat("\nFrecuencias de soporte\n")
+table(df$soporte_grp)
+cat("\nFrecuencias de tamaño\n")
+table(df$tam_cat)
+
+cat("\nÉxitos Y:\n"); print(Y)
+cat("\nTotales N:\n"); print(N)
+cat("\nProporción P=Y/N:\n"); print(round(P, 3))
+
+cat("\nCeldas con 0 éxitos (Y==0):\n")
+print((Y == 0) & (N > 0))
+
+cat("\nCeldas con todos éxitos (Y==N):\n")
+print((Y == N) & (N > 0))
+```
+
+Las tablas de contingencia de exitos y totales por combinación de la interacción muestran celdas con respuestas deterministas lo que puede provocar separación, que explica la inestabilidad de estimación observada. En concreto observamos todo éxitos en Mural-pequeño, lo cual tiene sentido conceptualmete ya que los murales estan asociados a grandes obras de arte; y observamso ausencia total de éxitos en Metal-mediano,grande y Otros-mediano,grande. Estos resultados eran esperables debido a la baja frecuencia de las categorías involucradas Metal/Mural/Otros. Recordamos entonces la importancia de centrar la interpretacion al rededor de las categoría estables Tabl/Panel y Lienzo, aun sabiendo que no estan ajenas a la problemática. 
+
+```{r}
+vif(m_completo)
+```
+
+Los indicadores de colinealidad muestran valores muy altos para soporte_grp ($GVIF \approx 8.50$) y elevados para tam_cat:soporte_grp ($GVIF \approx 2.88$), en contraste con el resto de covariables, cuyos valores permanecen cercanos a 1. Esta evidencia afirma una dependencia fuerte entre los bloques de parámetros de los efectos principales y los de la interacción, especialmente en presencia de un diseño como el nuestro, desbalanceado entre niveles y con celdas con baja frecuencia.
+
+```{r}
+n <- nobs(m_completo)
+p <- length(coef(m_completo))
+
+cat("Devianza ajustada:",deviance(m_completo) / (n - p))
+```
+
+La evaluación de la dispersión mediante el parámetro de escala no aporta indicios de sobredispersión ($\varphi \approx 0,706$), ya que es a 1 (la dispersión teórica de la distribución Binomial). Por lo que estos resultados sugieren que no existe un exceso de variabilidad no aceptada por la distribución que justifique adoptar estrategias orientadas a corregir sobredispersión.
+
+Después de este primer análisis vemos que existen dos problematicas que debemos manejar, la separación por celdas vacías y la colinealidad excesiva en soporte. 
+
+Primeramente abordaremos la problemática provocada por las celdas deterministas de la interacción y más adelante, si la colinealidad siguiera presente, se adoptarán nuevas medidas. 
+
+**Separación**
+
+Contrastaremos formalmente la existencia de separación en nuestro modelo:
+
+```{r}
+df2 <- df
+df2$exito <- if (is.factor(df2$exito)) as.integer(df2$exito == levels(df2$exito)[2]) else as.integer(df2$exito)
+
+m_df2 <- update(m_completo, data = df2)
+
+X <- model.matrix(m_df2)
+y <- model.response(model.frame(m_df2))
+ds <- detectseparation::detect_separation(X, y)
+print(ds)
+```
+
+Efectivamente nos enfrentamos a un problema de separación real, lo cual puede traducerse en inexistencia de coeficientes finitos. En consecuencia, decidimos reestimar el mismo modelo mediante regresión logística con reducción de sesgo con un enfoque Firth. 
+
+```{r}
+m_firth <- glm(
+  formula(m_completo),
+  data   = df,
+  family = binomial("logit"),
+  method = "brglmFit",
+)
+
+summary(m_firth)
+```
+
+En un primer intento nuestro modelo no alcanzó convergencia, lo que se traduce en estimaciones inestables, de manera que se procede a ajustar parámetros de control de las iteraciones:
+
+```{r}
+ctrl <- brglm2::brglmControl(
+  maxit = 2000,          # + iteraciones (default 100)
+  slowit = 0.5,          # pasos más pequeños
+  response_adjustment = 0.5  # arranque con ajuste tipo 0.5 en binomial
+)
+
+m_firth2 <- glm(
+  formula(m_completo),
+  data   = df,
+  family = binomial("logit"),
+  method = "brglmFit",
+  type   = "AS_mean",
+  control = ctrl
+)
+
+cat("Convergencia:", m_firth2$converged)
+cat("\nNúmero de iteraciones:", m_firth2$iter)
+summary(m_firth2)
+
+```
+
+Gracias a las especificaciones de control, el modelo ahora sí ha alcanzado convergencia. Todavía observamos algunos SE grandes, lo que indica estimaciones débiles para esos niveles, pero una mejora considerable frente al modelo anterior sin este ajuste Firth.
+
+Veamos una compración de SE, y otro test de separación, para el modelo sin ajuste 'm_completo' y el modelo ajustado 'm_firth2':
+
+```{r}
+se_ml <- summary(m_completo)$coefficients[,2]
+se_fi <- summary(m_firth2)$coefficients[,2]
+
+cat("\nTop 10 SE (MLE):\n")
+print(head(sort(se_ml, decreasing=TRUE), 10))
+
+cat("\nTop 10 SE (Firth/AS):\n")
+print(head(sort(se_fi, decreasing=TRUE), 10))
+
+cat("Separación:\n")
+m_firth2_df2 <- update(m_firth2, data = df2)
+
+X <- model.matrix(m_firth2_df2)
+y <- model.response(model.frame(m_firth2_df2))
+ds <- detectseparation::detect_separation(X, y)
+print(ds)
+```
+
+Podemos ver como la presencia de separación no se ha eliminado, cual era esperable ya que la reducción de sesgo Firth no cambia la estructura de separación de los dato, pero sí asegura que nuestro modelo es robusto frente a ella. Podemos comprobarlo viendo la significativa reducción de los SE. Sin embargo debemos tener presente que la mayoría de las combinaciones e la interacción no obtienen estimaciones MLE finitas, por lo que de nuevo solo nos centraremos en aquellas finitas y con mucha cautela ya que somos conscientes de que el modelo está afectado.
+
+**Colinealidad**
+
+Una vez controlada la separación volvamos a realizar las pruebas de colinealidad:
+
+```{r}
+vif(m_firth2)
+```
+
+Una vez manejada la separación, se elimina la existencia de colinealidad grave y los términos afectados presentan ahora colinealidad moderada que no refleja una preocupación real. Dado uestro objetivo descriptivo, se mantiene el modelo con todos sus términos. 
+
+**Resumen**
+
+Finalmente se concluye con el modelo final de tipo regresión logística incluyendo reducción de sesgo Firth.
+
+```{r}
+ctrl <- brglm2::brglmControl(
+  maxit = 2000,          
+  slowit = 0.5,          
+  response_adjustment = 0.5  
+)
+
+m_principal <- glm(
+  formula(exito ~
+    fecha_est + log_ancho +
+    tam_cat + orientacion +
+    soporte_grp + tecnica + sop_montaje +
+    serie +
+    soporte_grp:tam_cat),
+  data   = df,
+  family = binomial("logit"),
+  method = "brglmFit",
+  type   = "AS_mean",
+  control = ctrl
+)
+
+summary(m_principal)
+```
+
