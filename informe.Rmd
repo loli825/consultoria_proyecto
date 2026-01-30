@@ -11,7 +11,14 @@ knitr::opts_chunk$set(echo = FALSE,
                       results = 'hold',
                       fig.show = 'hold',
                       message = FALSE,
-                      warning = FALSE)
+                      warning = FALSE,
+                      fig.width  = 6.5,   
+                      fig.height = 4,  
+                      out.width  = "80%", 
+                      fig.align  = "center", 
+                      dpi        = 120)
+
+par(mar = c(4, 4, 2, 1), mgp = c(2.2, 0.7, 0))
 ```
 
 ```{r}
@@ -101,13 +108,15 @@ Aunque nuestro conjunto de datos no mide directamente la “belleza” ni la “
 
 Consideramos las siguientes hipótesis acerca de variables que podrían relacionarse con la probabilidad de cumplimiento de la razón aurea en las pinturas:
 
-1) Posiblemente la fecha de creación de la obra de relacione con el evento de interés debido a corrientes artísticas ir al innegable cambio es los conceptos de belleza.
+1) La fecha de creación de la obra; se relaciona con el evento de interés. Esto pasa debido a corrientes artísticas y al innegable cambio en los conceptos de belleza.
 
-2) Presuponemos que posiblemente el tamaño de la obra mantenga relación con la decisión de sus medidas y su relación (proporción aurea) debido a la perspectiva con que esta se mira. Es decir, cuando una obra es más pequeña podemos verla en su totalidad más rápidamente, mientras que si esta es de dimensiones más grandes nos vemos forzados a recorrerla con la mirada. Por esta razón queremos estudiar si la proporción aurea pudiera estar relacionada con estos aspectos y quizás marcar la semilla de una futura investigación.
+2) El tamaño de la obra mantiene relación con; la decisión de sus medidas, y por ende con la proporción aurea. Debido a la perspectiva con que esta se mira. Es decir, cuando una obra es más pequeña podemos verla en su totalidad más rápidamente, mientras que si esta es de dimensiones más grandes nos vemos forzados a recorrerla con la mirada. Por esta razón estudiaremos si la proporción aurea pudiera estar relacionada con estos aspectos y quizás marcar la semilla de una futura investigación.
 
-3) Muy relacionado con el punto anterior, se nos planteó la pregunta de si quizás las dimensiones de la obra por si solas no fueran el punto clave. Consideramos que el material de soporte utilizado es un factor influyente en sus dimensiones y quizás más limitante en unos tamaños que en otros, por lo tanto relacionado con la proporción aurea en función del tamaño de la obra
+3) El material de soporte utilizado es un factor influyente en sus dimensiones y más limitante en unos tamaños que en otros, por lo tanto el soporte está relacionado con la proporción aurea en función del tamaño de la obra
 
-4) Relacionado con el apartado anterior, también se considera estudiar si la iconografia de la pintura podría estar relacionada debido a aspectos de composición en su interior que acaben repercutiendo en las dimensiones totales.
+4) La iconografia de la pintura está relacionada con el evento de interés debido a aspectos de composición en el interior de la pintura que acaban repercutiendo en sus dimensiones totales.
+
+5) Por último y como aspecto fundamental de cualquier composición tenemos su técnica o técnicas utilizadas. Cada una ofrece posibilidades y sobre todo flexibilidad diferentes en los trazos, por lo que son un buen indicador de la planificación previa de la obra, planificación que es necesaria si se considera imponer la proporción aurea.
 
 
 ## 1.4 Presentación de los datos
