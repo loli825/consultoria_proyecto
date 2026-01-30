@@ -50,21 +50,29 @@ ui <- page_navbar(
     card(
       card_body(
         markdown("
-### Contexto
-
-
 ### Objetivo del estudio
 
-El objetivo de este trabajo es analizar **qué características están asociadas al éxito
-de una pintura**, entendido como un resultado binario.
+El objetivo general de este trabajo es construir un modelo explicativo que nos ayude a entender qué factores se asocian con que una obra cumpla o no la proporción áurea. No buscamos hacer predicción “para acertar”, sino explicar con qué características de las obras (como la época, el tamaño, la orientación, la técnica o el soporte) es más probable encontrar la proporción áurea y cómo estas características se relacionan entre sí.
+
+Como objetivo específico, queremos describir si el cumplimiento de la proporción áurea es un fenómeno frecuente dentro del conjunto de obras analizadas en el museo del prado y si dicho cumplimiento se concentra en determinados contextos (por ejemplo, en ciertos periodos históricos o en ciertos formatos). 
+
+Aunque nuestro conjunto de datos no mide directamente la “belleza” ni la “calidad artística”, sí nos permite plantear la pregunta de manera crítica: si la proporción áurea fuera una regla compositiva muy general en el arte, deberíamos observar patrones claros y consistentes en las obras analizadas; y si aparece de forma irregular o depende fuertemente del contexto, ello refuerza la idea de que su presencia no es universal y que conviene interpretarla como una herramienta posible, pero no como un criterio determinante.
+
+Queremos describir como son las obras del prado
 
 ### Hipotesis
 
+Consideramos las siguientes hipótesis acerca de variables que podrían relacionarse con la probabilidad de cumplimiento de la razón aurea en las pinturas:
 
+1) Posiblemente la fecha de creación de la obra de relacione con el evento de interés debido a corrientes artísticas ir al innegable cambio es los conceptos de belleza.
 
-### Metodologia
+2) Presuponemos que posiblemente el tamaño de la obra mantenga relación con la decisión de sus medidas y su relación (proporción aurea) debido a la perspectiva con que esta se mira. Es decir, cuando una obra es más pequeña podemos verla en su totalidad más rápidamente, mientras que si esta es de dimensiones más grandes nos vemos forzados a recorrerla con la mirada. Por esta razón queremos estudiar si la proporción aurea pudiera estar relacionada con estos aspectos y quizás marcar la semilla de una futura investigación.
 
+3) Muy relacionado con el punto anterior, se nos planteó la pregunta de si quizás las dimensiones de la obra por si solas no fueran el punto clave. Consideramos que el material de soporte utilizado es un factor influyente en sus dimensiones y quizás más limitante en unos tamaños que en otros, por lo tanto relacionado con la proporción aurea en función del tamaño de la obra
 
+4) Relacionado con el apartado anterior, también se considera estudiar si la iconografia de la pintura podría estar relacionada debido a aspectos de composición en su interior que acaben repercutiendo en las dimensiones totales.
+
+5) Por último y como aspecto fundamental de cualquier composición tenemos su técnica o técnicas utilizadas. Cada una ofrece posibilidades y sobre todo flexibilidad diferentes en los trazos, por lo que son un buen indicador de la planificación previa de la obra, planificación que es necesaria si se considera imponer la proporción aurea.
 ")
       )
     )
@@ -451,3 +459,4 @@ server <- function(input, output, session) {
 # RUN APP
 #==================================================
 shinyApp(ui, server)
+

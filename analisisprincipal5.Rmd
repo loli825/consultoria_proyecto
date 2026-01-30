@@ -4,7 +4,12 @@ author: "Manuela Lopez Cambron, 1673688"
 date: "`r Sys.Date()`"
 output: pdf_document
 ---
-```{r}
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,    # Oculta el código
+  warning = FALSE, # Oculta advertencias
+  message = FALSE  # Oculta mensajes de librerías
+)
 library(pROC)
 library(dplyr)
 library(car)
@@ -1071,7 +1076,7 @@ b2 <- coef(m_principal2)  # el modelo sin el influyente
 cmp <- cbind(b_con = b1, b_sin = b2, diff = b2 - b1, rel = (b2 - b1)/abs(b1))
 cmp[order(abs(cmp[,"diff"]), decreasing = TRUE), ]
 
-# m_principal <- m_principal2
+m_principal <- m_principal2
 
 # Tabla de la interacción respecto a exito
 with(df2, table(soporte_grp, tam_cat, exito))
@@ -1091,8 +1096,9 @@ df %>%
   tidyr::pivot_wider(names_from = exito, values_from = n, values_fill = 0)
 ```
 
-En el summary del modelo se detecta que algunas variables de la intersección presentan errores estándars muy elevados, estadísticos cercanos a cero y p-valores muy altos, lo que nos indica un problema de estimación en dichos términos.
-La distancia de cook presenta un único valor potencialmente influyente en el modelo, los demás valores no son influyentes.
+Una vez detectado el punto influyente, creamos un nuevo modelo eliminando dicho punto para detectar si realmente tenemos otros puntos influyentes. 
+En análisis del modelo muestra que la mayoría de las observaciones presentan una influencia mínima sobre el ajuste del modelo. No obstante, se identifican algunas observaciones con valores de Cook superiores al umbral, lo que indica una influencia potencialmente relevante. 
+Al eliminar la observación influyente, el coeficiente de la interacción entre tamaño grande y soporte mural no puede ser estimado, por lo que teniamos muy pocas observaciones del efecto. 
 
 Finalmente, se observa que algunas interacciones presentan tamaños muestrales muy bajos (n=1,2 o 3), lo que da lugar a situaciones en las que la variable del éxito o fracaso es 0, lo que crea errores en la predicción.
 
@@ -1442,14 +1448,17 @@ lapply(modelos, vif)
 Analizamos la multicolinealidad mediante el VIF i GVIF, los cuales no muestran valores elevados en ninguno de los predictores de ningún modelo. Nos indica que los modelos alternativos no presentan problemas de multicolinealidad.
 
 
-# RESULTADOS (FALTA HACER DE MANERA QUE QUEDE BIEN)
+# RESULTADOS 
 En esta sección presentamos los resultados correspondientes al modelo escogido (m_principal), y de los modelos alterntivos mA1, mA2 y mA3. Generalmente haremos una interpretación de estos modelos a partir de los efectos marginales, de esta manera podremos analizar el efecto de cada variable cuando mantenemos las demás constantes. También haremos comparaciones a pares para ver la diferencia entre los niveles especificos de cada variable y ver si estas diferencias son estadísticamente significativas o si no podemos confirmar que lo sean.
 
-##MODELO PRINCIPAL
+## INTERPRETACIÓN RESULTADOS MODELO PRINCIPAL
 
 ```{r}
 summary(m_principal)
 ```
+
+**Efectos marginales de variables categòricas**
+
 Viendo los efectos del modelo de manera global cuesta identificar que variables y que resultados en concreto hacen que la probabilidad de éxito aumente o disminuya de manera significativa, por eso analizaremos los efectos de las variables a través de los effectos marginales. Lo haremos con el paquete emmeans
 ```{r}
 library(emmeans)
@@ -1521,6 +1530,105 @@ emm_fecha;pairs(emm_fecha)
 La probabilidad de éxito de las pinturas aumenta con la fecha de ejecución. Las obras de 1565 tienen una probabilidad media de éxito de 8.8%, las de 1690 de 12%, y las de 1890 de 19%. Las comparaciones por pares muestran que todas las diferencias son estadísticamente significativas, con odds ratios menores a 1 cuando se compara una fecha más antigua con una más reciente, indicando que las pinturas más modernas tienen mayores probabilidades de éxito. Esto confirma un efecto positivo del paso del tiempo sobre el éxito de las obras.
 
 
+```{r}
+emm_tecnica <- emmeans(
+  m_principal,
+  specs = "tecnica",
+  type = "response"
+)
+
+emm_tecnica
+pairs(emm_tecnica)
+```
+Vemos que los efectos de la tecnica no son significativos y no encontramos diferencias significativas entre grupos.
+
+
+Una tabla resusmen de lo visto anteriormente quedaria:
+```{r tabla gt}
+library(emmeans)
+library(dplyr)
+
+pairs_principal <- bind_rows(
+
+  # Tamaño condicionado al soporte
+  pairs(emmeans(m_principal, ~ tam_cat | soporte_grp)) %>%
+    as.data.frame() %>%
+    mutate(
+      Variable = paste0(
+        "Tamaño (soporte = ", soporte_grp, ")"
+      )
+    ),
+
+  # Soporte condicionado al tamaño
+  pairs(emmeans(m_principal, ~ soporte_grp | tam_cat)) %>%
+    as.data.frame() %>%
+    mutate(
+      Variable = paste0(
+        "Soporte (tamaño = ", tam_cat, ")"
+      )
+    ),
+
+  # Variables sin interacción
+  pairs(emmeans(m_principal, ~ orientacion)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Orientación"),
+
+  pairs(emmeans(m_principal, ~ sop_montaje)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Soporte de montaje"),
+
+  pairs(emmeans(m_principal, ~ serie)) %>%
+    as.data.frame() %>%
+    mutate(Variable = "Serie")
+)
+
+tabla_pairs_principal <- pairs_principal %>%
+  transmute(
+    Variable,
+    Comparación = contrast,
+    OR = round(exp(estimate), 2),
+    `IC 95%` = paste0(
+      "[",
+      round(exp(estimate - 1.96 * SE), 2),
+      ", ",
+      round(exp(estimate + 1.96 * SE), 2),
+      "]"
+    ),
+    `p-valor` = ifelse(p.value < 0.001, "<0.001", round(p.value, 3))
+  )
+library(gt)
+
+tabla_pairs_principal %>%
+  gt() %>%
+  tab_header(
+    title = "Efectos marginales comparados modelo principal (odds ratios)",
+    subtitle = "Comparaciones por pares – modelo con interacción tamaño × soporte"
+  ) %>%
+  cols_label(
+    Variable = "Variable",
+    Comparación = "Comparación",
+    OR = "OR",
+    `IC 95%` = "IC 95%",
+    `p-valor` = "p-valor"
+  ) %>%
+  fmt_markdown(columns = everything()) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(
+      columns = `p-valor`,
+      rows = `p-valor` %in% c("<0.001")
+    )
+  ) %>%
+  cols_align(
+    align = "center",
+    columns = c(OR, `IC 95%`, `p-valor`)
+  ) %>%
+  opt_all_caps() %>%
+  opt_table_outline() %>%
+  opt_row_striping()
+
+print(tabla_pairs_principal)
+```
 
 ## RESULTADOS MODELOS ALTERNATIVOS
 - Modelo alternativo mA1
@@ -1529,7 +1637,7 @@ summary(mA1)
 ```
 
 
-```{r}
+```{r tabla gt 1}
 library(emmeans)
 library(dplyr)
 
@@ -1602,7 +1710,7 @@ tabla_pairs_mA1 %>%
   opt_table_outline() %>%
   opt_row_striping()
 
-
+print(tabla_pairs_mA1)
 ```
 
 Los efectos marginales del modelo mA1 refuerzan la mayoría de conclusiones obtenidas en el modelo principal. En particular, se confirma el efecto positivo del tamaño grande sobre el éxito, incluso sin considerar interacciones, así como la mayor probabilidad de éxito de las obras horizontales frente a las verticales. También se mantiene el efecto favorable del soporte de montaje y de la pertenencia a una serie.
@@ -1612,7 +1720,7 @@ Como diferencia principal respecto al modelo principal, al eliminar la interacci
 En conjunto, el modelo alternativo confirma la dirección y relevancia de los efectos principales observados previamente, pero pierde la capacidad de matizar cómo estos varían según el tipo de soporte.
 
 - Modelo alternativo mA2
-```{r}
+```{r tabla gt 2}
 summary(mA2)
 ```
 ```{r}
@@ -1690,50 +1798,19 @@ tabla_pairs_mA2 %>%
   opt_all_caps() %>%
   opt_table_outline() %>%
   opt_row_striping()
-
+print(tabla_pairs_mA2)
 ```
 
 
-```{r}
-library(gt)
 
-tabla_pairs_mA1 %>%
-  gt() %>%
-  tab_header(
-    title = "Efectos marginales comparados (odds ratios)",
-    subtitle = "Comparaciones por pares – modelo mA1"
-  ) %>%
-  cols_label(
-    Variable = "Variable",
-    Comparación = "Comparación",
-    OR = "OR",
-    `IC 95%` = "IC 95%",
-    `p-valor` = "p-valor"
-  ) %>%
-  fmt_markdown(columns = everything()) %>%
-  tab_style(
-    style = cell_text(weight = "bold"),
-    locations = cells_body(
-      columns = `p-valor`,
-      rows = `p-valor` %in% c("<0.001")
-    )
-  ) %>%
-  cols_align(
-    align = "center",
-    columns = c(OR, `IC 95%`, `p-valor`)
-  ) %>%
-  opt_all_caps() %>%
-  opt_table_outline() %>%
-  opt_row_striping()
-
-```
 
 Los resultados del modelo mA2 confirman en gran medida los patrones observados en el modelo principal. El tamaño sigue mostrando un efecto claro: las obras grandes presentan odds de éxito significativamente mayores que las pequeñas y medianas, mientras que no se observan diferencias entre pequeño y mediano. La orientación mantiene un efecto significativo, con menores odds de éxito en obras verticales frente a horizontales, aunque con una magnitud algo menor que en el modelo principal. En cuanto al soporte, se refuerza el carácter favorable de Tabla/Panel frente al resto, especialmente frente a Lienzo y Otros, mientras que las comparaciones entre soportes minoritarios continúan siendo no significativas, probablemente por la elevada incertidumbre. El efecto positivo del soporte de montaje y el efecto negativo de pertenecer a una serie se mantienen. Finalmente, la inclusión de la variable temática no altera sustancialmente los resultados globales: aunque aparecen algunas diferencias puntuales (especialmente frente a paisajes), el tema no emerge como un determinante robusto del éxito, apoyando la estabilidad de las conclusiones principales.
 
 - Modelo alternativo mA3
-```{r}
+```{r tabla gt 3}
 summary(mA3)
 ```
+
 ```{r}
 library(emmeans)
 library(dplyr)
@@ -1804,14 +1881,16 @@ tabla_pairs_mA3 %>%
   opt_table_outline() %>%
   opt_row_striping()
 
+print(tabla_pairs_mA3)
 ```
+
 En el modelo alternativo mA3, que incorpora la variable tema pero excluye las variables de soporte/técnica, los efectos del tamaño y la orientación se mantienen coherentes con el modelo principal: las obras grandes tienen significativamente mayores probabilidades de éxito que las medianas o pequeñas, y los cuadros horizontales presentan un 18% más de odds de éxito que los verticales. La pertenencia a una serie sigue siendo un factor positivo, con odds de éxito un 26% mayores para obras en serie.
 
 En cuanto a la variable tema, se observan diferencias significativas: los cuadros de tipo paisaje_lugares muestran mayores probabilidades de éxito frente al tema religioso (OR = 0.58, IC 95% [0.45, 0.74], p < 0.001), mientras que otros temas como mitología y otros presentan resultados más inciertos debido a intervalos amplios. Esto confirma la relevancia del contenido temático, un aspecto no evaluado en el modelo principal.
 
 En conjunto, mA3 respalda los hallazgos del modelo principal sobre tamaño, orientación y serie, y aporta información adicional sobre el efecto de la temática de la obra, mostrando que ciertas temáticas, como paisaje, se asocian con mayor éxito.
 
-# ANALISIS SECUNDARIOS
+## ANALISIS SECUNDARIOS
 
 Además del objetivo principal del estudio, la base de datos obtenida permite explorar de forma complementaria la capacidad explicativa de otras variables de interes. Una de las que más interès genera es la fecha estimada del cuadro, ya que hemos tenido también que obtener la variable fecha_ancho ya que algunas obras presentan incertidumbre. 
 
@@ -1829,19 +1908,33 @@ Los resultados nos indican que para predecir la fecha estimada del cuadro todas 
 
 # CONCLUSIONES
 ## Descubrimientos del estudio
-EXPONER Y RELACIONAR LOS OBJETIVOS CON LAS HIPOTESIS Y HACER UNA PEQUEÑA CONCLUSION
+A partir del análisis realizado, se observa que el cumplimiento de la razón áurea en las pinturas del Museo del Prado no responde a un patrón único , sino que está condicionado por determinados factores tanto históricos como de forma de las mismas pinturas. En relación con la primera hipótesis, los resultados muestran una asociación clara entre la fecha de creación de la obra y la probabilidad de cumplir la razón áurea, siendo las obras más recientes las que presentan una mayor frecuencia de cumplimiento. Hemos detectado posibles problemas en estos resultados que comentaremos más adelante.
+
+Respecto al tamaño de la obra, los resultados apoyan parcialmente la segunda hipótesis. Si bien el tamaño por sí solo no explica de forma uniforme el cumplimiento de la razón áurea, las obras de gran formato presentan mayores probabilidades de cumplirla, aunque estos resultados también son favorecidos en obras de tamaño pequeño, mientras que viendo que las de tamaño mediano son las que menos probabilidades tienen de cumplir la proporción áurea. Por lo que vemos que el tamaño está relacionado con el cumplimiento de esta pero no sigue una tendencia lineal en cuanto al mismo.
+
+En relación con la tercera hipótesis, el análisis muestra que el efecto del tamaño depende del tipo de soporte utilizado. Esto sugiere que el material de soporte actúa como un factor condicionante de las dimensiones posibles de la obra y, en consecuencia, de las decisiones compositivas asociadas a la proporción áurea. En algunos soportes, el tamaño parece ser un elemento clave, mientras que en otros la relación es menos clara, posiblemente debido a limitaciones físicas o funcionales propias del material.
+
+Por el contrario, la iconografía de la pintura y las técnicas empleadas no muestran una relación sistemática con el cumplimiento de la razón áurea, lo que lleva a rechazar o las hipótesis cuarta y quinta. Aunque estos elementos forman parte del contexto artístico y pueden influir en la composición interna de la obra, los resultados sugieren que su efecto sobre la proporción global es indirecto. Vemos que en tema si que hay una comparación que da resultados significativos en la diferencia, pero siendo una de muchas no podemos concluir que sea un efecto significativo.
+
+En conjunto, los resultados muestran que las variables que influyen en el cunplimiento de la razón aurea son: el tamaño, si pertenece a serie, la orientación del cuadro y el tipo de soporte del cuadro. También la fecha del cuadro con las limitaciones de las que hablaremos a continuación.
 
 ## Continuidad del proyecto: Limitaciones y propuestas
-
 LIMITACIONES
-- Base de datos incluye solo pinturas disponibles o catalogadas de manera que podrian faltar pinturas menos conocidas 
-- Los efectos de variables continuas (como fecha_est o log_area) se modelan linealmente; tal vez haya relaciones no lineales más complejas.
-- El modelo logístico supone independencia entre observaciones; si varias pinturas pertenecen a la misma serie o autor, podría existir correlación no modelada.
+En primer lugar, una limitación relevante del estudio deriva de la naturaleza de la base de datos utilizada. El análisis se basa exclusivamente en pinturas que están disponibles y catalogadas en la base de datos del Museo del Prado, lo que implica un posible sesgo de selección. Es razonable pensar que las obras conservadas, expuestas o suficientemente documentadas no constituyen una muestra aleatoria del conjunto de la producción pictórica histórica. Pinturas menos conocidas, deterioradas, perdidas o no incorporadas al catálogo podrían presentar características compositivas distintas, lo que limita la generalización de los resultados más allá del ámbito del museo y de las obras que han llegado hasta nuestros días.
+
+En segundo lugar, el modelo plantea una simplificación en la relación entre algunas variables continuas y la probabilidad de cumplimiento de la proporción áurea. Aunque se introducen transformaciones y funciones suaves (como en el caso de la fecha estimada), el enfoque sigue imponiendo una estructura relativamente parsimoniosa. Es posible que existan relaciones no lineales más complejas, es posible que relaciones no queden completamente capturadas por el modelo especificado. Esta limitación es especialmente relevante en un contexto histórico, donde los cambios estilísticos no siempre se producen de manera gradual.
+
+Por último, el modelo logístico utilizado asume independencia entre las observaciones, una hipótesis que puede no cumplirse estrictamente en este conjunto de datos. Varias pinturas pueden pertenecer a una misma serie, compartir autor, taller o contexto de producción, lo que introduce una posible correlación no modelada entre obras. Ignorar esta estructura jerárquica puede llevar a una subestimación de la incertidumbre asociada a algunos efectos y a una sobreinterpretación de su significación estadística. Abordar esta cuestión requeriría modelos más complejos, como modelos mixtos con efectos aleatorios por autor o serie, que quedan fuera del alcance de este análisis.
+
 
 PROPUESTAS 
-- Analizar si los determinantes de éxito cambian según el siglo, la corriente artística, o el país de origen.
-- Comprobar la capacidad predictiva del modelo usando otra base de datos independiente o más reciente.
-- Poder analizar la probabilidad de exito en función de otros parámetros, como caracterísitcas del autor, para ver que características exclusivamente de los autores determinan el exito...
+Una primera línea de trabajo futuro consistiría en analizar la heterogeneidad de los determinantes del éxito según el contexto histórico y cultural. En particular, resultaría interesante estudiar si los factores asociados al cumplimiento de la proporción áurea varían entre siglos, corrientes artísticas o países de origen. Este enfoque permitiría evaluar si los resultados obtenidos responden a patrones generales o si, por el contrario, la importancia de variables como el tamaño, el soporte o la técnica depende del marco estilístico e histórico en el que se produce la obra. Metodológicamente, esto podría abordarse mediante modelos estratificados o mediante interacciones explícitas entre las variables compositivas y los indicadores de periodo o escuela artística.
+
+En segundo lugar, una extensión natural del trabajo sería evaluar la capacidad predictiva del modelo en un conjunto de datos independiente. Utilizar otra base de datos, ya sea de un museo distinto o una actualización más reciente del catálogo, permitiría comprobar hasta qué punto las relaciones estimadas son robustas y no específicas de la muestra analizada. Este ejercicio reforzaría la validez externa del estudio y ayudaría a distinguir entre patrones estructurales y resultados condicionados por el proceso de selección de las obras disponibles.
+
+Por último, el análisis podría enriquecerse incorporando características propias de los autores, con el objetivo de estudiar si existen factores exclusivamente ligados al pintor que influyen en la probabilidad de cumplimiento de la proporción áurea. Variables como la formación, la pertenencia a un taller, la etapa vital del autor o su  escuela concreta podrían aportar información adicional. Este enfoque permitiría separar, al menos parcialmente, los efectos atribuibles a las características materiales de la obra de aquellos asociados al estilo y trayectoria del artista.
+
+
 
 
 
